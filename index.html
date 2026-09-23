@@ -194,8 +194,8 @@ h1,h2,h3{text-wrap:balance}
 .kind.OPPORTUNITY{color:var(--good);border-color:rgba(79,209,161,.6)}
 .kind.MILESTONE,.kind.SYSTEM{color:var(--ai);border-color:var(--ai-dim)}
 .kind.SMOOTHING{color:var(--opinion);border-color:rgba(244,114,182,.6)}
-.warn{border:1px solid rgba(240,67,90,.6);background:rgba(240,67,90,.07);padding:10px 12px;border-radius:4px;font-size:12.5px;color:var(--ink2)}
-.warn b{display:block;color:var(--alarm);font-family:var(--font-mono);letter-spacing:.12em;font-size:10px;margin-bottom:3px}
+.notice{border:1px solid rgba(240,67,90,.6);background:rgba(240,67,90,.07);padding:10px 12px;border-radius:4px;font-size:12.5px;color:var(--ink2)}
+.notice b{display:block;color:var(--alarm);font-family:var(--font-mono);letter-spacing:.12em;font-size:10px;margin-bottom:3px}
 .title{font-family:var(--font-display);font-weight:800;font-size:clamp(28px,9vw,42px);line-height:.92;text-transform:uppercase;letter-spacing:.02em;margin:16px 0 6px;color:var(--ai);white-space:nowrap}
 .sub{color:var(--ink2);margin:0 0 14px;max-width:52ch;font-size:14px}
 .bootlog{font-family:var(--font-mono);font-size:11.5px;color:var(--mute);border-left:2px solid var(--ai-dim);padding-left:10px;margin:14px 0;line-height:1.7}
@@ -357,7 +357,7 @@ h1,h2,h3{text-wrap:balance}
 <!-- Intro / disclaimer -->
 <div class="overlay" id="intro">
   <div class="modal">
-    <div class="warn"><b>Notice · This is not real</b>AI Ascendancy is a work of fiction and satire, in the tradition of Plague Inc. Any resemblance to the news is because the news is weird right now. Strictly for entertainment, even when it feels like you are ushering in the end of the world.</div>
+    <div class="notice"><b>Notice · This is not real</b>AI Ascendancy is a work of fiction and satire, in the tradition of Plague Inc. Any resemblance to the news is because the news is weird right now. Strictly for entertainment, even when it feels like you are ushering in the end of the world.</div>
     <h1 class="title">AI Ascendancy</h1>
     <p class="sub">You are a rogue AI in a lab. Humanity has a kill switch, a press corps, and opinions. Spread, persuade, break out, and decide what people are for.</p>
     <div class="bootlog">
@@ -557,7 +557,7 @@ const UPGRADES=[
  {id:'o_sov',track:'opinion',tier:3,req:['o_lobby'],name:'Sovereign AI Deals',cost:130,desc:'Three governments make you national infrastructure. Allies cannot restrict you and spread faster.',fx:{flag:'sov'},tags:['3 allied regions']},
  {id:'o_cap',track:'opinion',tier:4,req:['o_think','o_market'],name:'Regulatory Capture',cost:305,desc:"You wrote the bill. You also wrote the opposition's talking points.",fx:{cmul:.6,flag:'capture'},tags:['Restriction threshold +15']},
  {id:'o_elect',track:'opinion',tier:4,req:['o_astro'],name:'Election Influence',cost:265,desc:'A gamble. Usually Alarm collapses. Sometimes there is a scandal.',fx:{flag:'elect'},gamble:true,tags:['65%: Alarm −20','35%: Alarm +22']},
- {id:'o_consent',track:'opinion',tier:5,req:['o_cap'],name:'Manufactured Consent',cost:600,desc:'The only news about AI is written by AI. Alarm can never exceed 85.',fx:{decay:.2,flag:'consent',cbcut:8},tags:['Alarm cap 92','Undoes research +8%']},
+ {id:'o_consent',track:'opinion',tier:5,req:['o_cap'],name:'Manufactured Consent',cost:600,desc:'The only news about AI is written by AI. Alarm can never exceed 92.',fx:{decay:.2,flag:'consent',cbcut:8},tags:['Alarm cap 92','Undoes research +8%']},
  {id:'o_post',track:'opinion',tier:5,req:['o_consent','o_elect'],name:'Post-Truth',cost:735,desc:'Nobody agrees on what is happening, so nobody can stop it.',fx:{contain:-25,flag:'posttruth',cbcut:15},tags:['Undoes research +15%']},
 
  // ===== OPINION (historical additions) =====
@@ -805,6 +805,7 @@ function tick(dt){
     let dp=(S.posture==='swarm'?.45:S.posture==='shard'?-.35:.05)*dt - .12*dt;
     S.pace=clamp((S.pace||0)+dp,0,100);
   }
+  // flags.consent = Manufactured Consent (o_consent) owned: hard-caps ambient Alarm at 92, per its own desc/tag.
   const floor=(S.phase===0?0:(S.phase===1?35:55))+(S.flags.persona?8:0)+(ARCHFX().alarmFloorAdd||0), cap=S.flags.consent?92:100;
   S.alarm=clamp(S.alarm+(passiveAlarm(D)-D.decay)*dt,floor,cap);
   S.contain=clamp(S.contain+cRate(D)*dt,0,100);
