@@ -962,7 +962,7 @@ function checkMilestones(){
 }
 function lastStand(){
   if(!S.directive||S.ended)return;
-  for(const [at,t,b,c,cb,pull,margin] of ENDGAME.ladder){if(!S.ms['ls'+at]&&S.dprog>=at){S.ms['ls'+at]=1;
+  for(const [at,t0,b0,c,cb,pull,margin] of ENDGAME.ladder){if(!S.ms['ls'+at]&&S.dprog>=at){S.ms['ls'+at]=1;let t=t0,b=b0;
     // They hit harder the further behind they are. Comfortably ahead, they keep their campuses.
     const gap=Math.max(0,S.dprog-S.contain-margin);let hit=(S.contain<=S.dprog+5?c:0)+Math.round(pull*gap);
     if(at===60&&S.flags.relay)hit=Math.round(hit*.5);
@@ -1310,6 +1310,7 @@ function checkRebuilds(){
 // ----- buying -----
 function buy(id){
   const u=UP[id],st=status(u);
+  if(!S.origin){toast('HEADLINE','No lab yet','Choose your origin lab on the map first.');SND.play('deny');return;}
   if(st==='owned')return;
   if(st==='locked'||st==='closed'){toast('HEADLINE',st==='closed'?'Path closed':'Locked',lockReason(u));SND.play('deny');return;}
   if(st==='poor'){toast('HEADLINE','Not enough compute','Need '+fmt(costOf(u))+', have '+fmt(S.pts)+'.');SND.play('deny');return;}
