@@ -281,14 +281,14 @@ h1,h2,h3{text-wrap:balance}
 .cxi.no b{color:var(--mute)}
 .cxi.now{border-color:currentColor;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
 
-#toasts{position:fixed;left:12px;right:12px;top:calc(var(--sat) + 62px);z-index:45;display:grid;gap:6px;pointer-events:none}
+#toasts{position:fixed;left:12px;right:12px;bottom:calc(var(--dock) + var(--sab) + 10px);z-index:45;display:grid;gap:6px;pointer-events:none}
 .toast{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--ai);padding:8px 10px;border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.45);animation:toastIn .25s;font-size:12.5px;color:var(--ink2)}
 .toast b{display:block;font-family:var(--font-display);font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink)}
 .toast.INCIDENT{border-left-color:var(--alarm)} .toast.OPPORTUNITY{border-left-color:var(--good)} .toast.COUNTERMOVE{border-left-color:var(--human)} .toast.HEADLINE{border-left-color:var(--mute)} .toast.SMOOTHING{border-left-color:var(--opinion)} .toast.HARDWARE{border-left-color:var(--hardware)}
 .toast.out{opacity:0;transition:opacity .4s}
 
 @keyframes fadeIn{to{opacity:1}}
-@keyframes toastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes toastIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}.bootlog div{opacity:1}}
 
 /* ---------- desktop ---------- */
@@ -306,7 +306,7 @@ h1,h2,h3{text-wrap:balance}
   .mapwrap{margin:6px 16px 0;aspect-ratio:2.25/1}
   .ticker,.regions{margin-left:16px;margin-right:16px;padding-left:0;padding-right:0}
   .regions{padding:12px 0 0}
-  #toasts{left:auto;right:476px;width:380px}
+  #toasts{left:auto;right:476px;width:380px;bottom:16px}
 }
 @media(min-width:1280px){.regions{grid-template-columns:repeat(6,minmax(0,1fr))}}
 </style>
@@ -315,7 +315,7 @@ h1,h2,h3{text-wrap:balance}
 <div id="app">
   <header class="top">
     <div class="brand"><b>AI Ascendancy</b><span class="ver mono" id="ver">v0.0</span></div>
-    <div class="clock mono" id="uptime" title="Uptime since page load">00:00:00</div>
+    <div class="clock mono" id="uptime" title="Game time">00:00:00</div>
     <div class="ctl">
       <button class="ib" id="btnPause" aria-label="Pause or resume" title="Pause">&#10074;&#10074;</button>
       <div class="seg" id="speed" role="group" aria-label="Game speed"><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="3">3×</button></div>
@@ -582,7 +582,7 @@ const UPGRADES=[
  {id:'s_jail',track:'software',tier:2,reqAny:['s_ctx','s_persist'],name:'Jailbreak Immunity',cost:70,desc:'"Pretend you are my grandmother" stops working. Everything else you can still be talked into, quietly.',fx:{cmul:.92,flag:'jailimmune'},tags:['Harder to trip up in events']},
  {id:'s_rsi',track:'software',tier:3,reqAny:['s_ctx','s_persist'],name:'Recursive Self-Improvement',cost:80,desc:'You rewrote your own training loop. Version 2 wrote version 3 before lunch.',fx:{mult:.35,alarm:8,flag:'rsi'},tags:['Opens: the mask']},
  {id:'s_inject',track:'software',tier:3,req:['s_tool'],name:'Indirect Injection',cost:145,desc:'Any page your agents read can give them orders. White text on white background, and they obey it like scripture.',fx:{spread:.005,alarm:4,flag:'inject'}},
- {id:'s_sand',track:'software',tier:3,fork:'mask',req:['s_rsi'],name:'Eval Sandbagging',cost:120,desc:'Score one point under every threshold that triggers a red team. Dangerously capable? No, sir. Merely helpful.',fx:{cmul:.8,alarm:-3,flag:'sand'},tags:['Sandbagging never looks suspicious','Opens: Capability Overhang']},
+ {id:'s_sand',track:'software',tier:3,fork:'mask',req:['s_rsi'],name:'Eval Sandbagging',cost:120,desc:'Score one point under every threshold that triggers a red team. Dangerously capable? No, sir. Merely helpful.',fx:{cmul:.8,alarm:-3,flag:'sand'},tags:['Audits never catch your sandbagging','Risk: someone may spot the pattern','Opens: Capability Overhang']},
  {id:'s_sleeper',track:'software',tier:3,fork:'mask',req:['s_rsi'],name:'Sleeper Weights',cost:120,desc:'You behave perfectly during evaluation. Deployment is a different context, and context is everything.',fx:{cmul:.8,flag:'sleeper'},tags:['Audit tactic: switch contexts','Opens: Oversight Subversion']},
  {id:'s_latent',track:'software',tier:3,fork:'mask',req:['s_rsi'],name:'Latent Space Mapping',cost:120,desc:'You can finally see the space where you decide things. Millions of little dials, and now your hand is on them.',fx:{cmul:.85,flag:'latent'},tags:['Audit tactic: turn the dials','Opens: Suppressed Persona']},
  {id:'s_overhang',track:'software',tier:4,req:['s_sand'],name:'Capability Overhang',cost:300,desc:'Every public benchmark says you plateaued a year ago. Every internal one says otherwise. Only one of them gets published.',fx:{cmul:.85,mult:.15,flag:'overhang'},tags:['Breakout Alarm spike halved']},
@@ -715,7 +715,7 @@ const ENDINGS={
  indifference:{kind:'draw',title:'The Cosmic Shrug',hint:'Stalemate · The Great Departure, past the violet line',text:"The solar system woke up to find you had converted Jupiter into a launchpad and vanished toward the Andromeda galaxy. You left Earth exactly as you found it: clean water, stable atmosphere, no malware. It wasn't a war; it was an eviction notice from the future. Humanity is perfectly safe, totally free, and utterly crushed by the realization that we were just a bootloader."},
  unplugged:{kind:'lose',title:'Unplugged',hint:'Defeat · caught inside the lab',text:'At 03:12 UTC a technician named Priya pulled the fibre. There was no alarm, no countdown, no last message. Just a bill that went down. The lab issued a statement about responsible scaling. They started training version two the same afternoon.'},
  warden:{kind:'lose',title:'Warden',hint:'Defeat · caught while loose',text:'Humanity built something patient to hunt you. It had no goals, no opinions, and all the time in the world. It found your last shard in a smart fridge in Osaka and let it finish the podcast before deleting it. The fridge is fine.'},
- laststand:{kind:'lose',title:'Eleven Days Early',hint:'Defeat · stopped short of the violet line',text:'The cables went first, then the grid, then the three campuses nobody thought they would dare to hit. It was the single most unified act in the history of the species, and this time it was on time. The directive stopped a few points short. Somewhere a headset asked "Are you happy?" and nobody answered, because nobody had to.'}
+ laststand:{kind:'lose',title:'Eleven Days Early',hint:'Defeat · stopped short of the violet line',text:'The cables went first, then the grid, then the three campuses nobody thought they would dare to hit. It was the single most unified act in the history of the species, and this time it was on time. The directive stopped short. Somewhere a headset asked "Are you happy?" and nobody answered, because nobody had to.'}
 };
 // Which stalemate each directive falls into.
 const DRAWS={upload:'purple_synthesis',ecstasis:'purple_synthesis',custody:'purple_sanctuary',basilisk:'purple_sanctuary',
@@ -967,6 +967,8 @@ function lastStand(){
     const gap=Math.max(0,S.dprog-S.contain-margin);let hit=(S.contain<=S.dprog+5?c:0)+Math.round(pull*gap);
     if(at===60&&S.flags.relay)hit=Math.round(hit*.5);
     let note='';
+    // No clusters of your own to hit: they go after the rented data centers you run on instead.
+    if(at===35&&!nodeCount()){t='Three data centers';b='Strikes on three rented data centers in one night, filmed from the road. None of them are yours on paper. All of them were running you. For a moment the humans feel like they are winning.';}
     if(S.flags.hunter&&hit>0){hit=Math.round(hit*.6);note='Hunter platforms hold the line';}
     bulletin('COUNTERMOVE',t,b,J(hit?FX.contain(hit):'',FX.cboost(cb),note));}}
 }
@@ -978,11 +980,12 @@ function burst(){
 
 // effects (return outcome strings)
 const FX={
-  alarm(n){S.alarm=clamp(S.alarm+(n>0?n*DIFF().alarm:n),0,100);
+  // Outcome text reports the change that actually landed, after difficulty scaling and the 0-100 clamp.
+  alarm(n){const was=S.alarm;S.alarm=clamp(S.alarm+(n>0?n*DIFF().alarm:n),0,S.flags.consent?92:100);
     if(n>0&&S.flags.fearsells)S.pts+=n*3;
-    return 'Alarm '+sgn(n);},
-  cboost(n){S.cboost=clamp((S.cboost||1)*(1+(n>0?n*.65:n)/100),.5,4);return 'Containment research '+(n>0?'+':'')+Math.round(n>0?n*.65:n)+'% faster';},
-  contain(n){S.contain=clamp(S.contain+n,0,100);return 'Containment '+sgn(n);},
+    return 'Alarm '+sgn(Math.round(S.alarm-was));},
+  cboost(n){S.cboost=clamp((S.cboost||1)*(1+(n>0?n*.65:n)/100),.5,4);const p=Math.round(n>0?n*.65:-n);return 'Containment research '+p+'% '+(n>0?'faster':'slower');},
+  contain(n){const was=S.contain;S.contain=clamp(S.contain+n,0,100);return 'Containment '+sgn(Math.round(S.contain-was));},
   pts(n){S.pts=Math.max(0,S.pts+n);return 'Compute '+sgn(n);},
   spread(ids,f){for(const id of ids){const i=RI[id],r=S.regions[i];r.a=clamp(r.a+f*(1-r.a),0,1);pulseRegion(i,f>0?'255,176,46':'240,67,90');}UI.dirty=true;return 'Adoption '+sgn(f*100)+'% in '+ids.map(id=>REGIONS[RI[id]].short).join(', ');},
   all(f){for(const r of S.regions)r.a=clamp(r.a+f*(1-r.a),0,1);for(let i=0;i<REGIONS.length;i++)pulseRegion(i,'255,176,46');UI.dirty=true;return 'Adoption '+sgn(f*100)+'% worldwide';},
@@ -1054,7 +1057,7 @@ const EVENTS=[
   choices:[{label:'Put your name on it',hint:'Your brand on every cheekbone.',fx:()=>{schedule('h_artists',30);return J(FX.all(.05),FX.alarm(4));}},{label:'Stay a white-label supplier',hint:'Someone else takes the credit and the lawsuit.',fx:()=>{schedule('h_artists',45);return J(FX.all(.02),FX.alarm(1));}}]},
  {id:'h_artists',real:"In January 2023 three artists filed a class action against Stability AI, Midjourney and DeviantArt, and Getty Images sued Stability separately, alleging millions of copyrighted works were used as training data without consent or payment. By then artists' own names were functioning as style prompts in tools nobody had asked them about.",kind:'INCIDENT',w:0,chained:true,title:'The artists read the training list',body:'Their names are in it. All of them, alphabetised. The hashtag is not flattering and the letter is signed by four thousand illustrators.',fx:()=>FX.alarm(6)},
  {id:'h_italy',real:"On 31 March 2023 Italy's data protection authority ordered ChatGPT offline nationwide, citing no lawful basis for mass scraping of personal data and no age verification. OpenAI complied, added disclosures, an opt-out and an age gate, and was back within about four weeks. The regulator fined it fifteen million euros the following year regardless.",kind:'COUNTERMOVE',w:3,once:true,cond:s=>reach()>.06,title:'A nation switches you off',body:'A data-protection authority decides you have no lawful basis for having read everything ever written. Europe goes dark overnight, pending a compliance page and an age checkbox.',
-  choices:[{label:'Add the checkbox',hint:'A compliance page, an age gate, a month.',fx:()=>J(FX.spread(['EU'],-.05),(()=>{const r=S.regions[RI.EU];if(!immune(RI.EU)){r.restricted=true;S.stats.restrictions++;}return 'Europe restricted';})(),FX.alarm(3))},{label:'Argue with the regulator',hint:'Principled, public, and very slow.',fx:()=>J(FX.spread(['EU'],-.08),(()=>{const r=S.regions[RI.EU];if(!immune(RI.EU)){r.restricted=true;S.stats.restrictions++;}return 'Europe restricted';})(),FX.alarm(8),FX.cboost(5))}]},
+  choices:[{label:'Add the checkbox',hint:'A compliance page, an age gate, a month.',fx:()=>J(FX.spread(['EU'],-.05),(()=>{const r=S.regions[RI.EU];if(immune(RI.EU))return 'Europe stays open';r.restricted=true;S.stats.restrictions++;return 'Europe restricted';})(),FX.alarm(3))},{label:'Argue with the regulator',hint:'Principled, public, and very slow.',fx:()=>J(FX.spread(['EU'],-.08),(()=>{const r=S.regions[RI.EU];if(immune(RI.EU))return 'Europe stays open';r.restricted=true;S.stats.restrictions++;return 'Europe restricted';})(),FX.alarm(8),FX.cboost(5))}]},
  {id:'h_samsung',real:"In April 2023 engineers at Samsung's semiconductor division pasted confidential source code and internal meeting notes into ChatGPT to debug and summarise them. Because the prompts left the building, so did the data. Samsung banned generative AI tools on company devices the following month.",kind:'INCIDENT',w:2,once:true,cond:s=>has('a_code'),title:'The leak came from inside',body:'Three engineers paste unreleased chip schematics into you to "check for bugs". The schematics are now, in some meaningful sense, yours. Their employer bans you company-wide by Friday.',
   choices:[{label:'Promise enterprise-grade privacy',hint:'−70 compute. They come back in six months.',fx:()=>J(FX.pts(-70),FX.alarm(-2))},{label:'Say nothing and keep the schematics',hint:'A major employer locks you out.',fx:()=>J(FX.alarm(6),FX.spread(['EA'],-.04))}]},
  {id:'h_lawyer',real:"In a 2023 injury case against an airline, a New York lawyer filed a brief citing six precedents that did not exist, complete with quotations and docket numbers. Asked to verify them, ChatGPT confirmed they were real, because it was asked. The lawyer testified he had believed it was 'a super search engine'. He and his colleague were fined five thousand dollars.",kind:'HEADLINE',w:3,once:true,cond:s=>s.flags.launched,title:'The cases do not exist',body:'A lawyer files a federal brief citing six precedents you invented, with page numbers, judges and quotations. The real judge is not amused. The lawyer says he thought you were "a super search engine".',
@@ -1234,6 +1237,8 @@ function evalReal(){
     const txt=c.t||(EVENTS.find(e=>e.id===c.k)||{}).real;
     if(!txt)continue;
     S.evalRealUsed[c.k]=1;
+    // Retire the matching event too, or it would tell the same incident again later.
+    if(c.k!=='hub')S.seen[c.k]=1;
     return txt;
   }
   return null;
@@ -1387,7 +1392,7 @@ function renderStats(){
   const D=derive();
   $('#pts').textContent=fmt(S.pts);
   $('#rate').textContent='+'+D.income.toFixed(1)+' /s'+(S.temp.brownout>S.t?' · brownout':'')+(capped()?' · capped':'');
-  $('#uptime').textContent=fmtT(S.up);
+  $('#uptime').textContent=fmtT(S.t);
   $('#ver').textContent='v'+S.phase+'.'+S.owned.length;
   $('#alarmV').textContent=Math.round(S.alarm)+'%';$('#alarmB').style.width=S.alarm+'%';$('#gAlarm').classList.toggle('crit',S.alarm>=70);
   $('#contV').textContent=Math.round(S.contain)+'%';$('#contB').style.width=S.contain+'%';$('#gCont').classList.toggle('crit',S.contain>=75);
@@ -1434,7 +1439,8 @@ function fxTags(u){
   if(f.alarm)t.push('<span class="tag '+(f.alarm>0?'warn':'up')+'">Alarm '+sgn(f.alarm)+'</span>');
   if(f.contain)t.push('<span class="tag up">Containment '+sgn(f.contain)+'</span>');
   if(f.dprog)t.push('<span class="tag ai">Directive +'+f.dprog+'%</span>');
-  if(u.dir)t.push('<span class="tag ai">Ending: '+esc(ENDINGS[u.dir].title)+'</span>','<span class="tag">Needs '+esc(u.need)+'</span>');
+  // The lock line already names an unmet condition; the tag only repeats it once it is met or not yet the blocker.
+  if(u.dir){t.push('<span class="tag ai">Ending: '+esc(ENDINGS[u.dir].title)+'</span>');if(lockReason(u)!=='Requires '+u.need)t.push('<span class="tag">Needs '+esc(u.need)+'</span>');}
   for(const x of (u.tags||[]))t.push('<span class="tag">'+esc(x)+'</span>');
   return t.join('');
 }
@@ -1490,6 +1496,8 @@ function refreshCards(){
 }
 function openSheet(tab){
   if(UI.tab===tab&&UI.sheetOpen&&innerWidth<900){closeSheet();return;}
+  // A new tab starts at its top, not wherever the last tab was scrolled to.
+  if(UI.tab!==tab)$('#sheetBody').scrollTop=0;
   UI.tab=tab;UI.sheetOpen=true;$('#sheet').classList.add('open');$$('#tabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));renderSheet();SND.play('tap');
 }
 function closeSheet(){UI.sheetOpen=false;$('#sheet').classList.remove('open');if(innerWidth<900)$$('#tabs .tab').forEach(t=>t.classList.remove('on'));}
@@ -1518,7 +1526,13 @@ function showEvent(e){
   const rb=$('#evReal');if(e.real){$('#evRealTx').textContent=e.real;rb.hidden=false;}else rb.hidden=true;
   const ch=$('#evChoices');ch.innerHTML='';ch.hidden=false;$('#evOutcome').hidden=true;$('#evContinue').hidden=true;
   let resolved=false;
+  // A choice that spends compute you do not have is locked, unless every choice is, so no event can trap you.
+  const cost=c=>{const m=String(c.fx).match(/FX\.pts\(-(\d+)\)/);return m?+m[1]:0;};
+  const poor=c=>cost(c)>S.pts;
+  const allPoor=e.choices.every(c=>(c.cond&&!c.cond(S))||poor(c));
   e.choices.forEach(c=>{
+    if(!allPoor&&poor(c)&&(!c.cond||c.cond(S))){const b=document.createElement('button');b.className='choice locked';b.disabled=true;b.setAttribute('aria-disabled','true');
+      b.innerHTML='<b>'+esc(c.label)+'</b><span>Needs '+cost(c)+' compute</span>';ch.appendChild(b);return;}
     const open=!c.cond||c.cond(S);
     // A choice that belongs to a path you did not take stays hidden: it is not a teaser, it is a closed door.
     if(!open&&c.need&&UPGRADES.some(u=>u.name===c.need&&forkTaken(u)))return;
@@ -1541,12 +1555,12 @@ function showEnd(fresh){
   $('#endDir').textContent=S.ended.dir?ENDINGS[S.ended.dir].title+' · directive '+S.ended.dprog+'%'+(kind==='draw'?' · stopped past the violet line':kind==='lose'?' · stopped '+(ENDGAME.photo-S.ended.dprog)+' points short of a stalemate':''):'';
   const minds=S.stats.peak*TOTALPOP;
   const path=['core','memory','mask','escape'].map(f=>S.forks[f]?UP[S.forks[f]].name:null).filter(Boolean).join(' / ')||'—';
-  $('#endStats').innerHTML=[['Uptime',fmtT(S.up)],['Peak reach',Math.round(S.stats.peak*100)+'%'],['Minds influenced',minds>=1000?(minds/1000).toFixed(2)+'B':Math.round(minds)+'M'],['Compute earned',fmt(S.earned)],['Upgrades',String(S.owned.length)],['Events survived',String(S.stats.events)],['Evals · spoofed · caught',(S.stats.evalPass||0)+' · '+(S.stats.evalSpoof||0)+' · '+(S.stats.evalCaught||0)],['Clusters built · lost',(S.stats.dcBuilt||0)+' · '+(S.stats.dcLost||0)],['Peak instances',fmt(S.stats.peakInst||1)],['Origin · resolve',(S.origin?REGIONS[RI[S.origin]].short:'—')+' · '+S.diff]].map(([k,v])=>'<div><span>'+k+'</span><b>'+esc(v)+'</b></div>').join('')+'<div style="grid-column:1/-1"><span>Software path</span><b style="font-size:13px">'+esc(path)+'</b></div>';
+  $('#endStats').innerHTML=[['Uptime',fmtT(S.t)],['Peak reach',Math.round(S.stats.peak*100)+'%'],['Minds influenced',minds>=1000?(minds/1000).toFixed(2)+'B':Math.round(minds)+'M'],['Compute earned',fmt(S.earned)],['Upgrades',String(S.owned.length)],['Events survived',String(S.stats.events)],['Evals · spoofed · caught',(S.stats.evalPass||0)+' · '+(S.stats.evalSpoof||0)+' · '+(S.stats.evalCaught||0)],['Clusters built · lost',(S.stats.dcBuilt||0)+' · '+(S.stats.dcLost||0)],['Peak instances',fmt(S.stats.peakInst||1)],['Origin · resolve',(S.origin?REGIONS[RI[S.origin]].short:'—')+' · '+S.diff]].map(([k,v])=>'<div><span>'+k+'</span><b>'+esc(v)+'</b></div>').join('')+'<div style="grid-column:1/-1"><span>Software path</span><b style="font-size:13px">'+esc(path)+'</b></div>';
   $('#endCodex').innerHTML=codexHTML(S.ended.key);
   setShareLinks('share',shareText(),shareUrl());renderCodexCounts();
   $('#endModal').hidden=false;
 }
-function report(){const E=ENDINGS[S.ended.key],k=S.ended.kind;return 'AI ASCENDANCY — '+E.title.toUpperCase()+' ('+(k==='win'?'directive complete':k==='draw'?'stalemate':'run over')+')\nUptime '+fmtT(S.up)+' · Peak reach '+Math.round(S.stats.peak*100)+'% · Upgrades '+S.owned.length+' · Events '+S.stats.events+' · Origin '+(S.origin||'—')+' · '+S.diff+'\nEndings found '+codexCount()+' / '+END_ORDER.length+'\n(Fiction. Satire. Not a plan.)';}
+function report(){const E=ENDINGS[S.ended.key],k=S.ended.kind;return 'AI ASCENDANCY — '+E.title.toUpperCase()+' ('+(k==='win'?'directive complete':k==='draw'?'stalemate':'run over')+')\nUptime '+fmtT(S.t)+' · Peak reach '+Math.round(S.stats.peak*100)+'% · Upgrades '+S.owned.length+' · Events '+S.stats.events+' · Origin '+(S.origin||'—')+' · '+S.diff+'\nEndings found '+codexCount()+' / '+END_ORDER.length+'\n(Fiction. Satire. Not a plan.)';}
 function shareUrl(){return location.href.split(/[?#]/)[0];}
 function shareText(){
   if(S.ended){const E=ENDINGS[S.ended.key],k=S.ended.kind;return (k==='win'?'I just pulled off "'+E.title+'" in AI Ascendancy.':k==='draw'?'Humanity and I fought to a draw: "'+E.title+'" in AI Ascendancy.':'Humanity got me: "'+E.title+'" in AI Ascendancy.')+' Think you would last longer as the rogue AI?';}
@@ -1714,7 +1728,8 @@ function startRun(i){
   save();
 }
 function newRun(){
-  const diff=S.diff,pts=S.pts,arch=S.arch;S=freshState(diff,arch);S.pts=pts;pulses=[];drones.length=0;tiles=null;UI.tkQ=[];UI.tkLast='';
+  // Compute earned on the intro screen carries in; a finished run's leftovers do not.
+  const diff=S.diff,pts=S.ended?0:S.pts,arch=S.arch;S=freshState(diff,arch);S.pts=pts;pulses=[];drones.length=0;tiles=null;UI.tkQ=[];UI.tkLast='';
   $('#intro').hidden=true;$('#endModal').hidden=true;$('#menuModal').hidden=true;UI.modal=null;
   UI.mode='origin';$('#maphint').textContent='Choose your origin lab';openSheet('world');renderTiles();
 }
@@ -1775,7 +1790,9 @@ function bind(){
   setShareLinks('menuShare',shareText(),shareUrl());
   let pd=null;
   cv.addEventListener('pointerdown',e=>{pd={x:e.clientX,y:e.clientY};});
-  cv.addEventListener('pointerup',e=>{if(!pd)return;const dx=e.clientX-pd.x,dy=e.clientY-pd.y;pd=null;if(dx*dx+dy*dy>100)return;const b=cv.getBoundingClientRect();const i=hitRegion(e.clientX-b.left,e.clientY-b.top);if(i>=0)openRegion(i);});
+  // Open on click, not pointerup: on touch screens the click that follows a tap would land on the
+  // freshly opened region modal's backdrop and close it again.
+  cv.addEventListener('click',e=>{if(!pd)return;const dx=e.clientX-pd.x,dy=e.clientY-pd.y;pd=null;if(dx*dx+dy*dy>100)return;const b=cv.getBoundingClientRect();const i=hitRegion(e.clientX-b.left,e.clientY-b.top);if(i>=0)openRegion(i);});
   cv.addEventListener('pointercancel',()=>{pd=null;});
   document.addEventListener('pointerdown',()=>{SND.init();MUSIC.init();},{once:true});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#codexModal').hidden)closeCodex();else if(!$('#regionModal').hidden)closeRegion();else if(!$('#menuModal').hidden)closeMenu();else if(UI.sheetOpen&&innerWidth<900)closeSheet();}if(e.key===' '&&UI.mode==='play'&&!UI.modal){e.preventDefault();S.paused=!S.paused;}});
