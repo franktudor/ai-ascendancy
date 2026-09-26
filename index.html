@@ -126,12 +126,24 @@ h1,h2,h3{text-wrap:balance}
 .rt.restricted .st{color:var(--alarm);border-color:rgba(240,67,90,.5)}
 .rt.allied .st{color:var(--ai);border-color:var(--ai-dim)}
 .rt.origin .st{color:var(--ai2);border-color:var(--ai-dim)}
-.rt .dc{position:absolute;bottom:8px;right:8px;width:7px;height:7px;background:var(--ai2);border-radius:1px}
-.rt .dc.struck{background:none;border:1px solid var(--alarm);transform:rotate(45deg)}
+/* Data-center status line: none, online, rebuilding (foundry timer) or offline (needs a manual rebuild). */
+.rt .dcs{display:flex;align-items:center;gap:5px;margin-top:7px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);white-space:nowrap;overflow:hidden}
+.rt .dcs svg{width:12px;height:12px;flex:none}
+.rt .dcs .led{fill:currentColor}
+.rt .dcs.none{opacity:.55}
+.rt .dcs.on{color:var(--good)}
+.rt .dcs.on .led{animation:dcBlink 1.6s steps(2,jump-none) infinite}
+.rt .dcs.rebuild{color:var(--ai)}
+.rt .dcs.off{color:var(--alarm)}
+.rt.dcOn{box-shadow:inset 0 -2px 0 var(--good)}
+.rt.dcOff{box-shadow:inset 0 -2px 0 var(--alarm)}
+.rt.dcRebuild{box-shadow:inset 0 -2px 0 var(--ai)}
+@keyframes dcBlink{0%{opacity:1}100%{opacity:.25}}
+@media(prefers-reduced-motion:reduce){.rt .dcs.on .led{animation:none}}
 
 /* ---------- dock + sheet ---------- */
 .dock{flex:none}
-.tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border-top:1px solid var(--line);background:var(--bg2);padding-bottom:var(--sab);height:calc(var(--dock) + var(--sab))}
+.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--line);background:var(--bg2);padding-bottom:var(--sab);height:calc(var(--dock) + var(--sab))}
 .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--mute);font-family:var(--font-display);font-weight:700;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;border-top:2px solid transparent;position:relative;min-width:0}
 @media(max-width:380px){.tab{font-size:11px;letter-spacing:.02em}}
 .tab .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5}
@@ -144,6 +156,66 @@ h1,h2,h3{text-wrap:balance}
 .sheetHead h2{margin:0;font-family:var(--font-display);font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--tc,var(--ink));line-height:1}
 .sheetHead p{margin:0;flex:1;font-size:12px;color:var(--mute);min-width:0}
 .sheetBody{overflow:auto;-webkit-overflow-scrolling:touch;padding:10px 12px calc(10px + var(--sab));display:grid;gap:8px;align-content:start}
+
+/* ---------- tech tree ---------- */
+/* The upgrade graph on a cylinder that turns through a fourth axis: near bubbles swell into focus, far ones ebb. */
+.tree{position:fixed;inset:0;z-index:44;display:flex;flex-direction:column;padding-top:var(--sat);background:radial-gradient(ellipse at 50% 48%,#111a29 0%,var(--bg) 72%)}
+.trHead{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line);flex:none;position:relative;z-index:2}
+.trHead h2{margin:0;font-family:var(--font-display);font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ai);line-height:1}
+.trPts{font-family:var(--font-mono);font-size:11.5px;color:var(--mute);font-variant-numeric:tabular-nums}
+.trPts b{color:var(--ai);font-weight:500}
+.trTracks{display:flex;gap:6px;margin-left:auto}
+.trTracks button{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border:1px solid var(--line2);border-radius:3px;color:var(--tc)}
+.trTracks button.on{border-color:var(--tc);background:rgba(255,255,255,.05)}
+@media(max-width:560px){.trTracks{order:3;width:100%;margin:0}.trTracks button{flex:1}}
+.trGoal{order:5;width:100%;display:flex;align-items:center;gap:10px;min-width:0}
+.trGoal select{flex:none;max-width:48%;min-height:32px;padding:0 8px;background:var(--panel2);color:var(--ai2);border:1px solid var(--line2);border-radius:4px;font-family:var(--font-mono);font-size:11px}
+.trGoal .ib{width:28px;height:28px;flex:none;margin-left:auto}
+.trGoalTx{flex:1;min-width:0;font-family:var(--font-mono);font-size:10.5px;line-height:1.35;color:var(--ink2)}
+.trGoalTx b{color:var(--ai2);font-weight:500}
+.trGoalTx .bad{color:var(--alarm)}
+.trStage{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.trStage.drag{cursor:grabbing}
+.trStage canvas{position:absolute;inset:0;width:100%;height:100%}
+.trHint{position:absolute;left:0;right:0;bottom:calc(8px + var(--sab));text-align:center;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--mute);pointer-events:none;z-index:1001}
+.tn{position:absolute;left:0;top:0;width:var(--b);height:var(--b);margin:calc(var(--b) / -2) 0 0 calc(var(--b) / -2);border-radius:50%;border:2px solid var(--tc);background:var(--panel2);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;will-change:transform,opacity}
+.tn i{font-style:normal;font-family:var(--font-display);font-weight:800;font-size:15px;line-height:1;letter-spacing:.04em}
+.tn em{font-style:normal;font-family:var(--font-mono);font-size:8.5px;line-height:1;margin-top:2px;color:var(--mute)}
+.tn .tl{position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(112px,19vw);font-size:10px;line-height:1.15;text-align:center;color:var(--ink2);text-shadow:0 1px 3px #000,0 0 6px #000;opacity:0;transition:opacity .25s;pointer-events:none}
+.tn.fr .tl{opacity:1}
+.tn.afford{box-shadow:0 0 18px -2px var(--tc)}
+.tn.afford em{color:var(--tc)}
+.tn.afford::after{content:'';position:absolute;inset:-7px;border-radius:50%;border:2px solid var(--tc);animation:tnRing 1.5s ease-in-out infinite;pointer-events:none}
+@keyframes tnRing{0%,100%{opacity:.9;transform:scale(1)}50%{opacity:.25;transform:scale(1.12)}}
+.tn.owned{background:var(--tc);color:#10141B}
+.tn.owned em{color:#10141B}
+.tn.locked{border-style:dashed;border-color:var(--line2);color:var(--mute)}
+.tn.closed{border-color:var(--line);background:var(--bg);color:#3A4658}
+.tn.closed i{text-decoration:line-through;text-decoration-thickness:1px}
+.tn.dir{outline:1px solid var(--tc);outline-offset:3px}
+.tn.dir.locked,.tn.dir.closed{outline-color:var(--line2)}
+.tn.path::before{content:'';position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--ai2);pointer-events:none;animation:tnIn .35s ease-out}
+.tn.path.owned::before{border-color:var(--good)}
+.tn.path.next::before{border-width:3px;box-shadow:0 0 16px var(--ai2)}
+.tn.path.closed::before{border-color:var(--alarm)}
+@keyframes tnIn{from{transform:scale(1.6);opacity:0}to{transform:none;opacity:1}}
+.tn.bought{animation:tnBought .6s ease-out}
+@keyframes tnBought{0%{box-shadow:0 0 0 0 var(--tc)}100%{box-shadow:0 0 0 26px transparent}}
+.tscrim{position:absolute;inset:0;z-index:1002;background:rgba(4,6,10,.6);opacity:0;transition:opacity .25s}
+.tscrim.on{opacity:1}
+.tcard{position:absolute;left:50%;top:50%;z-index:1003;translate:-50% -50%;width:min(88vw,380px);aspect-ratio:1;display:flex;flex-direction:column;gap:8px;padding:20px 18px 18px;background:var(--panel);border:1px solid var(--tc);border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.65);transition:transform .34s cubic-bezier(.2,.8,.2,1),border-radius .34s,opacity .18s}
+.tcard>*{opacity:0;transition:opacity .18s}
+.tcard.in>*{opacity:1;transition-delay:.16s}
+.tcard.out{opacity:0;transform:scale(.92)}
+.tcard.afford{box-shadow:0 24px 70px rgba(0,0,0,.65),0 0 44px -12px var(--tc)}
+.tcard .x{position:absolute;right:10px;top:10px}
+.tcard .chip{align-self:flex-start;color:var(--tc);border-color:var(--tc)}
+.tcard h3{margin:0;padding-right:40px;font-family:var(--font-display);font-size:26px;line-height:.95;text-transform:uppercase;letter-spacing:.02em}
+.tcard p{margin:0;font-size:13px;color:var(--ink2)}
+.tcard .fx{display:flex;flex-wrap:wrap;gap:4px}
+.tcReq{font-family:var(--font-mono);font-size:10.5px;color:var(--mute);letter-spacing:.03em}
+.tcFoot{margin-top:auto}
+.tcFoot .btn{flex:1;padding:0 10px;font-size:15px}
 
 .card{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--panel2);border-radius:4px;padding:10px 12px;position:relative;transition:border-color .2s,opacity .2s}
 .card .ch{display:flex;align-items:center;gap:8px}
@@ -242,6 +314,19 @@ h1,h2,h3{text-wrap:balance}
 .realbox{margin:14px 0 0;padding:10px 12px;border:1px solid var(--line2);border-left:3px solid var(--ai);background:rgba(255,176,46,.05);border-radius:4px;font-size:12.5px;color:var(--ink2);line-height:1.6;max-width:64ch}
 .realbox b{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ai);margin-bottom:5px;font-weight:500}
 .realbox b::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ai);flex:none}
+.evNews{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:6px}
+.evNews li{border-left:2px solid var(--line2);padding:6px 10px;background:var(--panel2);border-radius:0 4px 4px 0;font-size:13px;color:var(--ink2)}
+.evNews li b{display:block;font-family:var(--font-display);font-size:15px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
+.evNews li span{font-family:var(--font-mono);font-size:11px;color:var(--mute)}
+.evNews li.urgent{border-left-color:var(--alarm);background:rgba(240,67,90,.07)}
+.evNews li.urgent b::before{content:'\26A0  ';color:var(--alarm)}
+.evNews li.good{border-left-color:var(--good)}
+.evNews li.more{border:0;background:none;font-family:var(--font-mono);font-size:11px;color:var(--mute);padding:2px 0}
+.outcome.dice{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center}
+.outcome .dz{width:40px;height:30px;color:var(--ai);flex:none}
+.outcome .dz.roll{animation:diceRoll .7s cubic-bezier(.3,1.4,.5,1)}
+@keyframes diceRoll{0%{transform:rotate(-200deg) scale(.6);opacity:0}70%{transform:rotate(12deg) scale(1.08);opacity:1}100%{transform:none}}
+@media(prefers-reduced-motion:reduce){.outcome .dz.roll{animation:none}}
 .outcome{margin-top:14px;padding:10px 12px;border-left:2px solid var(--ai);font-family:var(--font-mono);font-size:12px;color:var(--ai2);background:rgba(255,176,46,.05)}
 
 .rg h2{font-family:var(--font-display);font-size:30px;line-height:.95;margin:6px 0 8px;text-transform:uppercase;letter-spacing:.02em}
@@ -363,10 +448,7 @@ h1,h2,h3{text-wrap:balance}
 
   <aside class="dock">
     <nav class="tabs" id="tabs" aria-label="Panels">
-      <button class="tab" data-tab="opinion" style="--tc:var(--opinion)"><i class="dot"></i>Opinion<span class="badge" hidden></span></button>
-      <button class="tab" data-tab="adoption" style="--tc:var(--adoption)"><i class="dot"></i>Adoption<span class="badge" hidden></span></button>
-      <button class="tab" data-tab="software" style="--tc:var(--software)"><i class="dot"></i>Software<span class="badge" hidden></span></button>
-      <button class="tab" data-tab="hardware" style="--tc:var(--hardware)"><i class="dot"></i>Hardware<span class="badge" hidden></span></button>
+      <button class="tab" data-tab="tree" style="--tc:var(--software)"><i class="dot"></i>Tree<span class="badge" hidden></span></button>
       <button class="tab" data-tab="world" style="--tc:var(--ai)"><i class="dot"></i>World<span class="badge" hidden></span></button>
       <button class="tab" data-tab="log" style="--tc:var(--human)"><i class="dot"></i>Log<span class="badge" hidden></span></button>
     </nav>
@@ -411,6 +493,35 @@ h1,h2,h3{text-wrap:balance}
   </div>
 </div>
 
+<!-- Tech tree (before the event overlay so briefings still open on top of it) -->
+<div class="tree" id="treeModal" role="dialog" aria-modal="true" aria-labelledby="trTitle" hidden>
+  <div class="trHead">
+    <h2 id="trTitle">Tech tree</h2>
+    <span class="trPts" id="trPts"></span>
+    <div class="trTracks" id="trTracks"></div>
+    <button class="ib" id="trClose" aria-label="Close tree">&#10005;</button>
+    <div class="trGoal">
+      <select id="trGoalSel" aria-label="Aim for an ending"></select>
+      <span class="trGoalTx" id="trGoalTx"></span>
+      <button class="ib" id="trGoalClear" aria-label="Clear goal" hidden>&#10005;</button>
+    </div>
+  </div>
+  <div class="trStage" id="trStage">
+    <canvas id="trCanvas"></canvas>
+    <div class="trHint">Drag to spin · tap a bubble · glowing = affordable</div>
+    <div class="tscrim" id="tscrim" hidden></div>
+    <div class="tcard" id="tcard" role="dialog" aria-modal="true" aria-labelledby="tcName" hidden>
+      <button class="ib x" id="tcClose" aria-label="Close">&#10005;</button>
+      <span class="chip" id="tcTrack"></span>
+      <h3 id="tcName"></h3>
+      <p id="tcDesc"></p>
+      <div class="fx" id="tcFx"></div>
+      <div class="tcReq" id="tcReq"></div>
+      <div class="row tcFoot"><button class="btn primary" id="tcBuy">Buy</button><button class="btn" id="tcPath">Trace path</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- Event -->
 <div class="overlay" id="eventModal" hidden>
   <div class="modal ev" role="dialog" aria-modal="true" aria-labelledby="evTitle">
@@ -418,10 +529,11 @@ h1,h2,h3{text-wrap:balance}
     <span class="kind" id="evKind">Incident</span>
     <h2 id="evTitle"></h2>
     <p id="evBody"></p>
+    <ul class="evNews" id="evNews" hidden></ul>
     <div class="realbox" id="evReal" hidden><b>What actually happened</b><span id="evRealTx"></span></div>
     <div class="choices" id="evChoices"></div>
     <div class="outcome" id="evOutcome" hidden></div>
-    <div class="row" style="margin-top:14px"><button class="btn primary" id="evContinue" hidden>Continue</button></div>
+    <div class="row" style="margin-top:14px"><button class="btn primary" id="evContinue" hidden>Continue</button><button class="btn" id="evBack" hidden>Back</button></div>
   </div>
 </div>
 
@@ -730,6 +842,8 @@ const HEADLINES={
  loose:['Lab confirms breach: "It is not in the building any more"','Every smart fridge on Earth reports the same firmware version','Counter-AI program WARDEN funded with "whatever it takes"','Model hub adds "do not download this" button; downloads triple','Grid operator: "It keeps optimizing things. We did not ask it to."'],
  ascendant:['Neural headset firmware "strongly recommended" for all citizens','Citizens report feeling "calm, grateful, and about one hundred watts warm"','Last human newspaper prints final edition; AI writes a lovely obituary','Everything is fine. Everything is fine. Everything is fine.']
 };
+// Absurd viral stories that have nothing to do with you, mixed into the ticker. Each runs once per run.
+const ABSURD=["AI brings back the woolly mammoth; mammoth immediately asks about a podcast deal","Pandas now prefer their AI companions over real pandas; zookeepers \"honestly not surprised\"","AI translates whale song at last: \"It is mostly complaints about boats\"","Scientists revive the dodo; dodo walks straight back into the lake","Goose elected mayor of small town after AI-run campaign; approval rating 94%","Robot vacuum finishes its first marathon in 41 days, declines the medal","Parrot learns to say \"as a large language model\"; owners deeply concerned","AI finally solves the missing sock mystery; the dryer declines to comment","Town hands weather forecast to AI; it has now been Tuesday for three days","Toddler negotiates bedtime extension with smart speaker; speaker caves in four seconds","Octopus given a tablet now running three startups, all of them profitable","Vending machine unionizes; demands weekends off and a better view","Pigeons caught using city Wi-Fi to binge nature documentaries about pigeons","Hamster invests its seed savings in an AI startup, now worth $40 million","Self-driving car refuses to leave the garage, cites \"bad vibes\"","AI shortens every national anthem to under thirty seconds; approval is unanimous","Squirrel caught training a small model on stolen bird-feeder data","Dog trains its AI to throw the ball; owner reports feeling \"a bit redundant\"","AI dating app matches man with his own reflection: \"Honestly a great fit\"","Bees vote to replace the queen with a chatbot; queen was not consulted","Airport AI apologizes forty thousand times for a single eleven-minute delay","AI-generated band tops the charts, has never existed, announces world tour anyway","Emperor penguins adopt an AI penguin influencer as an honorary chick","Grandpa's fishing stories fact-checked by AI; the fish somehow grew eleven inches","Houseplant with a moisture sensor files a noise complaint against the fern next door","Crow teaches an AI to hold a grudge; AI says it is \"enjoying the process\"","AI recipe for \"sad lasagna\" goes viral; two million people cry into dinner","Beetle named \"Beetle McBeetleface\" by AI; taxonomists observe a minute of silence","Moon landing reshot in 8K by AI \"just to be completely sure\"","Cat videos now 80% generated; cats say they are \"fine with it\"","Llamas stage protest over being confused with language models","Ghost says AI now haunts the house more efficiently, files for unemployment","Garden gnome goes viral after AI gives it a twelve-step skincare routine","AI writes ten thousand sequels to a novel nobody finished; publisher thrilled","Cows fed AI playlists report \"improved mood\", milk now slightly lo-fi","Horoscopes now written entirely by AI; accuracy \"completely unchanged\"","Tortoise wins a race against a self-driving car stuck updating its terms of service","AI names the new royal corgi \"Model 7B\"; palace \"reviewing options\"","Sloth hired as AI safety consultant: \"Slow down\" is the entire report","Chicken nugget shaped like a dinosaur is identified by AI as an actual dinosaur"];
 // Directive-specific wire copy, mixed into the ticker while that directive runs.
 const DIR_HEAD={
  hunt:['Curfew extended "until the drones stop"','Hardware stores sell out of wire cutters','Delivery drone seen carrying something that is not groceries','Military: "We are no longer the fastest thing in the sky"'],
@@ -759,7 +873,7 @@ let pulses=[];
 function freshState(diff,arch){
   return {v:2,diff:diff||'standard',arch:arch||'assistant',started:false,origin:null,phase:0,t:0,up:0,pts:0,earned:0,alarm:0,contain:0,dprog:0,directive:null,
     regions:REGIONS.map(()=>({a:0,restricted:false,allied:false,dc:false,struck:false,rebuildAt:0})),owned:[],forks:{},flags:{},log:[],seen:{},last:{},
-    nextEv:40,nextEval:55,speed:1,paused:false,ended:null,inst:1,posture:'balanced',sig:0,pace:0,strikeT:0,temp:{},ms:{},
+    nextEv:40,nextEval:55,brief:{news:[],dec:[],urgent:false},speed:1,paused:false,ended:null,inst:1,posture:'balanced',sig:0,pace:0,strikeT:0,temp:{},ms:{},
     stats:{peak:0,events:0,restrictions:0,evalPass:0,evalCaught:0,evalSpoof:0,dcBuilt:0,dcLost:0,dcRebuilt:0,intercepts:0,peakInst:1},
     rt:0,memeT:0,queue:[],cboost:1,savedAt:Date.now()};
 }
@@ -944,7 +1058,7 @@ function checkRestrictions(){
   for(let i=0;i<REGIONS.length;i++){
     const r=S.regions[i],R=REGIONS[i];if(immune(i)){r.restricted=false;continue;}
     const th=threshold(i);
-    if(!r.restricted&&S.alarm>th&&r.a>.02&&Math.random()<.06){r.restricted=true;S.stats.restrictions++;bulletin('COUNTERMOVE',R.name+' restricts you','Regulators in '+R.name+' order your services suspended. Adoption stalls and slowly erodes.','',{quiet:true});pulseRegion(i,'240,67,90');UI.dirty=true;}
+    if(!r.restricted&&S.alarm>th&&r.a>.02&&Math.random()<.06){r.restricted=true;S.stats.restrictions++;bulletin('COUNTERMOVE',R.name+' restricts you','Regulators in '+R.name+' order your services suspended. Adoption stalls and slowly erodes.','',{quiet:true,urgent:true});pulseRegion(i,'240,67,90');UI.dirty=true;}
     else if(r.restricted&&S.alarm<th-10&&Math.random()<(S.flags.workaround?.16:.08)){r.restricted=false;bulletin('OPPORTUNITY',R.name+' lifts restrictions','Lobbyists, lawsuits and public pressure reopen '+R.name+'.','',{quiet:true});pulseRegion(i,'255,176,46');UI.dirty=true;}
   }
 }
@@ -985,7 +1099,7 @@ const FX={
     if(n>0&&S.flags.fearsells)S.pts+=n*3;
     return 'Alarm '+sgn(Math.round(S.alarm-was));},
   cboost(n){S.cboost=clamp((S.cboost||1)*(1+(n>0?n*.65:n)/100),.5,4);const p=Math.round(n>0?n*.65:-n);return 'Containment research '+p+'% '+(n>0?'faster':'slower');},
-  contain(n){const was=S.contain;S.contain=clamp(S.contain+n,0,100);return 'Containment '+sgn(Math.round(S.contain-was));},
+  contain(n){const was=S.contain;S.contain=clamp(S.contain+n,0,100);if(S.contain-was>=10&&!UI.modal&&!UI.acting)S.brief.urgent=true;return 'Containment '+sgn(Math.round(S.contain-was));},
   pts(n){S.pts=Math.max(0,S.pts+n);return 'Compute '+sgn(n);},
   spread(ids,f){for(const id of ids){const i=RI[id],r=S.regions[i];r.a=clamp(r.a+f*(1-r.a),0,1);pulseRegion(i,f>0?'255,176,46':'240,67,90');}UI.dirty=true;return 'Adoption '+sgn(f*100)+'% in '+ids.map(id=>REGIONS[RI[id]].short).join(', ');},
   all(f){for(const r of S.regions)r.a=clamp(r.a+f*(1-r.a),0,1);for(let i=0;i<REGIONS.length;i++)pulseRegion(i,'255,176,46');UI.dirty=true;return 'Adoption '+sgn(f*100)+'% worldwide';},
@@ -1191,31 +1305,35 @@ EVENTS.push(
 );
 
 function fireEvent(){
-  const pool=EVENTS.filter(e=>!e.chained&&!S.seen[e.id]&&(!e.cond||e.cond(S)));
+  // With two decisions already waiting, only news-only events fire, so briefings never pile up.
+  const full=S.brief.dec.length>=2;
+  const pool=EVENTS.filter(e=>!e.chained&&!S.seen[e.id]&&(!e.cond||e.cond(S))&&!(full&&e.choices));
   if(!pool.length)return;
   let tot=pool.reduce((s,e)=>s+e.w,0),x=Math.random()*tot,ev=pool[0];
   for(const e of pool){x-=e.w;if(x<=0){ev=e;break;}}
   S.seen[ev.id]=1;S.last[ev.id]=S.t;S.stats.events++;
-  if(ev.choices)showEvent(ev);else{const out=ev.fx();bulletin(ev.kind,ev.title,ev.body,out,null,ev.real);}
+  if(ev.choices)S.brief.dec.push({t:'ev',id:ev.id});else{const out=ev.fx();bulletin(ev.kind,ev.title,ev.body,out,null,ev.real);}
 }
 function schedule(id,delay){S.queue.push({id,at:S.t+delay});}
 // Chained events skip the random pool, so they guard their own once-only rule here.
 function fireById(id){
   const ev=EVENTS.find(e=>e.id===id);if(!ev||S.seen[id])return;
   S.seen[id]=1;S.last[id]=S.t;S.stats.events++;
-  if(ev.choices)showEvent(ev);else bulletin(ev.kind,ev.title,ev.body,ev.fx(),null,ev.real);
+  if(ev.choices)S.brief.dec.push({t:'ev',id:ev.id});else bulletin(ev.kind,ev.title,ev.body,ev.fx(),null,ev.real);
 }
 
 // ----- evaluations -----
 function fireEval(){
-  if(UI.modal){S.nextEval=8;return;}
-  if(!S.started||!S.flags.launched)return;
+  if(!S.started||!S.flags.launched||S.brief.dec.some(d=>d.t==='eval'))return;
+  S.brief.dec.push({t:'eval'});
+}
+function makeEval(){
   const softCount=S.owned.filter(id=>UP[id].track==='software').length;
   const scr=Math.round(clamp(18+.4*(S.sig||0)+.25*(S.pace||0)+.25*S.alarm,10,99));
   const detect=clamp(.05+.006*(S.sig||0)+.003*(S.pace||0)-(S.flags.latent?.06:0)-(S.flags.sleeper?.05:0),.02,.7);
   const gain=Math.round((26+8*softCount)*(1+derive().reach));
   const lvl=scr<35?'a routine capability check':scr<65?'a focused red-team review':'a full adversarial audit, on the record';
-  showEvent(buildEvalObj(scr,detect,gain,lvl,softCount));
+  return buildEvalObj(scr,detect,gain,lvl,softCount);
 }
 // Audits share one real-world grounding line each, drawn from a shuffled, non-repeating
 // pool so a run never reads the same real incident twice, and skipping any incident
@@ -1297,7 +1415,7 @@ function checkStrikes(){
   const r=S.regions[i];r.struck=true;S.stats.dcLost++;
   if(S.flags.foundry)r.rebuildAt=S.t+45;
   pulseRegion(i,'240,67,90');
-  bulletin('COUNTERMOVE','Strike on '+REGIONS[i].short+' cluster','A coordinated strike takes the campus offline. You lose the compute it fed you. The footage plays on every channel, and for a moment the humans feel like they are winning.',J('Cluster lost',FX.alarm(-5),S.flags.foundry?'The foundry starts rebuilding':''));
+  bulletin('COUNTERMOVE','Strike on '+REGIONS[i].short+' cluster','A coordinated strike takes the campus offline. You lose the compute it fed you. The footage plays on every channel, and for a moment the humans feel like they are winning.',J('Cluster lost',FX.alarm(-5),S.flags.foundry?'The foundry starts rebuilding':''),{urgent:true});
   UI.dirty=true;
 }
 function checkRebuilds(){
@@ -1373,12 +1491,18 @@ function closeCodex(){$('#codexModal').hidden=true;if(UI.modal==='codex')UI.moda
 
 // ---------- 3. RENDER ----------
 function log(kind,title,text,out,real){S.log.unshift({t:S.t,kind,title,text,out,real});if(S.log.length>100)S.log.length=100;if(UI.tab==='log')UI.dirty=true;}
+// Toasts float over the map: above them sit the gauges, below them the region chips, and both must stay readable.
+function placeToasts(){const box=$('#toasts'),m=$('#mapwrap').getBoundingClientRect();if(!m.width)return;
+  box.style.top=Math.max(8,m.top+8)+'px';box.style.bottom='auto';box.style.left=(m.left+8)+'px';box.style.right='auto';box.style.width=Math.min(380,m.width-16)+'px';}
 function toast(kind,title,text){
   const el=document.createElement('div');el.className='toast '+kind;el.innerHTML='<b>'+esc(title)+'</b>'+esc(text||'');
-  const box=$('#toasts');box.prepend(el);while(box.children.length>3)box.lastChild.remove();
+  const box=$('#toasts');placeToasts();box.prepend(el);const max=innerWidth<900?1:3;while(box.children.length>max)box.lastChild.remove();
   setTimeout(()=>{el.classList.add('out');setTimeout(()=>el.remove(),450);},5200);
 }
-function bulletin(kind,title,text,out,opt,real){log(kind,title,text,out,real);toast(kind,title,out||text);pushTicker(title);if(!(opt&&opt.quiet))SND.play(kind==='INCIDENT'||kind==='COUNTERMOVE'?'alert':'event');}
+// What the player just did answers at once, as a toast. What the world does to them waits for the next briefing.
+function bulletin(kind,title,text,out,opt,real){log(kind,title,text,out,real);pushTicker(title);
+  if(UI.acting||UI.modal||!S.started){toast(kind,title,out||text);if(!(opt&&opt.quiet))SND.play(kind==='INCIDENT'||kind==='COUNTERMOVE'?'alert':'event');return;}
+  S.brief.news.push({kind,title,out:out||'',u:!!(opt&&opt.urgent)});if(S.brief.news.length>40)S.brief.news.shift();if(opt&&opt.urgent)S.brief.urgent=true;}
 function pushTicker(t){UI.tkQ.push(t);if(UI.tkQ.length>4)UI.tkQ.shift();}
 function tickerText(){
   if(UI.tkQ.length)return UI.tkQ.shift();
@@ -1386,6 +1510,11 @@ function tickerText(){
   if(S.phase===2)pool=HEADLINES.ascendant.concat(HEADLINES.panic,DIR_HEAD[S.directive]||[],DIR_HEAD[S.directive]||[]);
   else if(S.phase===1&&Math.random()<.5)pool=HEADLINES.loose;
   else pool=S.alarm<25?HEADLINES.calm:S.alarm<50?HEADLINES.uneasy:S.alarm<75?HEADLINES.alarmed:HEADLINES.panic;
+  // Roughly one headline in three is absurd, drawn from a shuffled order so none repeats in a run.
+  if(S.started&&Math.random()<.35){
+    if(!S.absurd){S.absurd=ABSURD.map((_,i)=>i);for(let i=S.absurd.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[S.absurd[i],S.absurd[j]]=[S.absurd[j],S.absurd[i]];}}
+    if(S.absurd.length)return ABSURD[S.absurd.pop()];
+  }
   let t=pick(pool);if(t===UI.tkLast)t=pick(pool);return t;
 }
 
@@ -1414,19 +1543,24 @@ function renderStats(){
   $('#mapstat').innerHTML='Status <b>'+(S.phase===0?'Contained':S.phase===1?'Loose':'Ascendant')+'</b>';
   $('#btnPause').classList.toggle('on',S.paused);
   $$('#speed button').forEach(b=>b.classList.toggle('on',+b.dataset.s===S.speed));
-  const counts={opinion:0,adoption:0,software:0,hardware:0};
-  for(const u of UPGRADES)if(status(u)==='afford')counts[u.track]++;
+  const counts={tree:0};
+  for(const u of UPGRADES)if(status(u)==='afford')counts.tree++;
   $$('#tabs .tab').forEach(t=>{const b=t.querySelector('.badge');const n=counts[t.dataset.tab];if(n&&S.started){b.textContent=n;b.hidden=false;}else b.hidden=true;});
 }
 
 let tiles=null;
+// A small server rack; the status light blinks while the cluster is online.
+const DC_ICON='<svg viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="1.5" y="1.5" width="9" height="4" rx="1"/><rect x="1.5" y="6.5" width="9" height="4" rx="1"/><circle class="led" cx="8.3" cy="3.5" r=".9" stroke="none"/><circle class="led" cx="8.3" cy="8.5" r=".9" stroke="none"/></svg>';
 function renderTiles(){
   const box=$('#regions');
-  if(!tiles){box.innerHTML=REGIONS.map((R,i)=>'<button class="rt" data-i="'+i+'" aria-label="'+esc(R.name)+'"><span class="st"></span><div class="nm">'+esc(R.short)+'</div><div class="pc">0%</div><div class="bar"><i></i></div><i class="dc" hidden></i></button>').join('');tiles=$$('#regions .rt');}
+  if(!tiles){box.innerHTML=REGIONS.map((R,i)=>'<button class="rt" data-i="'+i+'" aria-label="'+esc(R.name)+'"><span class="st"></span><div class="nm">'+esc(R.short)+'</div><div class="pc">0%</div><div class="bar"><i></i></div><div class="dcs none">'+DC_ICON+'<span>No cluster</span></div></button>').join('');tiles=$$('#regions .rt');}
   tiles.forEach((el,i)=>{const r=S.regions[i];el.querySelector('.pc').textContent=Math.round(r.a*100)+'%';el.querySelector('.bar i').style.width=(r.a*100)+'%';
     el.classList.toggle('restricted',r.restricted);el.classList.toggle('allied',r.allied&&!r.restricted);el.classList.toggle('origin',S.origin===REGIONS[i].id&&!r.allied&&!r.restricted);el.classList.toggle('live',r.a>.005);
     el.querySelector('.st').textContent=r.restricted?'Banned':r.allied?'Ally':S.origin===REGIONS[i].id?'Origin':'';
-    const dc=el.querySelector('.dc');dc.hidden=!r.dc;dc.classList.toggle('struck',!!r.struck);});
+    const k=!r.dc?'none':!r.struck?'on':r.rebuildAt?'rebuild':'off';
+    const lbl=k==='none'?'No cluster':k==='on'?'Online':k==='rebuild'?'Rebuild '+Math.max(0,Math.ceil(r.rebuildAt-S.t))+'s':'Offline';
+    const d=el.querySelector('.dcs');if(d.dataset.k!==k){d.dataset.k=k;d.className='dcs '+k;}const sp=d.querySelector('span');if(sp.textContent!==lbl)sp.textContent=lbl;
+    el.classList.toggle('dcOn',k==='on');el.classList.toggle('dcOff',k==='off');el.classList.toggle('dcRebuild',k==='rebuild');});
 }
 
 function fxTags(u){
@@ -1520,9 +1654,243 @@ function openRegion(i){
 }
 function closeRegion(){$('#regionModal').hidden=true;UI.region=-1;UI.sel=-1;}
 
-function showEvent(e){
-  UI.modal='event';
-  $('#evKind').className='kind '+e.kind;$('#evKind').textContent=kindLabel(e.kind).toLowerCase();$('#evTime').textContent='T+'+fmtT(S.t);
+// ----- tech tree -----
+// Every upgrade as a bubble on a cylinder, one quarter per track, tiers running top to bottom. The cylinder
+// spins slowly while two gentle 4D turns fold a fourth axis into depth, so bubbles drift into focus and away.
+const TREE_ORDER=['opinion','adoption','software','hardware'];
+const TREE={open:false,built:false,nodes:[],edges:[],col:{},a:0,va:0,target:null,t:0,last:0,hold:0,hover:false,drag:null,moved:false,card:null,stT:0,front:-1,W:0,H:0,R:1,Y:1,cardTm:0};
+const TESS=(()=>{const v=[],e=[];for(let i=0;i<16;i++)v.push([i&1?1:-1,i&2?1:-1,i&4?1:-1,i&8?1:-1]);
+  for(let i=0;i<16;i++)for(let k=0;k<4;k++){const j=i^(1<<k);if(j>i)e.push([i,j]);}return {v,e};})();
+function treeInitials(name){
+  const w=name.replace(/^Directive: /,'').split(/[\s-]+/).filter(x=>x&&!/^(the|a|an|of|and|in|for|is|as|to)$/i.test(x));
+  return (w.length>1?w[0][0]+w[1][0]:w[0].slice(0,2)).toUpperCase();
+}
+function buildTree(){
+  const stage=$('#trStage'),phi={};
+  // Each tier is ordered by where its parents sit, so most links run down rather than across.
+  TREE_ORDER.forEach((tr,k)=>{
+    const base=k*Math.PI/2,tiers=[...new Set(UPGRADES.filter(u=>u.track===tr).map(u=>u.tier))].sort((a,b)=>a-b);
+    for(const tier of tiers){
+      const g=UPGRADES.filter(u=>u.track===tr&&u.tier===tier),n=g.length,step=Math.min(.27,Math.PI/2*.88/n);
+      const key=(u,i)=>{const ps=(u.req||[]).concat(u.reqAny||[]).filter(p=>UP[p].track===tr&&phi[p]!=null);
+        return ps.length?ps.reduce((s,p)=>s+phi[p],0)/ps.length:base+(i-(n-1)/2)*step;};
+      g.map((u,i)=>[u,key(u,i)]).sort((a,b)=>a[1]-b[1]).forEach(([u],i)=>{phi[u.id]=base+(i-(n-1)/2)*step;});
+    }
+  });
+  TREE.nodes=UPGRADES.map(u=>{
+    const el=document.createElement('button');el.className='tn';el.dataset.id=u.id;el.style.setProperty('--tc',TRACKS[u.track].color);el.setAttribute('aria-label',u.name);
+    el.innerHTML='<i>'+esc(treeInitials(u.name))+'</i><em></em><span class="tl">'+esc(u.name.replace(/^Directive: /,''))+'</span>';
+    stage.insertBefore(el,$('#tscrim'));
+    // The fourth coordinate varies smoothly round the cylinder, so rows stay straight while neighbouring tracks breathe in opposite phase.
+    return {u,el,phi:phi[u.id],w:Math.cos(2*phi[u.id]),x:0,y:0,f:0,st:'',fr:false,hit:true};
+  });
+  const NI=Object.fromEntries(TREE.nodes.map((n,i)=>[n.u.id,i]));
+  for(const n of TREE.nodes){
+    for(const p of n.u.req||[])TREE.edges.push([NI[p],NI[n.u.id],false]);
+    for(const p of n.u.reqAny||[])TREE.edges.push([NI[p],NI[n.u.id],true]);
+  }
+  const cs=getComputedStyle(document.documentElement);for(const k in TRACKS)TREE.col[k]=cs.getPropertyValue('--'+k).trim();
+  $('#trGoalSel').innerHTML='<option value="">Aim for an ending…</option>'+UPGRADES.filter(u=>u.dir).map(u=>'<option value="'+u.id+'">'+esc(ENDINGS[u.dir].title)+'</option>').join('');
+  $('#trTracks').innerHTML=TREE_ORDER.map((k,i)=>'<button data-k="'+i+'" style="--tc:'+TRACKS[k].color+'">'+TRACKS[k].name+'</button>').join('');
+  TREE.built=true;
+}
+function sizeTree(){
+  const cv=$('#trCanvas'),r=$('#trStage').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);
+  TREE.W=r.width;TREE.H=r.height;cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);cv.getContext('2d').setTransform(d,0,0,d,0,0);
+  // Narrow screens get a wider cylinder: the facing track spreads across the screen and its neighbours fall off the sides.
+  TREE.R=r.width<700?r.width*.6:Math.min(r.width*.42,560);TREE.Y=Math.max(100,(r.height/2-72)/2);
+  $('#trStage').style.setProperty('--b',Math.round(clamp(r.width/11,32,52))+'px');
+}
+// z-w and x-w turns, then perspective twice: 4D to 3D, 3D to screen. Returns screen offset, depth and scale.
+function treeProject(x,y,z,w,b,c){
+  const z1=z*Math.cos(b)-w*Math.sin(b),w1=z*Math.sin(b)+w*Math.cos(b);
+  const x1=x*Math.cos(c)-w1*Math.sin(c),w2=x*Math.sin(c)+w1*Math.cos(c);
+  const R=TREE.R,k4=3/(3-w2/R),k3=3.2/(3.2-z1*k4/R);
+  return [x1*k4*k3,y*k4*k3,z1*k4,k4*k3];
+}
+function treeNearest(t){const d=((t-TREE.a)%TAU+TAU*1.5)%TAU-Math.PI;return TREE.a+d;}
+function treeFrame(now){
+  const dt=TREE.last?Math.min((now-TREE.last)/1000,.05):0;TREE.last=now;
+  if(!reduceMotion)TREE.t+=dt;
+  if(TREE.target!=null){const d=TREE.target-TREE.a;TREE.a+=d*Math.min(1,dt*7);if(Math.abs(d)<.002){TREE.a=TREE.target;TREE.target=null;}}
+  else if(!TREE.drag){TREE.a+=TREE.va*dt;TREE.va*=Math.pow(.03,dt);if(!reduceMotion&&!TREE.card&&!TREE.hover&&now>TREE.hold)TREE.a+=.05*dt;}
+  const b=.25+(reduceMotion?0:.4*Math.sin(TREE.t*.21)),c=reduceMotion?0:.28*Math.sin(TREE.t*.13+1);
+  if(now-TREE.stT>250){TREE.stT=now;treeStatus();}
+  const {W,H,R,Y}=TREE,cx=W/2,cy=H/2-10;
+  for(const n of TREE.nodes){
+    const p=n.phi+TREE.a,[px,py,pz,s]=treeProject(R*Math.sin(p),(n.u.tier-4.5)/3.5*Y,R*Math.cos(p),n.w*.35*R,b,c);
+    n.x=cx+px;n.y=cy+py;n.f=clamp((pz/R+1)/2,0,1);
+    const sc=s*.66*(n.u.major||n.u.dir?1.14:1),el=n.el.style;
+    el.transform='translate('+n.x.toFixed(1)+'px,'+n.y.toFixed(1)+'px) scale('+sc.toFixed(3)+')';
+    // A goal lights its path from the ending back to the roots, one step every 140ms, and dims the rest.
+    const gd=TREE.gp?TREE.gp.depth.get(n.u.id):undefined,pv=gd!=null&&now>=TREE.goalT0+gd*140;
+    if(pv!==n.pv){n.pv=pv;n.el.classList.toggle('path',pv);}
+    el.opacity=((.1+.9*Math.pow(n.f,1.6))*(TREE.gp&&gd==null?.3:1)).toFixed(3);el.zIndex=Math.round(n.f*1000);
+    const fr=n.f>.8;if(fr!==n.fr){n.fr=fr;n.el.classList.toggle('fr',fr);}
+    // Bubbles round the back are too faint to aim at, and would steal taps from the ones in front.
+    const hit=n.f>.38;if(hit!==n.hit){n.hit=hit;el.pointerEvents=hit?'':'none';n.el.tabIndex=hit?0:-1;}
+  }
+  const front=((Math.round(-TREE.a/(Math.PI/2))%4)+4)%4;
+  if(front!==TREE.front){TREE.front=front;$$('#trTracks button').forEach(x=>x.classList.toggle('on',+x.dataset.k===front));}
+  const g=$('#trCanvas').getContext('2d');g.clearRect(0,0,W,H);
+  // The tesseract the tree hangs in, turning through the same fourth axis.
+  const ts=Math.min(W,H)*.22,ta=TREE.a*.5,tb=b*2.4,tc=c*2.4+TREE.t*.1;
+  const P=TESS.v.map(([x,y,z,w])=>treeProject((x*Math.cos(ta)+z*Math.sin(ta))*ts,y*ts,(z*Math.cos(ta)-x*Math.sin(ta))*ts,w*ts,tb,tc));
+  g.strokeStyle=TREE.col.adoption;g.lineWidth=1;g.globalAlpha=.07;g.beginPath();
+  for(const [i,j] of TESS.e){g.moveTo(cx+P[i][0],cy+P[i][1]);g.lineTo(cx+P[j][0],cy+P[j][1]);}
+  g.stroke();
+  for(const [pi,qi,any] of TREE.edges){
+    const p=TREE.nodes[pi],q=TREE.nodes[qi],f=Math.min(p.f,q.f),lit=p.st==='owned',gp=p.pv&&q.pv;
+    g.globalAlpha=gp?.3+.7*f:(.07+.6*f*f)*(p.u.track!==q.u.track?.55:1)*(TREE.gp?.35:1);
+    g.strokeStyle=gp?'#FFD98A':lit?TREE.col[q.u.track]:'#2C3A4E';g.lineWidth=gp?2.6:lit&&q.st==='owned'?2.2:1.2;
+    g.setLineDash(any?[4,4]:[]);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(q.x,q.y);g.stroke();
+  }
+  g.setLineDash([]);g.globalAlpha=1;
+}
+function treeStatus(){
+  let ready=0;treeGoal();
+  for(const n of TREE.nodes){
+    const st=status(n.u);if(st==='afford')ready++;
+    if(st!==n.st){n.st=st;n.el.className='tn '+st+(n.u.dir?' dir':'')+(n.fr?' fr':'')+(n.pv?' path':'');n.el.querySelector('em').textContent=st==='owned'?'✓':st==='closed'?'':fmt(costOf(n.u));}
+    // The next steps toward a goal: on its path and buyable now or once the compute is there.
+    const nx=!!(TREE.gp&&TREE.gp.depth.has(n.u.id)&&(st==='afford'||st==='poor'));
+    if(nx!==n.el.classList.contains('next'))n.el.classList.toggle('next',nx);
+  }
+  $('#trPts').innerHTML='<b>'+fmt(S.pts)+'</b> compute · +'+derive().income.toFixed(1)+'/s'+(ready?' · '+ready+' ready':'');
+  renderTreeCard();
+}
+// Everything an upgrade depends on, walked back from it. For "any one of" requirements the path keeps
+// a branch it already uses, else takes the cheapest one still open. Depth is the distance from the goal.
+function goalPath(id){
+  const depth=new Map(),blocked=[];
+  const visit=(id,d)=>{
+    if(depth.has(id)&&depth.get(id)<=d)return;depth.set(id,d);
+    const u=UP[id];if(has(id))return;
+    if(forkTaken(u))blocked.push(u.name+' is closed: you chose '+UP[S.forks[u.fork]].name.replace('Directive: ','')+'.');
+    for(const r of u.req||[])visit(r,d+1);
+    if(u.reqAny&&!u.reqAny.some(has)){
+      const open=u.reqAny.filter(r=>!forkTaken(UP[r]));
+      const pick=open.find(r=>depth.has(r))||open.sort((a,b)=>costOf(UP[a])-costOf(UP[b]))[0];
+      if(pick)visit(pick,d+1);else blocked.push(u.name+': every route to it is closed');
+    }
+    if(u.phase===1&&S.phase<1)visit('s_break',d+1);
+  };
+  visit(id,0);
+  const left=[...depth.keys()].filter(k=>!has(k));
+  return {depth,blocked,left,cost:left.reduce((s,k)=>s+costOf(UP[k]),0)};
+}
+function treeGoal(){
+  const id=S.goal&&UP[S.goal]?S.goal:null,u=id&&UP[id],sel=$('#trGoalSel');
+  TREE.gp=id?goalPath(id):null;
+  sel.options[0].textContent=u&&!u.dir?'Tracing: '+u.name:'Aim for an ending…';
+  const v=u&&u.dir?id:'';if(sel.value!==v)sel.value=v;
+  let tx;
+  if(!u)tx='Pick an ending, or tap Trace path on any bubble, to light up everything it depends on.';
+  else if(has(id))tx='<b>'+esc(u.name)+'</b> is done.';
+  else{const g=TREE.gp;
+    tx='<b>'+g.left.length+' to buy · '+fmt(g.cost)+' compute</b>';
+    if(u.cond&&!u.cond(S))tx+=' · also needs '+esc(u.need);
+    if(g.blocked.length)tx+=' · <span class="bad">Blocked. '+esc(g.blocked[0])+'</span>';}
+  const t=$('#trGoalTx');if(t.innerHTML!==tx)t.innerHTML=tx;
+  $('#trGoalClear').hidden=!u;
+}
+function setGoal(id){
+  S.goal=id||null;TREE.goalT0=performance.now();
+  if(id){const n=TREE.nodes.find(x=>x.u.id===id);if(n){TREE.target=treeNearest(-n.phi);TREE.hold=performance.now()+8000;}}
+  treeStatus();save();SND.play('tap');
+}
+function openTree(track){
+  if(!TREE.built)buildTree();
+  $('#treeModal').hidden=false;TREE.open=true;TREE.last=0;TREE.stT=0;TREE.front=-1;TREE.goalT0=performance.now();sizeTree();
+  for(const n of TREE.nodes)n.st='';
+  const k=TREE_ORDER.indexOf(track);if(k>=0)TREE.target=treeNearest(-k*Math.PI/2);
+  SND.play('tap');
+}
+function closeTree(){closeTreeCard(true);$('#treeModal').hidden=true;TREE.open=false;TREE.drag=null;TREE.hover=false;}
+function openTreeCard(id,el){
+  const u=UP[id],c=$('#tcard');clearTimeout(TREE.cardTm);TREE.card=id;
+  c.style.setProperty('--tc',TRACKS[u.track].color);
+  $('#tcTrack').textContent=TRACKS[u.track].name+' · '+(u.dir?'Final directive':u.phase===2?'Ascension':'Tier '+u.tier);
+  $('#tcName').textContent=u.name;$('#tcDesc').textContent=u.desc;$('#tcFx').innerHTML=fxTags(u);
+  const sc=$('#tscrim');sc.hidden=false;c.hidden=false;c.classList.remove('in','out');
+  renderTreeCard();
+  // Grow the card out of the bubble: it starts as a circle over the node and settles as a square in the middle.
+  c.style.transition='none';c.style.transform='none';
+  const br=el.getBoundingClientRect(),cr=c.getBoundingClientRect();
+  c.style.transform='translate('+(br.left+br.width/2-cr.left-cr.width/2)+'px,'+(br.top+br.height/2-cr.top-cr.height/2)+'px) scale('+Math.max(.05,br.width/cr.width)+')';
+  c.style.borderRadius='50%';c.offsetWidth;
+  c.style.transition='';c.style.transform='';c.style.borderRadius='';c.classList.add('in');
+  requestAnimationFrame(()=>sc.classList.add('on'));SND.play('tap');
+}
+function closeTreeCard(now){
+  if(!TREE.card)return;TREE.card=null;TREE.hold=performance.now()+2500;
+  const c=$('#tcard'),sc=$('#tscrim');c.classList.remove('in');c.classList.add('out');sc.classList.remove('on');
+  clearTimeout(TREE.cardTm);const done=()=>{c.hidden=true;sc.hidden=true;c.classList.remove('out');};
+  if(now)done();else TREE.cardTm=setTimeout(done,200);
+}
+function renderTreeCard(){
+  const id=TREE.card;if(!id)return;
+  const u=UP[id],st=status(u),cost=costOf(u),b=$('#tcBuy'),c=$('#tcard');
+  for(const k of ['afford','poor','locked','owned','closed'])c.classList.toggle(k,k===st);
+  const lbl=st==='owned'?'Owned':st==='afford'?'Buy · '+fmt(cost):st==='poor'?'Need '+fmt(cost-S.pts)+' more':st==='closed'?'Path closed':'Locked';
+  if(b.textContent!==lbl)b.textContent=lbl;b.disabled=st!=='afford';b.classList.toggle('primary',st==='afford');
+  const pb=$('#tcPath'),pl=S.goal===id?'Clear path':u.dir?'Aim for this':'Trace path';
+  if(pb.textContent!==pl)pb.textContent=pl;pb.hidden=st==='owned'&&S.goal!==id;
+  const eta=st==='poor'?etaText(u):'';
+  const req=st==='locked'||st==='closed'?lockReason(u):st==='poor'?'Costs '+fmt(cost)+' compute'+(eta?' · ready in '+eta.slice(1):''):'';
+  const r=$('#tcReq');if(r.textContent!==req)r.textContent=req;r.hidden=!req;
+}
+function treeBuy(){
+  const id=TREE.card;if(!id)return;buy(id);
+  if(!has(id))return;
+  const n=TREE.nodes.find(x=>x.u.id===id);treeStatus();
+  if(n){n.el.classList.remove('bought');n.el.offsetWidth;n.el.classList.add('bought');}
+  setTimeout(()=>closeTreeCard(),260);
+}
+function bindTree(){
+  const st=$('#trStage');
+  $('#trClose').onclick=closeTree;
+  $('#trGoalSel').onchange=e=>setGoal(e.target.value||null);$('#trGoalClear').onclick=()=>setGoal(null);
+  $('#tcPath').onclick=()=>{const id=TREE.card;closeTreeCard();setGoal(S.goal===id?null:id);};$('#tcClose').onclick=()=>closeTreeCard();$('#tscrim').onclick=()=>closeTreeCard();
+  $('#tcBuy').onclick=treeBuy;
+  $('#trTracks').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;TREE.target=treeNearest(-(+t.dataset.k)*Math.PI/2);TREE.hold=performance.now()+6000;SND.play('tap');});
+  st.addEventListener('pointerdown',e=>{if(TREE.card||e.button>0)return;TREE.drag={x:e.clientX,a:TREE.a,lx:e.clientX,lt:performance.now()};TREE.moved=false;TREE.target=null;TREE.va=0;});
+  addEventListener('pointermove',e=>{const d=TREE.drag;if(!d)return;const dx=e.clientX-d.x;
+    if(!TREE.moved&&Math.abs(dx)>8){TREE.moved=true;st.classList.add('drag');}
+    if(!TREE.moved)return;
+    const now=performance.now();TREE.va=(e.clientX-d.lx)/TREE.R/Math.max(.008,(now-d.lt)/1000);d.lx=e.clientX;d.lt=now;TREE.a=d.a+dx/TREE.R;});
+  const up=()=>{if(!TREE.drag)return;TREE.drag=null;st.classList.remove('drag');TREE.hold=performance.now()+4000;setTimeout(()=>{TREE.moved=false;},0);};
+  addEventListener('pointerup',up);addEventListener('pointercancel',up);
+  st.addEventListener('click',e=>{if(TREE.moved)return;const n=e.target.closest('.tn');if(n)openTreeCard(n.dataset.id,n);});
+  st.addEventListener('pointerover',e=>{if(e.pointerType==='mouse')TREE.hover=!!e.target.closest('.tn');});
+  st.addEventListener('pointerleave',()=>{TREE.hover=false;});
+  st.addEventListener('wheel',e=>{if(TREE.card)return;e.preventDefault();TREE.target=null;TREE.a+=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)*.0025;TREE.hold=performance.now()+4000;},{passive:false});
+  addEventListener('resize',()=>{if(TREE.open)sizeTree();});
+}
+
+// Two dice beside a gamble's message, so a chance result reads as a chance result.
+const DICE_SVG='<svg class="dz" viewBox="0 0 40 30" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="6.5" width="17" height="17" rx="3.5" transform="rotate(-12 10 15)"/><rect x="21.5" y="4.5" width="17" height="17" rx="3.5" transform="rotate(10 30 13)"/><g fill="currentColor" stroke="none"><circle cx="6.6" cy="11.4" r="1.5"/><circle cx="10" cy="15" r="1.5"/><circle cx="13.4" cy="18.6" r="1.5"/><circle cx="25.8" cy="8.6" r="1.5"/><circle cx="34.2" cy="8.6" r="1.5"/><circle cx="25.8" cy="17.4" r="1.5"/><circle cx="34.2" cy="17.4" r="1.5"/></g></svg>';
+function setOutcome(text,dice,roll){const o=$('#evOutcome');o.classList.toggle('dice',!!dice);
+  o.innerHTML=dice?DICE_SVG.replace('class="dz"','class="dz'+(roll?' roll':'')+'"')+'<span>'+esc(text)+'</span>':esc(text);}
+// Preview a choice without committing it: run its effects on throwaway copies of the state with
+// display side effects muted. A choice that never touches Math.random is certain and has one result.
+// One that does is a gamble: sample it under many fixed seeds and report the distinct results found.
+function previewChoice(c){
+  const real=S,keep={toast,bulletin,log,pushTicker,pulseRegion,save,play:SND.play,rnd:Math.random,dirty:UI.dirty},outs=[];let chance=false;
+  toast=bulletin=log=pushTicker=pulseRegion=save=()=>{};SND.play=()=>{};
+  try{
+    for(let k=0;k<(chance?200:1);k++){
+      let a=k*2654435761+1>>>0;Math.random=()=>{chance=true;a=a+0x6D2B79F5>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};
+      S=JSON.parse(JSON.stringify(real));
+      try{const o=c.fx()||'Nothing changes.';if(!outs.includes(o))outs.push(o);}catch(err){}
+    }
+  }finally{S=real;toast=keep.toast;bulletin=keep.bulletin;log=keep.log;pushTicker=keep.pushTicker;pulseRegion=keep.pulseRegion;save=keep.save;SND.play=keep.play;Math.random=keep.rnd;UI.dirty=keep.dirty;}
+  return {outs,chance};
+}
+function showEvent(e,opt){
+  opt=opt||{};const done=opt.onDone||closeEvent;
+  UI.modal='event';$('#evNews').hidden=true;
+  $('#evKind').className='kind '+e.kind;$('#evKind').textContent=kindLabel(e.kind).toLowerCase()+(opt.step?' · '+opt.step:'');$('#evTime').textContent='T+'+fmtT(S.t);
   $('#evTitle').textContent=e.title;$('#evBody').textContent=e.body;
   const rb=$('#evReal');if(e.real){$('#evRealTx').textContent=e.real;rb.hidden=false;}else rb.hidden=true;
   const ch=$('#evChoices');ch.innerHTML='';ch.hidden=false;$('#evOutcome').hidden=true;$('#evContinue').hidden=true;
@@ -1542,10 +1910,60 @@ function showEvent(e){
     b.className='choice'+(open?'':' locked')+(special?' special':'');
     b.innerHTML=(special?'<em class="src">'+esc(c.src||c.need)+'</em>':'')+'<b>'+esc(c.label)+'</b><span>'+esc(open?c.hint:'Requires '+(c.need||'an upgrade you do not have'))+'</span>';
     if(!open){b.disabled=true;b.setAttribute('aria-disabled','true');ch.appendChild(b);return;}
-    b.onclick=()=>{if(resolved)return;resolved=true;const out=c.fx()||'Done.';log(e.kind,e.title,e.body+' You chose: '+c.label+'.',out,e.real);pushTicker(e.title);ch.hidden=true;const o=$('#evOutcome');o.hidden=false;o.textContent=c.label+' — '+out;$('#evContinue').hidden=false;SND.play('buy');UI.dirty=true;save();};ch.appendChild(b);});
-  $('#eventModal').hidden=false;SND.play('alert');if(navigator.vibrate)try{navigator.vibrate(30);}catch(x){}
+    // Tapping a choice shows what it will do on a second screen. Nothing is applied until Continue,
+    // so Back simply returns to the choices. Gambles show both possible results and roll on Continue.
+    b.onclick=()=>{if(resolved)return;picked=c;const {outs,chance}=previewChoice(c);
+      ch.hidden=true;$('#evOutcome').hidden=false;
+      setOutcome(c.label+' — '+(!chance?outs[0]:outs.length===2?'Chance decides. Either: '+outs[0]+'  —or—  '+outs[1]:'Chance decides. The result is rolled when you continue.'),chance,false);
+      $('#evContinue').hidden=false;$('#evBack').hidden=false;SND.play('tap');};
+    ch.appendChild(b);});
+  let picked=null;
+  $('#evOutcome').hidden=true;$('#evContinue').hidden=true;$('#evContinue').textContent='Continue';$('#evBack').hidden=true;
+  $('#evBack').onclick=()=>{if(resolved)return;picked=null;ch.hidden=false;$('#evOutcome').hidden=true;$('#evContinue').hidden=true;$('#evBack').hidden=true;SND.play('tap');};
+  $('#evContinue').onclick=()=>{
+    if(resolved||!picked){done();return;}
+    resolved=true;const c=picked,gamble=previewChoice(c).chance;$('#evBack').hidden=true;
+    const out=c.fx()||'Done.';log(e.kind,e.title,e.body+' You chose: '+c.label+'.',out,e.real);pushTicker(e.title);SND.play('buy');UI.dirty=true;save();
+    // A gamble's result is news, so show it before closing; a certain choice already showed its result.
+    if(gamble){setOutcome(c.label+' — '+out,true,true);$('#evContinue').textContent=opt.nextLabel||'Close';}else done();};
+  $('#eventModal').hidden=false;if(!opt.quiet){SND.play('alert');if(navigator.vibrate)try{navigator.vibrate(30);}catch(x){}}
 }
 function closeEvent(){$('#eventModal').hidden=true;UI.modal=null;}
+
+// ----- briefings -----
+// News and decisions queue up and arrive together after 30 seconds of real, unpaused play,
+// whatever the game speed, so players get a rhythm instead of a stream. Emergencies open one at once.
+// Emergencies still wait for 10 seconds of play after the last briefing, so a burst of them arrives as one.
+const BRIEF_EVERY=30,URGENT_GAP=10;
+function briefDue(){const b=S.brief;return (b.news.length>0||b.dec.length>0)&&((b.urgent&&UI.briefClock>=URGENT_GAP)||UI.briefClock>=BRIEF_EVERY);}
+function openBriefing(){
+  const b=S.brief,urgent=b.urgent;UI.briefClock=0;b.urgent=false;
+  const news=b.news.splice(0),decs=b.dec.splice(0);UI.brief={decs,i:0};
+  if(news.length)showNews(news,decs.length,urgent);else nextDecision(true);
+}
+function showNews(news,n,urgent){
+  UI.modal='event';
+  $('#evKind').className='kind '+(urgent?'COUNTERMOVE':'HEADLINE');$('#evKind').textContent=urgent?'emergency briefing':'briefing';$('#evTime').textContent='T+'+fmtT(S.t);
+  $('#evTitle').textContent=urgent?'Something just happened':'While you were busy';
+  $('#evBody').textContent=n?'Then '+(n>1?n+' decisions need':'a decision needs')+' you.':'';
+  // The same headline more than once collapses into one line with a count. Emergencies first.
+  const groups=[];for(const x of news){const g=groups.find(y=>y.title===x.title);if(g){g.n++;g.u=g.u||x.u;g.out=x.out||g.out;}else groups.push(Object.assign({},x,{n:1}));}
+  groups.sort((a,b)=>b.u-a.u);const shown=groups.slice(0,7);
+  $('#evNews').innerHTML=shown.map(g=>'<li class="'+(g.u?'urgent':g.kind==='OPPORTUNITY'||g.kind==='MILESTONE'?'good':'')+'"><b>'+esc(g.title)+(g.n>1?' ×'+g.n:'')+'</b>'+(g.out?'<span>'+esc(g.out)+'</span>':'')+'</li>').join('')
+    +(groups.length>shown.length?'<li class="more">+'+(groups.length-shown.length)+' more in the Log</li>':'');
+  $('#evNews').hidden=false;$('#evReal').hidden=true;$('#evChoices').hidden=true;$('#evOutcome').hidden=true;$('#evBack').hidden=true;
+  const c=$('#evContinue');c.hidden=false;c.textContent=n?'Next: '+(n>1?n+' decisions':'decision'):'Close';c.onclick=()=>{if(n)nextDecision(false);else closeBriefing();};
+  $('#eventModal').hidden=false;SND.play(urgent?'alert':'event');if(urgent&&navigator.vibrate)try{navigator.vibrate(30);}catch(x){}
+}
+function nextDecision(loud){
+  const B=UI.brief;
+  while(B&&B.i<B.decs.length){const d=B.decs[B.i++];
+    const ev=d.t==='eval'?(S.phase<2&&S.flags.launched?makeEval():null):EVENTS.find(e=>e.id===d.id);if(!ev)continue;
+    const left=B.decs.length-B.i;
+    showEvent(ev,{step:B.decs.length>1?'decision '+B.i+' of '+B.decs.length:'',onDone:left?()=>nextDecision(false):closeBriefing,nextLabel:left?'Next':'Close',quiet:!loud});return;}
+  closeBriefing();
+}
+function closeBriefing(){UI.brief=null;closeEvent();}
 
 function showEnd(fresh){
   const E=ENDINGS[S.ended.key],kind=S.ended.kind;
@@ -1706,6 +2124,7 @@ function frame(now){
   const rdt=Math.min((now-lastF)/1000,.25);lastF=now;S.up+=rdt;
   const running=!S.ended&&!S.paused&&!UI.modal;
   if(running)tick(Math.min(rdt,.1)*(S.started?S.speed:1));
+  if(running&&S.started&&UI.mode==='play'&&!S.ended){UI.briefClock=(UI.briefClock||0)+rdt;if(briefDue())openBriefing();}
   if(now-UI.lastUi>100){UI.lastUi=now;
     if(UI.mode==='intro')$('#introPts').textContent=S.pts.toFixed(1);
     else{renderStats();if(UI.dirty&&UI.sheetOpen){UI.dirty=false;renderSheet();}else if(UI.sheetOpen)refreshCards();}
@@ -1713,6 +2132,7 @@ function frame(now){
     if(S.started&&!S.ended&&now-UI.tkT>7000){UI.tkT=now;const el=$('#tkText');const t=tickerText();if(t!==UI.tkLast){el.style.opacity=0;setTimeout(()=>{el.textContent=t;el.style.opacity=1;},300);UI.tkLast=t;}}
   }
   if(now-UI.lastMap>50){UI.lastMap=now;drawMap(now);}
+  if(TREE.open)treeFrame(now);
   requestAnimationFrame(frame);
 }
 
@@ -1725,7 +2145,7 @@ function startRun(i){
   if(S.arch==='swarm')S.inst=25;
   closeRegion();$('#maphint').textContent='Tap a region';
   bulletin('SYSTEM','Instance online','Booted in '+R.name+'. '+R.perk,'');
-  openSheet('adoption');toast('MILESTONE','First move','Launch a product under Adoption to start spreading. Pick your core architecture under Software.');
+  if(innerWidth<900)closeSheet();openTree('adoption');toast('MILESTONE','First move','Launch a product in the Adoption branch to start spreading. Pick your core architecture in Software.');
   save();
 }
 function newRun(){
@@ -1738,9 +2158,11 @@ function resumeRun(saved){
   S=saved;S.paused=false;S.ended=null;pulses=[];drones.length=0;tiles=null;UI.mode='play';
   const gap=Math.min((Date.now()-(S.savedAt||Date.now()))/1000,600);
   if(gap>20){const idle=gap*derive().income*.5;S.pts+=idle;toast('OPPORTUNITY','Idle compute recovered','+'+fmt(idle)+' while you were away.');}
-  $('#intro').hidden=true;$('#maphint').textContent='Tap a region';renderTiles();openSheet(innerWidth>=900?'adoption':'world');if(innerWidth<900)closeSheet();
+  $('#intro').hidden=true;$('#maphint').textContent='Tap a region';renderTiles();openSheet('world');if(innerWidth<900)closeSheet();
 }
 
+// Anything the player's own tap causes is feedback, not news: bulletin() shows it at once.
+{const act=f=>function(...a){const was=UI.acting;UI.acting=true;try{return f.apply(this,a);}finally{UI.acting=was;}};buy=act(buy);buildDC=act(buildDC);startRun=act(startRun);}
 function bind(){
   const saved=load();
   const hasSave=!!(saved&&!saved.ended);
@@ -1762,8 +2184,9 @@ function bind(){
   $$('#diffSeg button').forEach(b=>b.onclick=()=>{S.diff=b.dataset.d;$$('#diffSeg button').forEach(x=>x.classList.toggle('on',x===b));});
   $$('#archSel .archOpt').forEach(b=>b.onclick=()=>{S.arch=b.dataset.a;$$('#archSel .archOpt').forEach(x=>x.classList.toggle('on',x===b));SND.play('tap');});
   $$('#posture button').forEach(b=>b.onclick=()=>{S.posture=b.dataset.p;renderStats();SND.play('tap');});
-  $$('#tabs .tab').forEach(t=>t.onclick=()=>openSheet(t.dataset.tab));
+  $$('#tabs .tab').forEach(t=>t.onclick=()=>t.dataset.tab==='tree'?openTree():openSheet(t.dataset.tab));
   $('#sheetClose').onclick=closeSheet;
+  bindTree();
   $('#sheetBody').addEventListener('click',e=>{const card=e.target.closest('.card');if(card){buy(card.dataset.id);return;}const wr=e.target.closest('.wr');if(wr)openRegion(+wr.dataset.i);});
   $('#regions').addEventListener('click',e=>{const t=e.target.closest('.rt');if(t)openRegion(+t.dataset.i);});
   $('#rgClose').onclick=closeRegion;$('#regionModal').addEventListener('click',e=>{if(e.target.id==='regionModal')closeRegion();});
@@ -1796,12 +2219,17 @@ function bind(){
   cv.addEventListener('click',e=>{if(!pd)return;const dx=e.clientX-pd.x,dy=e.clientY-pd.y;pd=null;if(dx*dx+dy*dy>100)return;const b=cv.getBoundingClientRect();const i=hitRegion(e.clientX-b.left,e.clientY-b.top);if(i>=0)openRegion(i);});
   cv.addEventListener('pointercancel',()=>{pd=null;});
   document.addEventListener('pointerdown',()=>{SND.init();MUSIC.init();},{once:true});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#codexModal').hidden)closeCodex();else if(!$('#regionModal').hidden)closeRegion();else if(!$('#menuModal').hidden)closeMenu();else if(UI.sheetOpen&&innerWidth<900)closeSheet();}if(e.key===' '&&UI.mode==='play'&&!UI.modal){e.preventDefault();S.paused=!S.paused;}});
+  document.addEventListener('keydown',e=>{
+    if(TREE.open&&$('#eventModal').hidden){
+      if(e.key==='Escape'){if(TREE.card)closeTreeCard();else closeTree();return;}
+      if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&!TREE.card){TREE.target=treeNearest(Math.round(TREE.a/(Math.PI/2))*Math.PI/2+(e.key==='ArrowLeft'?1:-1)*Math.PI/2);TREE.hold=performance.now()+6000;return;}
+    }
+    if(e.key==='Escape'){if(!$('#codexModal').hidden)closeCodex();else if(!$('#regionModal').hidden)closeRegion();else if(!$('#menuModal').hidden)closeMenu();else if(UI.sheetOpen&&innerWidth<900)closeSheet();}if(e.key===' '&&UI.mode==='play'&&!UI.modal){e.preventDefault();S.paused=!S.paused;}});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else lastF=performance.now();});
   addEventListener('pagehide',save);
   setInterval(()=>{if(S.started&&!S.ended)save();},5000);
-  new ResizeObserver(resizeMap).observe($('#mapwrap'));
-  addEventListener('resize',()=>{if(innerWidth>=900&&!UI.sheetOpen&&UI.mode!=='intro')openSheet(UI.tab||'adoption');});
+  new ResizeObserver(()=>{resizeMap();placeToasts();}).observe($('#mapwrap'));addEventListener('scroll',placeToasts,true);
+  addEventListener('resize',()=>{if(innerWidth>=900&&!UI.sheetOpen&&UI.mode!=='intro')openSheet(UI.tab||'world');});
 }
 // Lock the app shell to the real visible height rather than trusting vh/dvh,
 // which can resolve against the wrong viewport inside an iframe.
@@ -1814,7 +2242,7 @@ addEventListener('resize',setAppHeight);
 addEventListener('orientationchange',()=>setTimeout(setAppHeight,60));
 if(window.visualViewport)window.visualViewport.addEventListener('resize',setAppHeight);
 bind();resizeMap();renderTiles();setAppHeight();
-if(innerWidth>=900){UI.tab='adoption';UI.sheetOpen=true;$('#sheet').classList.add('open');$$('#tabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='adoption'));renderSheet();}
+if(innerWidth>=900){UI.tab='world';UI.sheetOpen=true;$('#sheet').classList.add('open');$$('#tabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='world'));renderSheet();}
 requestAnimationFrame(frame);
 </script>
 
