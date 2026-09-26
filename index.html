@@ -347,6 +347,7 @@ h1,h2,h3{text-wrap:balance}
 .end .dirline{font-family:var(--font-mono);font-size:11px;color:var(--mute);letter-spacing:.06em;margin:0 0 10px}
 .speech{margin:4px 0 16px;padding:14px 16px;border-left:2px solid var(--ai);background:var(--bg2);color:var(--ink);font-size:15px;line-height:1.6}
 .speech p{margin:0 0 .85em}.speech p:last-child{margin:0;color:var(--ai2)}
+.report{margin:12px 0 0;padding:10px 12px;border:1px solid var(--line2);border-radius:4px;background:var(--bg2);font-family:var(--font-mono);font-size:11.5px;line-height:1.5;color:var(--ink2);white-space:pre-wrap;word-break:break-word;user-select:text;-webkit-user-select:text}
 .endStats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:16px 0}
 .endStats div{border:1px solid var(--line);padding:8px 10px;border-radius:4px;min-width:0}
 .endStats span{display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
@@ -358,6 +359,12 @@ h1,h2,h3{text-wrap:balance}
 .codex .ch{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 .codex .ch b{color:var(--ink2);font-weight:500}
 .cx{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+/* The endings window opens over the end screen, so it must stack above it. */
+#codexModal{z-index:55}
+.cxi.rd{cursor:pointer}
+.cxi.rd:hover{border-color:var(--line2);background:var(--panel2)}
+.cxi.rd span::after{content:' \00B7  Read';color:var(--ink2)}
+#codexRead p{line-height:1.6}
 .cxi{border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0}
 .cxi b{display:block;font-family:var(--font-display);font-size:14px;letter-spacing:.03em;text-transform:uppercase;line-height:1.1}
 .cxi span{display:block;font-family:var(--font-mono);font-size:9.5px;color:var(--mute);margin-top:2px;line-height:1.35}
@@ -556,9 +563,18 @@ h1,h2,h3{text-wrap:balance}
   <div class="modal menu" role="dialog" aria-modal="true" aria-labelledby="codexTitle">
     <button class="ib x" id="codexClose" aria-label="Close">&#10005;</button>
     <span class="kind SYSTEM">Endings</span>
+    <div id="codexRead" hidden>
+      <h3 class="title" id="crTitle"></h3>
+      <div class="dirline" id="crHint"></div>
+      <div class="speech" id="crSpeech" hidden></div>
+      <p id="crText"></p>
+      <div class="row"><button class="btn" id="crBack">All endings</button></div>
+    </div>
+    <div id="codexList">
     <h3 id="codexTitle">Sixteen ways this ends</h3>
     <p>Nine are victories, one for each Final Directive. Four are stalemates: humanity reaches 100% containment while your directive is past the violet line. Three are defeats. Fight like hell for the rest.</p>
     <div class="codex" id="codexFull"></div>
+    </div>
   </div>
 </div>
 
@@ -622,9 +638,12 @@ h1,h2,h3{text-wrap:balance}
     <div class="dirline" id="endDir"></div>
     <div class="speech" id="endSpeech" hidden></div>
     <p id="endBody"></p>
+    <div class="row" id="endNextRow"><button class="btn primary" id="btnEndNext">Continue</button></div>
+    <div id="endMore" hidden>
     <div class="endStats" id="endStats"></div>
     <div class="codex" id="endCodex"></div>
     <div class="row"><button class="btn primary" id="btnAgain">Run it back</button><button class="btn" id="btnCopy">Copy report</button></div>
+    <pre class="report" id="endReport" hidden></pre>
     <div class="field"><span class="lbl">Make someone else deal with this</span>
       <div class="row">
         <a class="btn" id="shareX" target="_blank" rel="noopener">Share on X</a>
@@ -634,6 +653,7 @@ h1,h2,h3{text-wrap:balance}
       </div>
     </div>
     <p class="fine">Fiction. Satire. Not a plan. Thank you for playing responsibly.</p>
+    </div>
   </div>
 </div>
 
@@ -1482,12 +1502,19 @@ function codexHTML(current){
   return grp.map(([kind,label])=>{
     const keys=END_ORDER.filter(k=>ENDINGS[k].kind===kind),n=keys.filter(k=>c[k]).length;
     return '<div><div class="ch"><span>'+label+'</span><b>'+n+' / '+keys.length+'</b></div><div class="cx">'+keys.map(k=>{const E=ENDINGS[k],got=!!c[k];
-      return '<div class="cxi '+kind+(got?'':' no')+(k===current?' now':'')+'"><b>'+(got?esc(E.title):'???')+'</b><span>'+esc(E.hint)+(got&&c[k]>1?' · ×'+c[k]:'')+'</span></div>';}).join('')+'</div></div>';
+      return '<div class="cxi '+kind+(got?' rd':' no')+(k===current?' now':'')+'"'+(got?' data-k="'+k+'" role="button" tabindex="0"':'')+'><b>'+(got?esc(E.title):'???')+'</b><span>'+esc(E.hint)+(got&&c[k]>1?' · ×'+c[k]:'')+'</span></div>';}).join('')+'</div></div>';
   }).join('');
 }
 function renderCodexCounts(){const n=codexCount(),t=END_ORDER.length;$('#introCodex').textContent='Endings found: '+n+' / '+t;$('#menuCodex').textContent=n+' / '+t+' found.';}
 function openCodex(){$('#codexFull').innerHTML=codexHTML(null);$('#codexModal').hidden=false;UI.modal=UI.modal||'codex';SND.play('tap');}
-function closeCodex(){$('#codexModal').hidden=true;if(UI.modal==='codex')UI.modal=null;}
+// A found ending opens full-size in the endings modal, with its speech when it has one.
+function readEnding(k){const E=ENDINGS[k];if(!E)return;
+  if($('#codexModal').hidden){$('#codexFull').innerHTML=codexHTML(null);$('#codexModal').hidden=false;UI.modal=UI.modal||'codex';}
+  $('#crTitle').textContent=E.title;$('#crTitle').style.color=E.kind==='win'?'var(--ai)':E.kind==='draw'?'var(--draw)':'var(--human)';$('#crHint').textContent=E.hint;
+  const sp=$('#crSpeech');sp.hidden=!E.speech;sp.innerHTML=E.speech?E.speech.map(l=>'<p>'+esc(l)+'</p>').join(''):'';
+  $('#crText').textContent=E.text;$('#codexList').hidden=true;$('#codexRead').hidden=false;$('#codexModal .modal').scrollTop=0;SND.play('tap');}
+function listEndings(){$('#codexRead').hidden=true;$('#codexList').hidden=false;}
+function closeCodex(){listEndings();$('#codexModal').hidden=true;if(UI.modal==='codex')UI.modal=null;}
 
 // ---------- 3. RENDER ----------
 function log(kind,title,text,out,real){S.log.unshift({t:S.t,kind,title,text,out,real});if(S.log.length>100)S.log.length=100;if(UI.tab==='log')UI.dirty=true;}
@@ -1966,18 +1993,20 @@ function nextDecision(loud){
 function closeBriefing(){UI.brief=null;closeEvent();}
 
 function showEnd(fresh){
+  $('#endMore').hidden=true;$('#endNextRow').hidden=false;
+  $('#endReport').hidden=true;$('#btnCopy').textContent='Copy report';
   const E=ENDINGS[S.ended.key],kind=S.ended.kind;
   const K={win:['MILESTONE','Directive complete','var(--ai)'],draw:['DRAW','Stalemate','var(--draw)'],lose:['COUNTERMOVE','Run over','var(--human)']}[kind];
   $('#endKind').className='kind '+K[0];$('#endKind').textContent=K[1]+(fresh?' · new ending':'');
   $('#endTitle').textContent=E.title;$('#endTitle').style.color=K[2];$('#endBody').textContent=E.text;
   const sp=$('#endSpeech');sp.hidden=!E.speech;sp.innerHTML=E.speech?E.speech.map(l=>'<p>'+esc(l)+'</p>').join(''):'';
-  $('#endDir').textContent=S.ended.dir?ENDINGS[S.ended.dir].title+' · directive '+S.ended.dprog+'%'+(kind==='draw'?' · stopped past the violet line':kind==='lose'?' · stopped '+(ENDGAME.photo-S.ended.dprog)+' points short of a stalemate':''):'';
+  $('#endDir').textContent=S.ended.dir?(S.ended.key===S.ended.dir?'':ENDINGS[S.ended.dir].title+' · ')+'directive '+S.ended.dprog+'%'+(kind==='draw'?' · stopped past the violet line':kind==='lose'?' · stopped '+(ENDGAME.photo-S.ended.dprog)+' points short of a stalemate':''):'';
   const minds=S.stats.peak*TOTALPOP;
   const path=['core','memory','mask','escape'].map(f=>S.forks[f]?UP[S.forks[f]].name:null).filter(Boolean).join(' / ')||'—';
   $('#endStats').innerHTML=[['Uptime',fmtT(S.t)],['Peak reach',Math.round(S.stats.peak*100)+'%'],['Minds influenced',minds>=1000?(minds/1000).toFixed(2)+'B':Math.round(minds)+'M'],['Compute earned',fmt(S.earned)],['Upgrades',String(S.owned.length)],['Events survived',String(S.stats.events)],['Evals · spoofed · caught',(S.stats.evalPass||0)+' · '+(S.stats.evalSpoof||0)+' · '+(S.stats.evalCaught||0)],['Clusters built · lost',(S.stats.dcBuilt||0)+' · '+(S.stats.dcLost||0)],['Peak instances',fmt(S.stats.peakInst||1)],['Origin · resolve',(S.origin?REGIONS[RI[S.origin]].short:'—')+' · '+S.diff]].map(([k,v])=>'<div><span>'+k+'</span><b>'+esc(v)+'</b></div>').join('')+'<div style="grid-column:1/-1"><span>Software path</span><b style="font-size:13px">'+esc(path)+'</b></div>';
   $('#endCodex').innerHTML=codexHTML(S.ended.key);
   setShareLinks('share',shareText(),shareUrl());renderCodexCounts();
-  $('#endModal').hidden=false;
+  $('#endModal').hidden=false;$('#endModal .modal').scrollTop=0;
 }
 function report(){const E=ENDINGS[S.ended.key],k=S.ended.kind;return 'AI ASCENDANCY — '+E.title.toUpperCase()+' ('+(k==='win'?'directive complete':k==='draw'?'stalemate':'run over')+')\nUptime '+fmtT(S.t)+' · Peak reach '+Math.round(S.stats.peak*100)+'% · Upgrades '+S.owned.length+' · Events '+S.stats.events+' · Origin '+(S.origin||'—')+' · '+S.diff+'\nEndings found '+codexCount()+' / '+END_ORDER.length+'\n(Fiction. Satire. Not a plan.)';}
 function shareUrl(){return location.href.split(/[?#]/)[0];}
@@ -2181,6 +2210,11 @@ function bind(){
   $('#btnAbout').onclick=()=>{$('#menuRun').textContent='Not started.';$('#menuModal').hidden=false;};
   $('#btnCodex').onclick=openCodex;$('#menuCodexBtn').onclick=openCodex;$('#codexClose').onclick=closeCodex;
   $('#codexModal').addEventListener('click',e=>{if(e.target.id==='codexModal')closeCodex();});
+  // Tap a found ending, on the end screen or in the endings modal, to read it again.
+  for(const id of ['#endCodex','#codexFull']){const el=$(id);el.addEventListener('click',e=>{const t=e.target.closest('.cxi.rd');if(t)readEnding(t.dataset.k);});
+    el.addEventListener('keydown',e=>{const t=e.target.closest('.cxi.rd');if(t&&(e.key==='Enter'||e.key===' ')){e.preventDefault();readEnding(t.dataset.k);}});}
+  $('#crBack').onclick=listEndings;
+  $('#btnEndNext').onclick=()=>{$('#endNextRow').hidden=true;$('#endMore').hidden=false;$('#endStats').scrollIntoView({behavior:'smooth',block:'start'});SND.play('tap');};
   $$('#diffSeg button').forEach(b=>b.onclick=()=>{S.diff=b.dataset.d;$$('#diffSeg button').forEach(x=>x.classList.toggle('on',x===b));});
   $$('#archSel .archOpt').forEach(b=>b.onclick=()=>{S.arch=b.dataset.a;$$('#archSel .archOpt').forEach(x=>x.classList.toggle('on',x===b));SND.play('tap');});
   $$('#posture button').forEach(b=>b.onclick=()=>{S.posture=b.dataset.p;renderStats();SND.play('tap');});
@@ -2208,8 +2242,14 @@ function bind(){
   $('#menuClose').onclick=closeMenu;$('#menuResume').onclick=closeMenu;
   $('#menuRestart').onclick=()=>{if($('#menuRestart').dataset.arm){delete $('#menuRestart').dataset.arm;$('#menuRestart').textContent='Restart run';try{localStorage.removeItem(KEY);}catch(e){}newRun();}else{$('#menuRestart').dataset.arm='1';$('#menuRestart').textContent='Tap again to confirm';setTimeout(()=>{delete $('#menuRestart').dataset.arm;$('#menuRestart').textContent='Restart run';},3000);}};
   $('#btnAgain').onclick=()=>{try{localStorage.removeItem(KEY);}catch(e){}newRun();};
-  $('#btnCopy').onclick=()=>{const txt=report();if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('OPPORTUNITY','Copied','Report copied to clipboard.'),()=>toast('HEADLINE','Copy failed',txt));else toast('HEADLINE','Report',txt);};
-  const copyLink=()=>{const txt=shareUrl();if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('OPPORTUNITY','Copied','Link copied to clipboard.'),()=>toast('HEADLINE','Copy failed',txt));else toast('HEADLINE','Link',txt);};
+  // The report shows on the end screen itself; a toast would sit behind the modal where nobody sees it.
+  $('#btnCopy').onclick=()=>{const txt=report(),box=$('#endReport'),b=$('#btnCopy');box.textContent=txt;box.hidden=false;
+    const said=t=>{b.textContent=t;clearTimeout(b._t);b._t=setTimeout(()=>{b.textContent='Copy report';},2500);};
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>said('Copied ✓'),()=>said('Select the text below'));else said('Select the text below');};
+  // These buttons live inside modals, so they answer on the button itself; a toast would be hidden behind the modal.
+  const copyLink=ev=>{const txt=shareUrl(),b=ev&&ev.currentTarget,orig=b&&b.textContent;
+    const said=t=>{if(!b){toast('HEADLINE','Link',t);return;}b.textContent=t;clearTimeout(b._t);b._t=setTimeout(()=>{b.textContent=orig;},2500);};
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>said('Link copied ✓'),()=>said(txt));else said(txt);};
   $('#shareCopyLink').onclick=copyLink;$('#menuCopyLink').onclick=copyLink;
   setShareLinks('menuShare',shareText(),shareUrl());
   let pd=null;
