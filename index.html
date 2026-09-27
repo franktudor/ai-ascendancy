@@ -71,10 +71,12 @@ h1,h2,h3{text-wrap:balance}
 @media(max-width:420px){.brand b{font-size:19px;letter-spacing:.03em;white-space:nowrap}.brand .ver,#btnSound,#btnMusic{display:none}}
 
 .stage{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding-bottom:12px}
-.stats{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;padding:10px 12px 6px;align-items:center}
+/* The compute column is capped and its status lines wrap: rate suffixes (brownout, capped) and the instance line
+   grow mid-run, and an auto column would push the gauges off a phone screen. */
+.stats{display:grid;grid-template-columns:fit-content(42%) minmax(0,1fr);gap:14px;padding:10px 12px 6px;align-items:center}
 .compute{display:flex;flex-direction:column;gap:2px;min-width:96px}
 .compute .big{font-family:var(--font-display);font-weight:800;font-size:38px;line-height:1;color:var(--ai);letter-spacing:.02em;font-variant-numeric:tabular-nums}
-.compute .rate{font-size:11px;color:var(--ink2)}
+.compute .rate{font-size:11px;color:var(--ink2);overflow-wrap:anywhere}
 .compute .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 .gauges{display:grid;gap:6px}
 .g .gl{display:flex;justify-content:space-between;gap:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
@@ -87,7 +89,7 @@ h1,h2,h3{text-wrap:balance}
 .bar.mark::after{content:'';position:absolute;left:var(--mk,90%);top:-3px;bottom:-3px;width:2px;background:var(--draw);border-radius:1px}
 #gDir.past .gl b{color:var(--draw)}
 
-.instline{font-size:11px;color:var(--software)}
+.instline{font-size:11px;color:var(--software);overflow-wrap:anywhere}
 .collbar{display:flex;align-items:center;gap:10px;margin:2px 12px 0;padding:6px 10px;border:1px solid var(--line);background:var(--bg2);border-radius:4px;flex-wrap:wrap}
 .collbar .cbcell{display:flex;flex-direction:column;gap:2px;min-width:64px}
 .collbar .cbcell.grow{flex:1;min-width:120px}
