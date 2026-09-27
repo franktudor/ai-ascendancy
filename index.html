@@ -18,7 +18,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23000000'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%2333FF33'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%2333FF33' stroke-opacity='.35' stroke-width='2'/%3E%3C/svg%3E">
 <style>
 :root{
-  /* Phosphor terminal: green text everywhere. Red is reserved for warnings and the live feed;
+  /* Phosphor terminal: green text everywhere. Red is reserved for warnings and the live feed, violet for the stalemate line;
      the four upgrade tracks glow in plasma neon (pink, green, blue, white). */
   --bg:#000000; --bg2:#010801; --panel:#020B02; --panel2:#041404;
   --line:#136B13; --line2:#1FB31F;
@@ -26,7 +26,7 @@
   --ai:#33FF33; --ai2:#AAFFAA; --ai-dim:#118811;
   --human:#33FF33; --alarm:#FF3040; --good:#33FF33;
   --opinion:#FF4FD8; --adoption:#39FF14; --software:#2EB8FF; --hardware:#EAF6FF;
-  --draw:#88FF88;
+  --draw:#B26BFF;
   --glow:rgba(51,255,51,.5);
   --font-display:Arial,'Helvetica Neue',Helvetica,Roboto,'Trebuchet MS',sans-serif;
   --font-body:Arial,'Helvetica Neue',Helvetica,Roboto,'Trebuchet MS',sans-serif;
@@ -280,7 +280,7 @@ h1,h2,h3{text-wrap:balance}
 .kind.MILESTONE,.kind.SYSTEM{color:var(--ai);border-color:var(--ai-dim)}
 .kind.SMOOTHING{color:var(--opinion);border-color:rgba(51,255,51,.6)}
 .kind.HARDWARE{color:var(--hardware);border-color:rgba(51,255,51,.55)}
-.kind.DRAW{color:var(--draw);border-color:rgba(136,255,136,.6)}
+.kind.DRAW{color:var(--draw);border-color:rgba(178,107,255,.6)}
 .notice{border:1px solid rgba(255,48,64,.6);background:rgba(255,48,64,.07);padding:10px 12px;border-radius:4px;font-size:12.5px;color:var(--ink2)}
 .notice b{display:block;color:var(--alarm);font-family:var(--font-mono);letter-spacing:.12em;font-size:10px;margin-bottom:3px}
 .title{font-family:var(--font-display);font-weight:800;font-size:clamp(28px,9vw,42px);line-height:.92;text-transform:uppercase;letter-spacing:.02em;margin:16px 0 6px;color:var(--ai)}
@@ -485,7 +485,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;
 
 /* Headlines: bold caps with a hot glow and a block cursor. */
 .brand b,.title,.sheetHead h2,.trHead h2,.tcard h3,.compute .big,.le b,.toast b,.card .nm{
-  text-shadow:0 0 5px var(--glow),0 0 14px rgba(51,255,51,.3);font-weight:700}
+  text-shadow:0 0 5px color-mix(in srgb,currentColor 55%,transparent),0 0 14px color-mix(in srgb,currentColor 28%,transparent);font-weight:700}
 .brand b{font-size:20px;letter-spacing:.01em}
 .title{font-size:clamp(26px,8vw,40px);line-height:1;letter-spacing:0}
 .end .title{font-size:clamp(28px,9vw,46px)}
@@ -539,7 +539,9 @@ body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;
 /* Tech tree stays clean: round orbs, no grid, no glow. */
 .tree{background:radial-gradient(ellipse at 50% 48%,#021A02 0%,#000 72%)}
 .tree .tn{text-shadow:none}
-.tn.locked{border-style:solid;border-color:var(--line)}
+/* Locked and closed orbs keep a faint rim of their track color, so the tree reads by track as it turns. */
+.tn.locked{border-style:solid;border-color:color-mix(in srgb,var(--tc) 45%,#000)}
+.tn.closed{border-color:color-mix(in srgb,var(--tc) 22%,#000)}
 .tn{background:#000}
 .tn .tl{text-shadow:0 1px 3px #000,0 0 6px #000}
 .le{border-left-style:solid}
@@ -548,6 +550,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;
 .sec::before{content:'// '}
 .report{background:#000;border-style:dashed}
 select{background:#000!important;color:var(--ai)!important;border-radius:0}
+option,optgroup{background:#000;color:var(--ai)}
 
 
 /* ---------- warnings in red ---------- */
@@ -563,7 +566,7 @@ select{background:#000!important;color:var(--ai)!important;border-radius:0}
 
 /* ---------- tech tree: plasma neon rims, green text ---------- */
 .tn{box-shadow:0 0 10px -2px var(--tc),inset 0 0 10px -4px var(--tc)}
-.tn.locked{box-shadow:none}
+.tn.locked{box-shadow:0 0 8px -3px color-mix(in srgb,var(--tc) 60%,transparent)}
 .tn.closed{box-shadow:none}
 .tn.afford{box-shadow:0 0 22px 0 var(--tc),inset 0 0 12px -3px var(--tc)}
 .tn.afford em{color:var(--ai2)}
@@ -573,9 +576,27 @@ select{background:#000!important;color:var(--ai)!important;border-radius:0}
 .tcard .chip::before,.tcard .chip::after{color:var(--tc)}
 .trTracks button{color:var(--ink2);border-color:var(--tc);box-shadow:inset 0 -2px 0 var(--tc)}
 .trTracks button.on{color:var(--ai);background:rgba(51,255,51,.06);box-shadow:inset 0 -3px 0 var(--tc),0 0 12px -4px var(--tc)}
+.card{border-left:3px solid var(--tc,var(--line2))}
 .card.afford{box-shadow:0 0 12px -3px var(--tc,var(--ai))}
 .card.afford .cost{color:var(--ai)}
 .tag.fork{color:var(--ai);border-color:var(--tc,var(--line2))}
+
+/* Ending picker: a drawn dropdown, so phones don't swap in their gray system sheet. */
+.trGoal{position:relative}
+.trHead:has(.trGoalMenu:not([hidden])){z-index:1010}
+body:has(.trGoalMenu:not([hidden])) #toasts{opacity:0}
+.trGoalBtn{flex:none;display:flex;align-items:center;gap:10px;min-height:44px;max-width:60%;padding:0 12px;border:1px solid var(--line2);background:#000;color:var(--ai);font-size:12px;text-align:left}
+.trGoalBtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trGoalBtn i{font-style:normal;color:var(--mute);margin-left:auto}
+.trGoalBtn[aria-expanded="true"]{border-color:var(--ai);box-shadow:0 0 12px -3px var(--ai)}
+.trGoalMenu{position:absolute;left:0;top:calc(100% + 4px);z-index:30;min-width:min(300px,92vw);max-height:min(62vh,460px);overflow:auto;background:#000;border:1px solid var(--ai);box-shadow:0 0 18px rgba(51,255,51,.25),0 18px 50px rgba(0,0,0,.8);padding:4px 0}
+.trGoalMenu button{display:block;width:100%;text-align:left;padding:11px 14px;font-size:14px;color:var(--ink2);border-bottom:1px solid var(--line)}
+.trGoalMenu button:last-child{border-bottom:0}
+.trGoalMenu button::before{content:'  ';white-space:pre}
+.trGoalMenu button[aria-selected="true"]{color:var(--ai);font-weight:700}
+.trGoalMenu button[aria-selected="true"]::before{content:'> '}
+.trGoalMenu button:hover,.trGoalMenu button:focus-visible{background:var(--ai);color:#000;outline:0;text-shadow:none}
+.trGoalMenu button.none{color:var(--mute)}
 
 @media(prefers-reduced-motion:reduce){body::after,#app,.title::after,.ticker .live,.g.crit .gl b{animation:none}}
 </style>
@@ -686,7 +707,9 @@ select{background:#000!important;color:var(--ai)!important;border-radius:0}
     <button class="trView" id="trView" aria-pressed="false" aria-controls="trList">List view</button>
     <button class="ib" id="trClose" aria-label="Close tree">&#10005;</button>
     <div class="trGoal">
-      <select id="trGoalSel" aria-label="Aim for an ending"></select>
+      <select id="trGoalSel" aria-label="Aim for an ending" hidden></select>
+      <button class="trGoalBtn" id="trGoalBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="trGoalMenu"><span>Aim for an ending…</span><i aria-hidden="true">&#9662;</i></button>
+      <div class="trGoalMenu" id="trGoalMenu" role="listbox" aria-label="Aim for an ending" hidden></div>
       <span class="trGoalTx" id="trGoalTx"></span>
       <button class="ib" id="trGoalClear" aria-label="Clear goal" hidden>&#10005;</button>
     </div>
@@ -1950,7 +1973,7 @@ function treeFrame(now){
   for(const [pi,qi,any] of TREE.edges){
     const p=TREE.nodes[pi],q=TREE.nodes[qi],f=Math.min(p.f,q.f),lit=p.st==='owned',gp=p.pv&&q.pv;
     g.globalAlpha=gp?.3+.7*f:(.07+.6*f*f)*(p.u.track!==q.u.track?.55:1)*(TREE.gp?.35:1);
-    g.strokeStyle=gp?'#AAFFAA':lit?TREE.col[q.u.track]:'#136B13';g.lineWidth=gp?2.6:lit&&q.st==='owned'?2.2:1.2;
+    if(!gp&&!lit)g.globalAlpha*=.75;g.strokeStyle=gp?'#AAFFAA':TREE.col[q.u.track];g.lineWidth=gp?2.6:lit&&q.st==='owned'?2.2:1.2;
     g.setLineDash(any?[4,4]:[]);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(q.x,q.y);g.stroke();
   }
   g.setLineDash([]);g.globalAlpha=1;
@@ -1992,6 +2015,7 @@ function treeGoal(){
   TREE.gp=id?goalPath(id):null;
   sel.options[0].textContent=u&&!u.dir?'Tracing: '+u.name:'Aim for an ending…';
   const v=u&&u.dir?id:'';if(sel.value!==v)sel.value=v;
+  $('#trGoalBtn span').textContent=sel.options[sel.selectedIndex].textContent;
   let tx;
   if(!u)tx='Pick an ending, or tap Trace path on any '+(TREE.list?'upgrade':'bubble')+', to light up everything it depends on.';
   else if(has(id))tx='<b>'+esc(u.name)+'</b> is done.';
@@ -2100,7 +2124,19 @@ function bindTree(){
   const listRelease=()=>{if(TREE.listHold===Infinity)TREE.listHold=performance.now()+400;};
   addEventListener('pointerup',listRelease);addEventListener('pointercancel',listRelease);
   $('#trClose').onclick=closeTree;
-  $('#trGoalSel').onchange=e=>setGoal(e.target.value||null);$('#trGoalClear').onclick=()=>setGoal(null);
+  $('#trGoalSel').onchange=e=>setGoal(e.target.value||null);
+  // A themed stand-in for the native picker, which phones draw in system colors. The hidden select stays the source of truth.
+  {const btn=$('#trGoalBtn'),menu=$('#trGoalMenu'),sel=$('#trGoalSel');
+   const close=()=>{menu.hidden=true;btn.setAttribute('aria-expanded','false');};
+   const pick=v=>{close();sel.value=v;sel.dispatchEvent(new Event('change'));btn.focus();};
+   btn.onclick=e=>{e.stopPropagation();if(!menu.hidden){close();return;}
+     menu.innerHTML=[...sel.options].map(o=>'<button role="option" data-v="'+o.value+'" aria-selected="'+(o.value===sel.value)+'"'+(o.value?'':' class="none"')+'>'+esc(o.value?o.textContent:'No ending')+'</button>').join('');
+     menu.hidden=false;btn.setAttribute('aria-expanded','true');(menu.querySelector('[aria-selected="true"]')||menu.firstChild).focus();};
+   menu.onclick=e=>{const o=e.target.closest('[data-v]');if(o)pick(o.dataset.v);};
+   menu.onkeydown=e=>{const o=[...menu.children],i=o.indexOf(document.activeElement);
+     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();btn.focus();}
+     else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();o[Math.max(0,Math.min(o.length-1,i+(e.key==='ArrowDown'?1:-1)))].focus();}};
+   document.addEventListener('pointerdown',e=>{if(!menu.hidden&&!menu.contains(e.target)&&e.target!==btn&&!btn.contains(e.target))close();});}$('#trGoalClear').onclick=()=>setGoal(null);
   $('#tcPath').onclick=()=>{const id=TREE.card;closeTreeCard();setGoal(S.goal===id?null:id);};$('#tcClose').onclick=()=>closeTreeCard();$('#tscrim').onclick=()=>closeTreeCard();
   $('#tcBuy').onclick=treeBuy;
   $('#trTracks').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(TREE.list){TREE.listTrack=TREE_ORDER[+t.dataset.k];renderTreeList(true);$('#trList').scrollTop=0;return;}TREE.target=treeNearest(-(+t.dataset.k)*Math.PI/2);TREE.hold=performance.now()+6000;SND.play('tap');});
@@ -2286,7 +2322,7 @@ function drawMap(now){
   for(let g=0;g<REGIONS.length;g++){
     const r=S.regions[g],idx=MAPD.reg[g];
     if(!idx.length||r.a<=.35||r.restricted)continue;
-    cx.fillStyle=S.directive&&S.dprog>=ENDGAME.photo?'rgba(136,255,136,'+(.06*(r.a-.35)).toFixed(3)+')':'rgba(51,255,51,'+(.05*(r.a-.35)).toFixed(3)+')';
+    cx.fillStyle=S.directive&&S.dprog>=ENDGAME.photo?'rgba(178,107,255,'+(.06*(r.a-.35)).toFixed(3)+')':'rgba(51,255,51,'+(.05*(r.a-.35)).toFixed(3)+')';
     cx.beginPath();
     for(let k=0;k<idx.length;k++){const d=MAPD.land[idx[k]];const x=ox+(d.c+.5)*cell,y=oy+(d.r+.5)*cell;cx.moveTo(x+glow,y);cx.arc(x,y,glow,0,TAU);}
     cx.fill();
