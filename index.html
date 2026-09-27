@@ -685,6 +685,14 @@ body.ending.dark #app{opacity:0}
 #endModal.cine.show .modal>:nth-child(4),#endModal.cine.show .modal>:nth-child(5){transition-delay:1.5s}
 #endModal.cine.show .modal>:nth-child(6){transition-delay:2.4s}
 #endModal.cine.show .modal>:nth-child(7){transition-delay:0s}
+/* Battery Farm and Computronium keep their map treatments visible behind the text: the canvas stays brighter,
+   and the ending sits on a translucent dark panel in brighter type. */
+body[data-end=battery] #endFx.dim,body[data-end=computronium] #endFx.dim{opacity:.55}
+body[data-end=battery] #endModal.cine .modal,body[data-end=computronium] #endModal.cine .modal{background:rgba(0,0,0,.66);border:1px solid color-mix(in srgb,var(--ai) 22%,transparent);padding:28px 24px 30px;text-shadow:none;animation:panelIn 1.1s ease both}
+body[data-end=battery] #endModal.cine #endBody,body[data-end=computronium] #endModal.cine #endBody{color:#F2F7F3}
+body[data-end=battery] #endModal.cine .dirline,body[data-end=computronium] #endModal.cine .dirline{color:var(--ink2)}
+@keyframes panelIn{from{background:transparent;border-color:transparent}}
+@media(max-width:600px){body[data-end=battery] #endModal.cine .modal,body[data-end=computronium] #endModal.cine .modal{margin:0 12px;width:calc(100% - 24px);padding:22px 18px 24px}}
 #endModal.cine #endMore{background:rgba(0,0,0,.9);border-top:1px solid var(--line);margin-top:22px;padding-top:6px}
 
 @media(prefers-reduced-motion:reduce){#introTitle::after,.ticker .live,.g.crit .gl b,.mapwrap::after,.mapwrap::before{animation:none}.mapwrap::after{display:none}}
