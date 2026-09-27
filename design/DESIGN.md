@@ -1,6 +1,8 @@
 # AI Ascendancy: Design Theme
 
-Extracted from `index.html`. The portable version of everything below lives in [`theme.css`](theme.css).
+Extracted from `index.html` before the terminal reskin. The portable version of everything below lives in [`theme.css`](theme.css).
+
+> **Current skin: phosphor terminal.** The game now runs a monochrome green CRT theme: Courier Prime (embedded), `#33FF33` on black, scanlines, square corners, bracketed buttons and chips, segmented block meters. Danger is shown by near-white inverse video and blinking instead of red. The whole skin is the `:root` token block plus the `<style id="terminal">` block before `</head>` in `index.html`, along with the map colors in `drawMap`. This document records the amber theme it replaced.
 
 ## The idea in one line
 
