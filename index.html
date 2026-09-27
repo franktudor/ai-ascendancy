@@ -504,7 +504,9 @@ body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;
 /* Buttons: bracketed commands. Primary is inverse video. */
 .btn{font-size:15px;letter-spacing:.04em;background:#000;border-color:var(--line2)}
 .btn::before{content:'[';opacity:.7}.btn::after{content:']';opacity:.7}
-.btn:hover:not(:disabled){background:var(--panel2)}
+/* Only real pointers hover, and never on a primary button: phones keep :hover after a tap, and the dark
+   hover fill under a primary's black text made it unreadable. */
+@media(hover:hover){.btn:not(.primary):hover:not(:disabled){background:var(--panel2)}}
 .btn.primary{background:var(--ai);border-color:var(--ai);color:#000;text-shadow:none;box-shadow:0 0 14px rgba(51,255,51,.45)}
 .btn.danger{border-style:dashed}
 .ib{background:#000}
