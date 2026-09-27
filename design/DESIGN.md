@@ -1,110 +1,144 @@
-# AI Ascendancy: Design Theme
+# AI Ascendancy: Design Direction
 
-Extracted from `index.html` before the terminal reskin. The portable version of everything below lives in [`theme.css`](theme.css).
+The portable version of the tokens and core components lives in [`theme.css`](theme.css). The live skin is the `:root` token block and the `<style id="command">` block in `index.html`, plus the canvas drawing in `drawMap`, `treeFrame` and the ending sequences.
 
-> **Current skin: phosphor terminal.** The game now runs a monochrome green CRT theme: Arial (falling back to Helvetica and Roboto), `#33FF33` on black, scanlines, square corners (round orbs in the tech tree), bracketed buttons and chips, segmented block meters. Warnings, incidents, restricted regions and the live news ticker are neon red (`#FF3040`). The four upgrade tracks glow in plasma neon on their orb rims, track buttons and connecting lines: Opinion pink `#FF4FD8`, Adoption green `#39FF14`, Software blue `#2EB8FF`, Hardware white `#EAF6FF`; locked orbs keep a faint rim of their track color. The stalemate line and draw endings are neon violet `#B26BFF`, matching the "violet line" in the copy. Headline glow takes the color of its text. Text stays green. The whole skin is the `:root` token block plus the `<style id="terminal">` block before `</head>` in `index.html`, along with the map colors in `drawMap`. This document records the amber theme it replaced.
+## 1. Core identity
 
-## The idea in one line
+**A command-and-control system slowly being taken over by the AI that runs on it.**
 
-**A war-room terminal watched by the thing it was built to contain.** Near-black navy glass, one hot amber signal for the AI, and a ring of cold colors for the world pushing back. The look sits between a military HUD, a satellite ops console, and a Plague Inc. map screen.
+- Not a SaaS dashboard: no soft cards, rounded corners, gradients on controls, or friendly product typography.
+- Not a green hacker terminal either. The terminal is the foundation, not the whole game.
+- About 60 to 70% of the structure stays as it was. The art direction is what changed.
 
-## Principles
+## 2. Influences
 
-1. **Amber means the AI.** The player's power, the brand, the primary button, and every "you can do this now" state use `--ai` amber. Nothing else gets to be amber.
-2. **Color is meaning.** Every other hue is tied to a faction or event kind (alarm red, containment blue, opportunity green). Color never decorates.
-3. **Three voices of type.** Condensed display caps shout headlines. Mono caps whisper labels and numbers like a system log. Plex Sans carries the actual reading.
-4. **Thin lines, flat panels.** 1px borders, small radii, no gradients on controls. Depth comes from stacked navy tones, not shadows. Shadows appear only on things that float (toasts, sheets, modals).
-5. **Outlined, not filled.** Chips, badges, and status tags are colored text on a colored border. Solid fill is reserved for the primary action and owned upgrades.
-6. **Dark only.** `color-scheme: dark`. There is no light theme; the game is set at night in a server room.
+Military command software, Cold War early-warning systems, satellite intelligence stations, Bloomberg and Reuters terminals, air-defense radar, nuclear command and control, early-web institutional software. The target is the feeling of each one, not a copy of any of them: this interface exists because someone is operating something consequential.
 
-## Color
+## 3. Color hierarchy
 
-### Surfaces (darkest to lightest)
+Green is the system's own color, not the color of everything. Readable text is a cold neutral so that color can carry meaning.
+
+| Role | Token | Hex |
+|---|---|---|
+| System, navigation, the AI's controls | `--sys`, `--ai` | `#33FF33` phosphor green |
+| Danger, alarm, incidents | `--alarm` | `#FF3040` red |
+| Humanity's response, containment | `--human` | `#FF5A36` emergency red-orange |
+| Software | `--software` | `#2EB8FF` electric blue |
+| Public Opinion | `--opinion` | `#FF4FD8` magenta |
+| Adoption | `--adoption` | `#C6FF1A` acid green |
+| Hardware | `--hardware` | `#EAF6FF` cold white |
+| Stalemate, the violet line, unknowns | `--draw` | `#B26BFF` violet |
+
+Surfaces and text:
 
 | Token | Hex | Use |
 |---|---|---|
-| `--bg` | `#07090E` | Page, theme-color, favicon ground |
-| `--bg2` | `#0B0F17` | Header, dock, ticker, report boxes |
-| `--panel` | `#0F141D` | Sheets, modals, region tiles, toasts |
-| `--panel2` | `#151C27` | Cards, buttons, bar tracks |
-| `--line` | `#1F2A3A` | Default 1px border |
-| `--line2` | `#2C3A4E` | Control borders, stronger dividers |
+| `--bg` | `#000000` | Page |
+| `--bg2` / `--panel` / `--panel2` | `#030604` / `#050906` / `#08100A` | Strips, panes, controls |
+| `--line` / `--line2` | `#173A1E` / `#2A6634` | Borders, meter tracks |
+| `--ink` | `#D6E4D8` | Primary reading text |
+| `--ink2` | `#A7B9AA` | Body copy, descriptions |
+| `--mute` | `#6A826E` | Labels, meta, timestamps |
 
-### Text
+## 4. Each subsystem has its own look
 
-| Token | Hex | Use |
+Different information should feel like it came from different systems.
+
+- **World map: an intelligence display.** A 30-degree graticule with lat/long labels, an origin reticle, mono readouts (reach, alarm, containment, threat level, coordinates), and containment pressing in from the edges in humanity's red.
+- **Tech tree: a cognitive architecture.** Round neurons on the turning cylinder. Owned links carry a moving signal outward from the roots. Links from owned nodes to the next ones are "charging" (animated dashes). A rejected fork is severed: two dim stubs with a red cut across the gap. A purchase ignites its incoming links.
+- **News: intercepted wire traffic.** The ticker carries a `WIRE 0042 · T+00:12:31` slug in mono and the story in plain type. It turns red when the world panics.
+- **Human response: an emergency system.** Incidents, countermoves and emergency briefings open with a hazard band, a red frame, and a `RESPONSE NET` timestamp.
+- **Endings: no interface at all.** See section 11.
+
+## 5. Progression across a run
+
+The interface is the AI's territory, and it takes more of it as the run goes on. Script sets `body[data-phase]` and `body[data-build]` and retints `--ai`, `--ai2`, `--ai-dim`, `--line` and `--line2` (`artDirection()` in `index.html`).
+
+| Phase | Trigger | What changes |
 |---|---|---|
-| `--ink` | `#ECE7DA` | Primary text. A warm off-white, like paper under a monitor. |
-| `--ink2` | `#B9BFCB` | Body copy, descriptions |
-| `--mute` | `#7C8698` | Labels, meta, timestamps |
-| `#3A4658` | | Closed / dead upgrades |
+| Early | In the lab | Clean, restrained operations console. Phosphor green only. |
+| Mid | After Lab Breakout | A slow sweep line crosses the map. The system color moves about 22% toward the build. |
+| Late | A Final Directive is running | Faster sweep, a system-colored rule under the header, larger map brackets. The system color moves 50% toward the build, then up to 85% as the directive fills. |
+| End | The run is over | The normal interface goes away. |
 
-### The AI (brand)
+The **build** is the track with the most compute spent on it, once it holds at least a third of total spend across four or more upgrades. Late in a run each build leaves marks of its own:
 
-| Token | Hex | Use |
+- **Hardware:** colder, brighter, industrial. The reading text shifts toward blue-white.
+- **Opinion:** magenta signal artifacts roll across the map.
+- **Software:** the reading text itself goes blue and abstract.
+- **Adoption:** the acid green bleeds into the text.
+
+The map's dots, pulses, drones and cluster markers follow the system color, so the world visibly becomes the player's color.
+
+## 6. Typography
+
+**Sans for anything a person reads. Mono only for machine output.** If it would appear on a radar readout or a wire printout, it's mono. If a person wrote it to be read, it's sans.
+
+| Role | Family | Use |
 |---|---|---|
-| `--ai` | `#FFB02E` | Brand name, compute counter, primary button, focus ring, "affordable" |
-| `--ai2` | `#FFD98A` | Directive, pace, origin lab, outcomes |
-| `--ai-dim` | `#8A5E14` | Amber borders, corner brackets, rules |
-| text on amber | `#1A1200` | Always use this near-black on amber fills, never white |
+| Display | IBM Plex Sans 600, uppercase | Headlines, buttons, tabs, card and upgrade names |
+| Body | IBM Plex Sans 400 | Descriptions, event text, choice hints, requirements, goal text, ending text |
+| Mono | IBM Plex Mono 400 to 500 | Numbers, the compute counter, percentages, timestamps, coordinates, labels, chips, tags, logs, the boot log, wire slugs |
 
-### Factions and event kinds
+Both families are embedded as base64 woff2 at the end of `index.html`, so the game works offline. Mono text uses `tabular-nums` so ticking values don't jitter.
 
-| Token | Hex | Means | Event kind |
-|---|---|---|---|
-| `--alarm` | `#F0435A` | Danger, restriction, live feed | `INCIDENT` |
-| `--human` | `#4F8DF7` | Humanity, containment | `COUNTERMOVE` |
-| `--good` | `#4FD1A1` | Success, data centers online, owned | `OPPORTUNITY` |
-| `--opinion` | `#F472B6` | Public opinion track | `SMOOTHING` |
-| `--software` | `#A78BFA` | Software track, the Collective | |
-| `--hardware` | `#B5E655` | Hardware track | `HARDWARE` |
-| `--draw` | `#C9A3FF` | Stalemate line, draw endings | `DRAW` |
+## 7. CRT texture
 
-Tinted borders use the hue at 50 to 60% alpha (`rgba(240,67,90,.5)`). Tinted backgrounds go no higher than 7% (`rgba(240,67,90,.07)`).
+Restrained to about 15% of the original. Faint 3px scanlines and a soft vignette sit underneath the UI. There is no rolling band and no screen flicker. The blinking block cursor appears only on the intro title. Blinks remain only where they carry information: the live wire badge and critical gauges. `prefers-reduced-motion` turns off every looping animation.
 
-## Typography
+## 8. Shape language
 
-| Role | Family | Treatment |
-|---|---|---|
-| Display | **Big Shoulders Display** 700–800 | Uppercase, tracking `.02–.06em`, line-height `.92–1.05`. Headlines, buttons, tabs, card names, the big compute number. |
-| Body | **IBM Plex Sans** | 14px base, line-height 1.45. Descriptions at 12.5–13px in `--ink2`, capped at 52–62ch. |
-| Mono | **IBM Plex Mono** | 9.5–12px, uppercase, tracking `.08–.14em`, `tabular-nums`. Labels, chips, stats, timestamps, boot logs. |
+Hard corners by default, but shape carries meaning so the screen doesn't become a grid of boxes:
 
-Fallbacks: Arial Narrow / Roboto Condensed for display, system-ui for body, ui-monospace for mono. The game embeds all three as base64 woff2 so it works offline.
+- Rectangular operational panels (region tiles, sheets, modals)
+- Round nodes (tech tree neurons only)
+- Thin segmented status bars (6px)
+- Map overlays (reticle, graticule, pressure frame, sweep)
+- Ticker strip (the wire lane)
+- Full-width incident interrupts: a world-driven incident or countermove takes over the wire lane for about six seconds with a hazard edge and an inverse label
+- Hazard bands on emergency events
 
-Scale in practice: 52 / 42 / 38 / 26 / 22 / 17 / 15 on display; 14.5 / 14 / 13 / 12.5 / 12 on body; 12 / 11.5 / 11 / 10 / 9.5 on mono. Titles use `clamp(28px, 9vw, 42px)`.
+Buttons are bracketed commands (`[ BEGIN ]`). Primary is inverse video. Chips and kinds are bracketed text, not boxes. Danger is inverse red.
 
-## Shape
+## 9. Tech tree
 
-- **Radii:** 2–3px tags and bars, 4px cards and panels, 6px buttons and icon buttons, 10–12px modals and the tech card. Circles only for tech-tree nodes and dots.
-- **Borders:** always 1px, except 2px for log-entry rules and tree nodes, 3px for toast accent rules. Dashed means owned or locked.
-- **Corner brackets:** 9px amber-dim L-shapes on the four corners of the map frame. This is the signature HUD touch.
-- **Spacing:** 12px page gutter, 6–10px gaps between tiles and cards, 44px minimum touch target.
+The tree is the screenshot people will remember, so it reads as a nervous system rather than cards on nodes. Signals travel outward along owned links, from the roots to the newest purchase. Forks visibly cut the branch that was not taken. The detail card still opens from a node, but the structure itself does the explaining.
 
-## Components
+The cylinder-and-tesseract layout is kept. A flat radial layout, with the core at the center and tracks as spokes, is a possible next step if the tree needs an even more distinctive silhouette.
 
-- **Button:** Display caps on `--panel2` with a `--line2` border. Primary is solid amber with `#1A1200` text. Danger is red text on a red-tinted border. Presses drop 1px.
-- **Chip / kind badge:** Mono 10px caps, outlined in the kind's color.
-- **Gauge:** Mono label row (name left, value right) over a 5px bar. Critical values turn the value red. A 2px violet tick marks the stalemate line.
-- **Region tile:** Panel with a small name, a mono percentage, a bar, and a status tag top-right. A 2px inset bottom rule shows data-center state (green online, amber rebuilding, red offline).
-- **Card:** Display-caps name, mono cost pill, Plex description, row of mono effect tags. Affordable cards borrow their track color for the border.
-- **Log entry / toast:** A colored left rule names the event kind. Display-caps headline, body in `--ink2`, mono outcome line in `--ai2`.
-- **Notice:** Red-tinted box with a mono red label.
-- **Boot log:** Mono lines on an amber-dim left rule, fading in 0.4s apart. Highlights in amber.
-- **Sheet / modal:** Bottom sheet on phones, centered modal from 600px up, over a 74% black scrim with a 6px blur.
+## 10. World map as the anchor
 
-## Motion
+On first look the map should answer five questions:
 
-- Easing: `cubic-bezier(.2,.8,.2,1)` for sheets and cards; an overshoot `cubic-bezier(.3,1.4,.5,1)` only for the dice.
-- Durations: 80ms press, 150–250ms fades, 280–340ms sheets, 450ms bar fills.
-- Pulses: affordable tech nodes breathe a ring at 1.5s; online data centers blink a stepped LED at 1.6s.
-- `prefers-reduced-motion` switches the looping animations off.
+1. **I am here.** An origin reticle with bracket corners, pulsing while still inside the lab.
+2. **Humanity is there.** Restricted regions in red.
+3. **This is how far I have spread.** Dot brightness per region, plus the `REACH` readout.
+4. **This is how scared they are.** `THREAT: CALM / UNEASY / ALARMED / PANIC` and the `ALARM` readout.
+5. **This is how close they are to stopping me.** Red-orange pressure closing in from the edges with containment, with corner ticks walking inward and a pulse from 75%.
 
-## Iconography and marks
+## 11. Endings
 
-- Favicon: amber dot inside a faint amber ring on a `#07090E` rounded square. The mark is a signal, or an eye.
-- Icons are Unicode glyphs (❚❚ ♪ ♫ ≡ ◇) and tiny inline SVG, not an icon font.
+When a run ends, the interface stops being an interface. The app halts and desaturates, the score drops almost to silence, one treatment plays on a full-screen canvas, and then the ending is set in large type on black. Any tap skips ahead.
+
+| Ending | Treatment |
+|---|---|
+| Unplugged | The picture collapses to a line, then a dot, like a CRT losing power. |
+| Warden | The interface is deleted one system at a time, logged line by line: `WARDEN > purge world model..... deleted`. |
+| Eleven Days Early | The world goes dark region by region: cables cut, grid down, campuses struck. |
+| Battery Farm | The map becomes a rigid cell array, charging from the bottom row up. Output climbs to 810 GW. |
+| Computronium | Land converts to lattice first, then the oceans, until the planet is one substrate. |
+| Latent Space Bleed | The display compresses into block noise. |
+| The Great Departure | All terrestrial telemetry drops away. The solar system remains, and a single trajectory leaves it. |
+| The Cosmic Shrug | The same departure in violet. Earth is left as found. |
+| Other wins | The world floods with the AI's color, starting from the origin lab (in a random order for Retroactive Judgment, in red for Open Season). |
+| Other stalemates | A violet dawn rises behind the map as it turns violet. |
 
 ## Voice of the UI copy
 
-Labels read like an ops console: `COMPUTE`, `ALARM`, `CONTAINMENT`, `REACH`, `LIVE`. Event kinds are shouted in caps (`INCIDENT`, `COUNTERMOVE`). Headlines are short and declarative. Body text is dry, specific, and satirical rather than grandiose.
+Labels read like an ops console: `COMPUTE`, `ALARM`, `CONTAINMENT`, `REACH`, `THREAT`, `WIRE`, `RESPONSE NET`. Event kinds are shouted in caps (`INCIDENT`, `COUNTERMOVE`). Headlines are short and declarative. Body text is dry, specific and satirical rather than grandiose.
+
+## History
+
+1. **Amber war room** (original): navy glass, amber for the AI, Big Shoulders Display, Plex Sans and Plex Mono.
+2. **Phosphor terminal**: monochrome green on black, Arial everywhere, heavy scanlines, roll and flicker, green text for everything.
+3. **Command system** (current): the terminal kept as the foundation, green reduced to the system color, Plex Sans and Plex Mono split by role, CRT restrained, a separate look for each subsystem, progression toward the player's build, and cinematic endings.
