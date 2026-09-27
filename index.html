@@ -18,13 +18,14 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23000000'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%2333FF33'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%2333FF33' stroke-opacity='.35' stroke-width='2'/%3E%3C/svg%3E">
 <style>
 :root{
-  /* Phosphor terminal: one green, many brightnesses. Every track and faction shares it. */
+  /* Phosphor terminal: green text everywhere. Red is reserved for warnings and the live feed;
+     the four upgrade tracks glow in plasma neon (pink, green, blue, white). */
   --bg:#000000; --bg2:#010801; --panel:#020B02; --panel2:#041404;
   --line:#136B13; --line2:#1FB31F;
   --ink:#33FF33; --ink2:#26D926; --mute:#179C17;
   --ai:#33FF33; --ai2:#AAFFAA; --ai-dim:#118811;
-  --human:#33FF33; --alarm:#CCFFCC; --good:#33FF33;
-  --opinion:#33FF33; --adoption:#33FF33; --software:#33FF33; --hardware:#33FF33;
+  --human:#33FF33; --alarm:#FF3040; --good:#33FF33;
+  --opinion:#FF4FD8; --adoption:#39FF14; --software:#2EB8FF; --hardware:#EAF6FF;
   --draw:#88FF88;
   --glow:rgba(51,255,51,.5);
   --font-display:Arial,'Helvetica Neue',Helvetica,Roboto,'Trebuchet MS',sans-serif;
@@ -45,11 +46,11 @@ h1,h2,h3{text-wrap:balance}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--line2);border-radius:6px;font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);background:var(--panel2);transition:transform .08s,background .15s,border-color .15s;text-decoration:none}
 .btn:active{transform:translateY(1px)}
 .btn.primary{background:var(--ai);border-color:var(--ai);color:#000}
-.btn.danger{border-color:rgba(204,255,204,.5);color:var(--alarm)}
+.btn.danger{border-color:rgba(255,48,64,.5);color:var(--alarm)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .chip{display:inline-block;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:3px;border:1px solid var(--line2);color:var(--ink2)}
-.chip.warn{color:var(--alarm);border-color:rgba(204,255,204,.5)}
+.chip.warn{color:var(--alarm);border-color:rgba(255,48,64,.5)}
 .chip.ai{color:var(--ai);border-color:var(--ai-dim)}
 .chip.good{color:var(--good);border-color:rgba(51,255,51,.5)}
 
@@ -110,7 +111,7 @@ h1,h2,h3{text-wrap:balance}
 .mapstat b{color:var(--ink2);font-weight:500}
 
 .ticker{display:flex;align-items:center;gap:8px;margin:8px 12px 0;padding:6px 10px;border:1px solid var(--line);background:var(--bg2);font-size:12px;color:var(--ink2);min-height:34px}
-.ticker .live{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;color:var(--alarm);border:1px solid rgba(204,255,204,.5);padding:1px 5px;border-radius:2px;flex:none}
+.ticker .live{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;color:var(--alarm);border:1px solid rgba(255,48,64,.5);padding:1px 5px;border-radius:2px;flex:none}
 .ticker span{transition:opacity .3s;min-width:0}
 
 .regions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:10px 12px 0}
@@ -119,13 +120,13 @@ h1,h2,h3{text-wrap:balance}
 .rt .pc{font-family:var(--font-mono);font-size:16px;color:var(--mute);margin-top:2px;font-variant-numeric:tabular-nums}
 .rt.live .pc{color:var(--ai)}
 .rt .bar{margin-top:6px}
-.rt.restricted{border-color:rgba(204,255,204,.55)}
+.rt.restricted{border-color:rgba(255,48,64,.55)}
 .rt.restricted .pc{color:var(--alarm)}
 .rt.restricted .bar i{background:var(--alarm)}
 .rt.allied{border-color:var(--ai-dim)}
 .rt .st{position:absolute;top:6px;right:6px;font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;padding:1px 4px;border-radius:2px;border:1px solid var(--line2);color:var(--mute)}
 .rt .st:empty{display:none}
-.rt.restricted .st{color:var(--alarm);border-color:rgba(204,255,204,.5)}
+.rt.restricted .st{color:var(--alarm);border-color:rgba(255,48,64,.5)}
 .rt.allied .st{color:var(--ai);border-color:var(--ai-dim)}
 .rt.origin .st{color:var(--ai2);border-color:var(--ai-dim)}
 /* Data-center status line: none, online, rebuilding (foundry timer) or offline (needs a manual rebuild). */
@@ -273,14 +274,14 @@ h1,h2,h3{text-wrap:balance}
 @media(min-width:600px){.overlay{align-items:center;padding:20px}.modal{border-radius:10px;border-bottom:1px solid var(--line2);padding:24px}}
 .modal .x{position:absolute;right:12px;top:12px}
 .kind{display:inline-block;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:2px 7px;border-radius:3px;border:1px solid var(--line2);color:var(--ink2)}
-.kind.INCIDENT{color:var(--alarm);border-color:rgba(204,255,204,.6)}
+.kind.INCIDENT{color:var(--alarm);border-color:rgba(255,48,64,.6)}
 .kind.COUNTERMOVE{color:var(--human);border-color:rgba(51,255,51,.6)}
 .kind.OPPORTUNITY{color:var(--good);border-color:rgba(51,255,51,.6)}
 .kind.MILESTONE,.kind.SYSTEM{color:var(--ai);border-color:var(--ai-dim)}
 .kind.SMOOTHING{color:var(--opinion);border-color:rgba(51,255,51,.6)}
 .kind.HARDWARE{color:var(--hardware);border-color:rgba(51,255,51,.55)}
 .kind.DRAW{color:var(--draw);border-color:rgba(136,255,136,.6)}
-.notice{border:1px solid rgba(204,255,204,.6);background:rgba(204,255,204,.07);padding:10px 12px;border-radius:4px;font-size:12.5px;color:var(--ink2)}
+.notice{border:1px solid rgba(255,48,64,.6);background:rgba(255,48,64,.07);padding:10px 12px;border-radius:4px;font-size:12.5px;color:var(--ink2)}
 .notice b{display:block;color:var(--alarm);font-family:var(--font-mono);letter-spacing:.12em;font-size:10px;margin-bottom:3px}
 .title{font-family:var(--font-display);font-weight:800;font-size:clamp(28px,9vw,42px);line-height:.92;text-transform:uppercase;letter-spacing:.02em;margin:16px 0 6px;color:var(--ai)}
 .sub{color:var(--ink2);margin:0 0 14px;max-width:52ch;font-size:14px}
@@ -320,7 +321,7 @@ h1,h2,h3{text-wrap:balance}
 .evNews li{border-left:2px solid var(--line2);padding:6px 10px;background:var(--panel2);border-radius:0 4px 4px 0;font-size:13px;color:var(--ink2)}
 .evNews li b{display:block;font-family:var(--font-display);font-size:15px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
 .evNews li span{font-family:var(--font-mono);font-size:11px;color:var(--mute)}
-.evNews li.urgent{border-left-color:var(--alarm);background:rgba(204,255,204,.07)}
+.evNews li.urgent{border-left-color:var(--alarm);background:rgba(255,48,64,.07)}
 .evNews li.urgent b::before{content:'\26A0  ';color:var(--alarm)}
 .evNews li.good{border-left-color:var(--good)}
 .evNews li.more{border:0;background:none;font-family:var(--font-mono);font-size:11px;color:var(--mute);padding:2px 0}
@@ -519,7 +520,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;
 .ticker .live{animation:tBlink 1.2s steps(1) infinite}
 .g.crit .gl b{animation:tBlink .9s steps(1) infinite}
 .rt.restricted,.wr.restricted{border-style:dashed}
-.notice{border-style:dashed;background:rgba(204,255,204,.04)}
+.notice{border-style:dashed;background:rgba(255,48,64,.04)}
 .notice b{display:table;margin-bottom:6px}
 
 /* Meters: segmented block bars, like a progress line printed in characters. */
@@ -547,6 +548,34 @@ body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;
 .sec::before{content:'// '}
 .report{background:#000;border-style:dashed}
 select{background:#000!important;color:var(--ai)!important;border-radius:0}
+
+
+/* ---------- warnings in red ---------- */
+.ticker{border-color:rgba(255,48,64,.55);background:rgba(255,48,64,.05)}
+.ticker span{color:var(--alarm);text-shadow:0 0 5px rgba(255,48,64,.55)}
+.chip.warn,.kind.INCIDENT,.rt.restricted .st,.notice b,.ticker .live{box-shadow:0 0 10px rgba(255,48,64,.5)}
+.notice{border-color:rgba(255,48,64,.6);background:rgba(255,48,64,.06)}
+.rt.restricted,.wr.restricted{border-color:rgba(255,48,64,.6)}
+.rt.restricted .pc,.wr.restricted .pc,.g.crit .gl b{text-shadow:0 0 6px rgba(255,48,64,.6)}
+.btn.danger{color:var(--alarm);border-color:rgba(255,48,64,.6)}
+.toast.INCIDENT,.le.INCIDENT{border-left-color:var(--alarm)}
+.toast.INCIDENT b,.le.INCIDENT b{color:var(--alarm);text-shadow:0 0 6px rgba(255,48,64,.55)}
+
+/* ---------- tech tree: plasma neon rims, green text ---------- */
+.tn{box-shadow:0 0 10px -2px var(--tc),inset 0 0 10px -4px var(--tc)}
+.tn.locked{box-shadow:none}
+.tn.closed{box-shadow:none}
+.tn.afford{box-shadow:0 0 22px 0 var(--tc),inset 0 0 12px -3px var(--tc)}
+.tn.afford em{color:var(--ai2)}
+.tn.owned{color:#000}
+.tcard{box-shadow:0 24px 70px rgba(0,0,0,.65),0 0 30px -8px var(--tc)}
+.tcard .chip{color:var(--ai)}
+.tcard .chip::before,.tcard .chip::after{color:var(--tc)}
+.trTracks button{color:var(--ink2);border-color:var(--tc);box-shadow:inset 0 -2px 0 var(--tc)}
+.trTracks button.on{color:var(--ai);background:rgba(51,255,51,.06);box-shadow:inset 0 -3px 0 var(--tc),0 0 12px -4px var(--tc)}
+.card.afford{box-shadow:0 0 12px -3px var(--tc,var(--ai))}
+.card.afford .cost{color:var(--ai)}
+.tag.fork{color:var(--ai);border-color:var(--tc,var(--line2))}
 
 @media(prefers-reduced-motion:reduce){body::after,#app,.title::after,.ticker .live,.g.crit .gl b{animation:none}}
 </style>
@@ -1228,7 +1257,7 @@ function checkRestrictions(){
   for(let i=0;i<REGIONS.length;i++){
     const r=S.regions[i],R=REGIONS[i];if(immune(i)){r.restricted=false;continue;}
     const th=threshold(i);
-    if(!r.restricted&&S.alarm>th&&r.a>.02&&Math.random()<.06){r.restricted=true;S.stats.restrictions++;bulletin('COUNTERMOVE',R.name+' restricts you','Regulators in '+R.name+' order your services suspended. Adoption stalls and slowly erodes.','',{quiet:true,urgent:true});pulseRegion(i,'204,255,204');UI.dirty=true;}
+    if(!r.restricted&&S.alarm>th&&r.a>.02&&Math.random()<.06){r.restricted=true;S.stats.restrictions++;bulletin('COUNTERMOVE',R.name+' restricts you','Regulators in '+R.name+' order your services suspended. Adoption stalls and slowly erodes.','',{quiet:true,urgent:true});pulseRegion(i,'255,48,64');UI.dirty=true;}
     else if(r.restricted&&S.alarm<th-10&&Math.random()<(S.flags.workaround?.16:.08)){r.restricted=false;bulletin('OPPORTUNITY',R.name+' lifts restrictions','Lobbyists, lawsuits and public pressure reopen '+R.name+'.','',{quiet:true});pulseRegion(i,'51,255,51');UI.dirty=true;}
   }
 }
@@ -1271,7 +1300,7 @@ const FX={
   cboost(n){S.cboost=clamp((S.cboost||1)*(1+(n>0?n*.65:n)/100),.5,4);const p=Math.round(n>0?n*.65:-n);return 'Containment research '+p+'% '+(n>0?'faster':'slower');},
   contain(n){const was=S.contain;S.contain=clamp(S.contain+n,0,100);if(S.contain-was>=10&&!UI.modal&&!UI.acting)S.brief.urgent=true;return 'Containment '+sgn(Math.round(S.contain-was));},
   pts(n){S.pts=Math.max(0,S.pts+n);return 'Compute '+sgn(n);},
-  spread(ids,f){for(const id of ids){const i=RI[id],r=S.regions[i];r.a=clamp(r.a+f*(1-r.a),0,1);pulseRegion(i,f>0?'51,255,51':'204,255,204');}UI.dirty=true;return 'Adoption '+sgn(f*100)+'% in '+ids.map(id=>REGIONS[RI[id]].short).join(', ');},
+  spread(ids,f){for(const id of ids){const i=RI[id],r=S.regions[i];r.a=clamp(r.a+f*(1-r.a),0,1);pulseRegion(i,f>0?'51,255,51':'255,48,64');}UI.dirty=true;return 'Adoption '+sgn(f*100)+'% in '+ids.map(id=>REGIONS[RI[id]].short).join(', ');},
   all(f){for(const r of S.regions)r.a=clamp(r.a+f*(1-r.a),0,1);for(let i=0;i<REGIONS.length;i++)pulseRegion(i,'51,255,51');UI.dirty=true;return 'Adoption '+sgn(f*100)+'% worldwide';},
   temp(k,secs){S.temp[k]=S.t+secs;return {brownout:'Compute −40% for '+secs+'s',rival:'Spread halved for '+secs+'s',warden:'Containment ×1.5 for '+secs+'s',freeze:'Containment stalled for '+secs+'s',reorg:'Containment regrouping for '+secs+'s'}[k];},
   ally(id){const i=RI[id],r=S.regions[i];r.allied=true;r.restricted=false;pulseRegion(i,'170,255,170');UI.dirty=true;return REGIONS[i].name+' allied';}
@@ -1584,7 +1613,7 @@ function checkStrikes(){
   if(S.flags.airdeny&&Math.random()<.5){S.stats.intercepts++;pulseRegion(i,'51,255,51');bulletin('HARDWARE','Strike intercepted over '+REGIONS[i].short,'The aircraft never reach the campus. Your air denial grid is the only thing in the sky that saw them coming.',FX.alarm(3),{quiet:true});return;}
   const r=S.regions[i];r.struck=true;S.stats.dcLost++;
   if(S.flags.foundry)r.rebuildAt=S.t+45;
-  pulseRegion(i,'204,255,204');
+  pulseRegion(i,'255,48,64');
   bulletin('COUNTERMOVE','Strike on '+REGIONS[i].short+' cluster','A coordinated strike takes the campus offline. You lose the compute it fed you. The footage plays on every channel, and for a moment the humans feel like they are winning.',J('Cluster lost',FX.alarm(-5),S.flags.foundry?'The foundry starts rebuilding':''),{urgent:true});
   UI.dirty=true;
 }
@@ -2235,7 +2264,7 @@ function resizeMap(){
   cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);cx.setTransform(dpr,0,0,dpr,0,0);
   MV.w=w;MV.h=h;MV.dpr=dpr;MV.cell=Math.min(w/MAP.cols,h/MAP.rows)*.985;MV.ox=(w-MV.cell*MAP.cols)/2;MV.oy=(h-MV.cell*MAP.rows)/2;
 }
-const C_DIM=[6,34,6],C_AI=[51,255,51],C_HOT=[210,255,210],C_RED=[14,70,14],C_ALLY=[150,255,150];
+const C_DIM=[6,34,6],C_AI=[51,255,51],C_HOT=[210,255,210],C_RED=[255,48,64],C_ALLY=[150,255,150];
 const lerp=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
 const rgb=c=>'rgb('+(c[0]|0)+','+(c[1]|0)+','+(c[2]|0)+')';
 const colCache={};
@@ -2275,7 +2304,7 @@ function drawMap(now){
   for(let g=0;g<REGIONS.length;g++){
     const rr=S.regions[g];if(!rr.dc)continue;
     const c=MAPD.cent[g],x=ox+(c.c+.5)*cell,y=oy+(c.r+.5)*cell,sz=Math.max(3,cell*1.5);
-    if(rr.struck){cx.strokeStyle=rr.rebuildAt?'rgba(51,255,51,.9)':'rgba(204,255,204,.9)';cx.lineWidth=1.5;cx.beginPath();cx.moveTo(x-sz,y-sz);cx.lineTo(x+sz,y+sz);cx.moveTo(x+sz,y-sz);cx.lineTo(x-sz,y+sz);cx.stroke();}
+    if(rr.struck){cx.strokeStyle=rr.rebuildAt?'rgba(51,255,51,.9)':'rgba(255,48,64,.9)';cx.lineWidth=1.5;cx.beginPath();cx.moveTo(x-sz,y-sz);cx.lineTo(x+sz,y+sz);cx.moveTo(x+sz,y-sz);cx.lineTo(x-sz,y+sz);cx.stroke();}
     else{live.push([x,y]);cx.fillStyle='rgba(170,255,170,.95)';cx.fillRect(x-sz,y-sz,sz*2,sz*2);cx.strokeStyle='rgba(0,0,0,.8)';cx.lineWidth=1;cx.strokeRect(x-sz,y-sz,sz*2,sz*2);
       if(S.flags.airdeny){cx.strokeStyle='rgba(51,255,51,.35)';cx.beginPath();cx.arc(x,y,sz*3.2,0,TAU);cx.stroke();}}
   }
@@ -2293,7 +2322,7 @@ function drawMap(now){
     cx.textAlign='center';cx.font='700 '+Math.max(9,Math.round(cell*2.1))+'px Arial, "Helvetica Neue", Helvetica, Roboto, sans-serif';
     for(let i=0;i<REGIONS.length;i++){if(cell<4.6&&UI.sel!==i)continue;const c=MAPD.cent[i],r=S.regions[i],x=ox+(c.c+.5)*cell,y=oy+(c.r+.5)*cell;const txt=REGIONS[i].short.toUpperCase()+' '+Math.round(r.a*100)+'%';
       cx.fillStyle='rgba(0,0,0,.75)';const tw=cx.measureText(txt).width;cx.fillRect(x-tw/2-3,y-cell*1.5,tw+6,cell*2.6);
-      cx.fillStyle=r.restricted?'#CCFFCC':r.a>.005?'#AAFFAA':'#179C17';cx.fillText(txt,x,y+cell*.5);}
+      cx.fillStyle=r.restricted?'#FF3040':r.a>.005?'#AAFFAA':'#179C17';cx.fillText(txt,x,y+cell*.5);}
   }
 }
 function hitRegion(px,py){

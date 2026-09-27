@@ -2,7 +2,7 @@
 
 Extracted from `index.html` before the terminal reskin. The portable version of everything below lives in [`theme.css`](theme.css).
 
-> **Current skin: phosphor terminal.** The game now runs a monochrome green CRT theme: Arial (falling back to Helvetica and Roboto), `#33FF33` on black, scanlines, square corners (round orbs in the tech tree), bracketed buttons and chips, segmented block meters. Danger is shown by near-white inverse video and blinking instead of red. The whole skin is the `:root` token block plus the `<style id="terminal">` block before `</head>` in `index.html`, along with the map colors in `drawMap`. This document records the amber theme it replaced.
+> **Current skin: phosphor terminal.** The game now runs a monochrome green CRT theme: Arial (falling back to Helvetica and Roboto), `#33FF33` on black, scanlines, square corners (round orbs in the tech tree), bracketed buttons and chips, segmented block meters. Warnings, incidents, restricted regions and the live news ticker are neon red (`#FF3040`). The four upgrade tracks glow in plasma neon on their orb rims, track buttons and connecting lines: Opinion pink `#FF4FD8`, Adoption green `#39FF14`, Software blue `#2EB8FF`, Hardware white `#EAF6FF`. Text stays green. The whole skin is the `:root` token block plus the `<style id="terminal">` block before `</head>` in `index.html`, along with the map colors in `drawMap`. This document records the amber theme it replaced.
 
 ## The idea in one line
 
