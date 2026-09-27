@@ -1795,10 +1795,11 @@ function treeNearest(t){const d=((t-TREE.a)%TAU+TAU*1.5)%TAU-Math.PI;return TREE
 function treeFrame(now){
   if(TREE.list){if(now-TREE.stT>250){TREE.stT=now;treeStatus();renderTreeList();}TREE.last=now;return;}
   const dt=TREE.last?Math.min((now-TREE.last)/1000,.05):0;TREE.last=now;
-  if(!reduceMotion)TREE.t+=dt;
+  // An open card holds the whole tree still, the 4D turns included, so the card never sits over moving bubbles.
+  if(!reduceMotion&&!TREE.card)TREE.t+=dt;
   if(TREE.target!=null){const d=TREE.target-TREE.a;TREE.a+=d*Math.min(1,dt*7);if(Math.abs(d)<.002){TREE.a=TREE.target;TREE.target=null;}}
-  else if(!TREE.drag){TREE.a+=TREE.va*dt;TREE.va*=Math.pow(.03,dt);if(!reduceMotion&&!TREE.card&&!TREE.hover&&now>TREE.hold)TREE.a+=.05*dt;}
-  const b=.25+(reduceMotion?0:.4*Math.sin(TREE.t*.21)),c=reduceMotion?0:.28*Math.sin(TREE.t*.13+1);
+  else if(!TREE.drag){TREE.a+=TREE.va*dt;TREE.va*=Math.pow(.01,dt);if(!reduceMotion&&!TREE.card&&!TREE.hover&&now>TREE.hold)TREE.a+=.05*dt;}
+  const b=.25+(reduceMotion?0:.25*Math.sin(TREE.t*.15)),c=reduceMotion?0:.18*Math.sin(TREE.t*.09+1);
   if(now-TREE.stT>250){TREE.stT=now;treeStatus();}
   const {W,H,R,Y}=TREE,cx=W/2,cy=H/2-10;
   for(const n of TREE.nodes){
@@ -1896,7 +1897,7 @@ function openTree(track){
 }
 function closeTree(){closeTreeCard(true);$('#treeModal').hidden=true;TREE.open=false;TREE.drag=null;TREE.hover=false;}
 function openTreeCard(id,el){
-  const u=UP[id],c=$('#tcard');clearTimeout(TREE.cardTm);TREE.card=id;
+  const u=UP[id],c=$('#tcard');clearTimeout(TREE.cardTm);TREE.card=id;TREE.va=0;TREE.target=null;
   if(TREE.list)el=null;
   c.style.setProperty('--tc',TRACKS[u.track].color);
   $('#tcTrack').textContent=TRACKS[u.track].name+' · '+(u.dir?'Final directive':u.phase===2?'Ascension':'Tier '+u.tier);
@@ -1980,14 +1981,16 @@ function bindTree(){
   $('#tcPath').onclick=()=>{const id=TREE.card;closeTreeCard();setGoal(S.goal===id?null:id);};$('#tcClose').onclick=()=>closeTreeCard();$('#tscrim').onclick=()=>closeTreeCard();
   $('#tcBuy').onclick=treeBuy;
   $('#trTracks').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(TREE.list){TREE.listTrack=TREE_ORDER[+t.dataset.k];renderTreeList(true);$('#trList').scrollTop=0;return;}TREE.target=treeNearest(-(+t.dataset.k)*Math.PI/2);TREE.hold=performance.now()+6000;SND.play('tap');});
-  st.addEventListener('pointerdown',e=>{if(TREE.list||TREE.card||e.button>0)return;TREE.drag={x:e.clientX,a:TREE.a,lx:e.clientX,lt:performance.now()};TREE.moved=false;TREE.target=null;TREE.va=0;});
+  // A touch on a tree still spinning fast only catches it, as a touch stops a scrolling list; the next tap selects.
+  const treeSpeed=()=>Math.abs(TREE.target!=null?(TREE.target-TREE.a)*7:TREE.va);
+  st.addEventListener('pointerdown',e=>{if(TREE.list||TREE.card||e.button>0)return;TREE.caught=treeSpeed()>.6;TREE.drag={x:e.clientX,a:TREE.a,lx:e.clientX,lt:performance.now()};TREE.moved=false;TREE.target=null;TREE.va=0;});
   addEventListener('pointermove',e=>{const d=TREE.drag;if(!d)return;const dx=e.clientX-d.x;
     if(!TREE.moved&&Math.abs(dx)>8){TREE.moved=true;st.classList.add('drag');}
     if(!TREE.moved)return;
-    const now=performance.now();TREE.va=(e.clientX-d.lx)/TREE.R/Math.max(.008,(now-d.lt)/1000);d.lx=e.clientX;d.lt=now;TREE.a=d.a+dx/TREE.R;});
-  const up=()=>{if(!TREE.drag)return;TREE.drag=null;st.classList.remove('drag');TREE.hold=performance.now()+4000;setTimeout(()=>{TREE.moved=false;},0);};
+    const now=performance.now();const v=(e.clientX-d.lx)/TREE.R/Math.max(.008,(now-d.lt)/1000);TREE.va=clamp(.6*v+.4*TREE.va,-TAU,TAU);d.lx=e.clientX;d.lt=now;TREE.a=d.a+dx/TREE.R;});
+  const up=()=>{if(!TREE.drag)return;if(performance.now()-TREE.drag.lt>80)TREE.va=0;if(TREE.moved)TREE.caught=false;TREE.drag=null;st.classList.remove('drag');TREE.hold=performance.now()+4000;setTimeout(()=>{TREE.moved=false;},0);};
   addEventListener('pointerup',up);addEventListener('pointercancel',up);
-  st.addEventListener('click',e=>{if(TREE.moved)return;const n=e.target.closest('.tn');if(n)openTreeCard(n.dataset.id,n);});
+  st.addEventListener('click',e=>{if(TREE.caught){TREE.caught=false;return;}if(TREE.moved)return;const n=e.target.closest('.tn');if(n)openTreeCard(n.dataset.id,n);});
   st.addEventListener('pointerover',e=>{if(e.pointerType==='mouse')TREE.hover=!!e.target.closest('.tn');});
   st.addEventListener('pointerleave',()=>{TREE.hover=false;});
   st.addEventListener('wheel',e=>{if(TREE.list||TREE.card)return;e.preventDefault();TREE.target=null;TREE.a+=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)*.0025;TREE.hold=performance.now()+4000;},{passive:false});
