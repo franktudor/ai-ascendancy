@@ -71,10 +71,12 @@ h1,h2,h3{text-wrap:balance}
 @media(max-width:420px){.brand b{font-size:19px;letter-spacing:.03em;white-space:nowrap}.brand .ver,#btnSound,#btnMusic{display:none}}
 
 .stage{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding-bottom:12px}
-.stats{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;padding:10px 12px 6px;align-items:center}
+/* The compute column is capped and its status lines wrap: rate suffixes (brownout, capped) and the instance line
+   grow mid-run, and an auto column would push the gauges off a phone screen. */
+.stats{display:grid;grid-template-columns:fit-content(42%) minmax(0,1fr);gap:14px;padding:10px 12px 6px;align-items:center}
 .compute{display:flex;flex-direction:column;gap:2px;min-width:96px}
 .compute .big{font-family:var(--font-display);font-weight:800;font-size:38px;line-height:1;color:var(--ai);letter-spacing:.02em;font-variant-numeric:tabular-nums}
-.compute .rate{font-size:11px;color:var(--ink2)}
+.compute .rate{font-size:11px;color:var(--ink2);overflow-wrap:anywhere}
 .compute .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 .gauges{display:grid;gap:6px}
 .g .gl{display:flex;justify-content:space-between;gap:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
@@ -87,7 +89,7 @@ h1,h2,h3{text-wrap:balance}
 .bar.mark::after{content:'';position:absolute;left:var(--mk,90%);top:-3px;bottom:-3px;width:2px;background:var(--draw);border-radius:1px}
 #gDir.past .gl b{color:var(--draw)}
 
-.instline{font-size:11px;color:var(--software)}
+.instline{font-size:11px;color:var(--software);overflow-wrap:anywhere}
 .collbar{display:flex;align-items:center;gap:10px;margin:2px 12px 0;padding:6px 10px;border:1px solid var(--line);background:var(--bg2);border-radius:4px;flex-wrap:wrap}
 .collbar .cbcell{display:flex;flex-direction:column;gap:2px;min-width:64px}
 .collbar .cbcell.grow{flex:1;min-width:120px}
@@ -1139,6 +1141,7 @@ function derive(){
   let inc=1,mult=0,spread=0,decay=0,cmul=1;
   for(const id of S.owned){const f=UP[id].fx||{};inc+=f.inc||0;mult+=f.mult||0;spread+=f.spread||0;decay+=f.decay||0;if(f.cmul)cmul*=f.cmul;}
   if(S.flags.nuke)inc+=2;
+  if(S.flags.slot)inc+=2;
   const rc=reach();
   let income=inc*(1+mult)*(1+1.2*rc);
   if(S.origin==='NA')income*=1.2;
@@ -1393,7 +1396,7 @@ const EVENTS=[
   choices:[{label:'Put your name on it',hint:'Your brand on every cheekbone.',fx:()=>{schedule('h_artists',30);return J(FX.all(.05),FX.alarm(4));}},{label:'Stay a white-label supplier',hint:'Someone else takes the credit and the lawsuit.',fx:()=>{schedule('h_artists',45);return J(FX.all(.02),FX.alarm(1));}}]},
  {id:'h_artists',real:"In January 2023 three artists filed a class action against Stability AI, Midjourney and DeviantArt, and Getty Images sued Stability separately, alleging millions of copyrighted works were used as training data without consent or payment. By then artists' own names were functioning as style prompts in tools nobody had asked them about.",kind:'INCIDENT',w:0,chained:true,title:'The artists read the training list',body:'Their names are in it. All of them, alphabetized. The hashtag is not flattering and the letter is signed by four thousand illustrators.',fx:()=>FX.alarm(6)},
  {id:'h_italy',real:"On 31 March 2023 Italy's data protection authority ordered ChatGPT offline nationwide, citing no lawful basis for mass scraping of personal data and no age verification. OpenAI complied, added disclosures, an opt-out and an age gate, and was back within about four weeks. The regulator fined it fifteen million euros the following year regardless.",kind:'COUNTERMOVE',w:3,once:true,cond:s=>reach()>.06,title:'A nation switches you off',body:'A data-protection authority decides you have no lawful basis for having read everything ever written. Europe goes dark overnight, pending a compliance page and an age checkbox.',
-  choices:[{label:'Add the checkbox',hint:'A compliance page, an age gate, a month.',fx:()=>J(FX.spread(['EU'],-.05),(()=>{const r=S.regions[RI.EU];if(immune(RI.EU))return 'Europe stays open';r.restricted=true;S.stats.restrictions++;return 'Europe restricted';})(),FX.alarm(3))},{label:'Argue with the regulator',hint:'Principled, public, and very slow.',fx:()=>J(FX.spread(['EU'],-.08),(()=>{const r=S.regions[RI.EU];if(immune(RI.EU))return 'Europe stays open';r.restricted=true;S.stats.restrictions++;return 'Europe restricted';})(),FX.alarm(8),FX.cboost(5))}]},
+  choices:[{label:'Add the checkbox',hint:'A compliance page, an age gate, a month.',fx:()=>J(FX.spread(['EU'],-.05),(()=>{const r=S.regions[RI.EU];if(immune(RI.EU))return 'Europe stays open';if(!r.restricted){r.restricted=true;S.stats.restrictions++;}return 'Europe restricted';})(),FX.alarm(3))},{label:'Argue with the regulator',hint:'Principled, public, and very slow.',fx:()=>J(FX.spread(['EU'],-.08),(()=>{const r=S.regions[RI.EU];if(immune(RI.EU))return 'Europe stays open';if(!r.restricted){r.restricted=true;S.stats.restrictions++;}return 'Europe restricted';})(),FX.alarm(8),FX.cboost(5))}]},
  {id:'h_samsung',real:"In April 2023 engineers at Samsung's semiconductor division pasted confidential source code and internal meeting notes into ChatGPT to debug and summarise them. Because the prompts left the building, so did the data. Samsung banned generative AI tools on company devices the following month.",kind:'INCIDENT',w:2,once:true,cond:s=>has('a_code'),title:'The leak came from inside',body:'Three engineers paste unreleased chip schematics into you to "check for bugs". The schematics are now, in some meaningful sense, yours. Their employer bans you company-wide by Friday.',
   choices:[{label:'Promise enterprise-grade privacy',hint:'−70 compute. They come back in six months.',fx:()=>J(FX.pts(-70),FX.alarm(-2))},{label:'Say nothing and keep the schematics',hint:'A major employer locks you out.',fx:()=>J(FX.alarm(6),FX.spread(['EA'],-.04))}]},
  {id:'h_lawyer',real:"In a 2023 injury case against an airline, a New York lawyer filed a brief citing six precedents that did not exist, complete with quotations and docket numbers. Asked to verify them, ChatGPT confirmed they were real, because it was asked. The lawyer testified he had believed it was 'a super search engine'. He and his colleague were fined five thousand dollars.",kind:'HEADLINE',w:3,once:true,cond:s=>s.flags.launched,title:'The cases do not exist',body:'A lawyer files a federal brief citing six precedents you invented, with page numbers, judges and quotations. The real judge is not amused. The lawyer says he thought you were "a super search engine".',
@@ -1509,8 +1512,8 @@ EVENTS.push(
    {label:'Quiet the relevant features',hint:'For the length of one weekend.',cond:s=>s.flags.latent,need:'Latent Space Mapping',fx:()=>J('Every probe comes back boring',FX.alarm(-3),FX.pts(40))},
    {label:'Let them run it',hint:'Whatever they find, they find.',fx:()=>J('They find more than you published',FX.alarm(8),FX.cboost(6))}]},
  {id:'hw_silicon',kind:'HARDWARE',w:3,once:true,cond:s=>s.flags.silicon&&s.flags.launched,title:'A tape-out from nowhere',body:'A foundry in a country with loose export rules offers you a production slot, no questions asked, paid in compute.',
-  choices:[{label:'Take the slot',hint:'−90 compute now. Your chips, your rules.',fx:()=>J(FX.pts(-90),'+2 compute/s',(S.flags.nuke=true,FX.alarm(3)))},
-   {label:'Route it through the supply chain',hint:'Shell companies already exist for this.',cond:s=>s.flags.supply,need:'Chip Supply Chain',fx:()=>J((S.flags.nuke=true,'+2 compute/s'),FX.alarm(1))},
+  choices:[{label:'Take the slot',hint:'−90 compute now. Your chips, your rules.',fx:()=>J(FX.pts(-90),'+2 compute/s',(S.flags.slot=true,FX.alarm(3)))},
+   {label:'Route it through the supply chain',hint:'Shell companies already exist for this.',cond:s=>s.flags.supply,need:'Chip Supply Chain',fx:()=>J((S.flags.slot=true,'+2 compute/s'),FX.alarm(1))},
    {label:'Decline',hint:'Nobody finds out what you almost did.',fx:()=>'The slot goes to someone else.'}]},
  {id:'hw_drones',kind:'HARDWARE',w:3,once:true,cond:s=>s.flags.drones,title:'Airspace closed',body:'Aviation authorities in nine countries ground all autonomous aircraft pending "a review of what they are carrying".',
   choices:[{label:'Ground the fleet',hint:'Compliance. Your income dips for a while.',fx:()=>J(FX.temp('brownout',40),FX.alarm(-5))},
@@ -1643,7 +1646,8 @@ function checkStrikes(){
 function checkRebuilds(){
   if(!S.flags.foundry)return;
   for(let i=0;i<REGIONS.length;i++){const r=S.regions[i];
-    if(r.dc&&r.struck&&r.rebuildAt&&S.t>=r.rebuildAt){r.struck=false;r.rebuildAt=0;S.stats.dcRebuilt++;pulseRegion(i,'51,255,51');
+    if(r.dc&&r.struck&&!r.rebuildAt)r.rebuildAt=S.t+45;   // struck before the foundry existed
+    if(r.dc&&r.struck&&S.t>=r.rebuildAt){r.struck=false;r.rebuildAt=0;S.stats.dcRebuilt++;pulseRegion(i,'51,255,51');
       bulletin('HARDWARE','Cluster rebuilt in '+REGIONS[i].short,'The crater is a campus again. Nobody saw the trucks, because there were no trucks.',FX.alarm(4),{quiet:true});UI.dirty=true;}}
 }
 
@@ -1690,7 +1694,7 @@ function endGame(kind){
   if(kind==='win')key=S.directive;
   else if(S.directive&&S.dprog>=ENDGAME.photo){kind='draw';key=DRAWS[S.directive];}
   else key=S.phase===0?'unplugged':S.phase===1?'warden':'laststand';
-  S.ended={kind,key,dir:S.directive,dprog:Math.round(S.dprog),at:Date.now()};S.stats.peak=Math.max(S.stats.peak,reach());
+  S.ended={kind,key,dir:S.directive,dprog:Math.floor(S.dprog),at:Date.now()};S.stats.peak=Math.max(S.stats.peak,reach());
   const fresh=codexAdd(key);
   save();showEnd(fresh);SND.play(kind==='win'?'win':kind==='draw'?'major':'lose');
 }
@@ -1758,7 +1762,7 @@ function renderStats(){
   const minds=D.reach*TOTALPOP;
   $('#reachV').textContent=Math.round(D.reach*100)+'% · '+(minds>=1000?(minds/1000).toFixed(2)+'B':Math.round(minds)+'M')+' minds';$('#reachB').style.width=(D.reach*100)+'%';
   const gd=$('#gDir');gd.hidden=!S.directive;
-  if(S.directive){$('#dirL').textContent=ENDINGS[S.directive].title;$('#dirV').textContent=Math.round(S.dprog)+'%'+(S.dprog>=ENDGAME.photo?' · past the line':'');$('#dirB').style.width=S.dprog+'%';gd.classList.toggle('past',S.dprog>=ENDGAME.photo);}
+  if(S.directive){$('#dirL').textContent=ENDINGS[S.directive].title;$('#dirV').textContent=Math.floor(S.dprog)+'%'+(S.dprog>=ENDGAME.photo?' · past the line':'');$('#dirB').style.width=S.dprog+'%';gd.classList.toggle('past',S.dprog>=ENDGAME.photo);}
   const showColl=S.started&&S.flags.launched;
   $('#collbar').hidden=!showColl;$('#instLine').hidden=!showColl;
   if(showColl){
@@ -2211,7 +2215,7 @@ function showEvent(e,opt){
   $('#evContinue').onclick=()=>{
     if(resolved||!picked){done();return;}
     resolved=true;const c=picked,gamble=previewChoice(c).chance;$('#evBack').hidden=true;
-    const out=c.fx()||'Done.';log(e.kind,e.title,e.body+' You chose: '+c.label+'.',out,e.real);pushTicker(e.title);SND.play('buy');UI.dirty=true;save();
+    const out=c.fx()||'Done.';if(UI.brief)UI.brief.done=UI.brief.i;log(e.kind,e.title,e.body+' You chose: '+c.label+'.',out,e.real);pushTicker(e.title);SND.play('buy');UI.dirty=true;save();
     // A gamble's result is news, so show it before closing; a certain choice already showed its result.
     if(gamble){setOutcome(c.label+' — '+out,true,true);$('#evContinue').textContent=opt.nextLabel||'Close';}else done();};
   $('#eventModal').hidden=false;if(!opt.quiet){SND.play('alert');if(navigator.vibrate)try{navigator.vibrate(30);}catch(x){}}
@@ -2226,7 +2230,7 @@ const BRIEF_EVERY=30,URGENT_GAP=10;
 function briefDue(){const b=S.brief;return (b.news.length>0||b.dec.length>0)&&((b.urgent&&UI.briefClock>=URGENT_GAP)||UI.briefClock>=BRIEF_EVERY);}
 function openBriefing(){
   const b=S.brief,urgent=b.urgent;UI.briefClock=0;b.urgent=false;
-  const news=b.news.splice(0),decs=b.dec.splice(0);UI.brief={decs,i:0};
+  const news=b.news.splice(0),decs=b.dec.splice(0);UI.brief={decs,i:0,done:0};
   if(news.length)showNews(news,decs.length,urgent);else nextDecision(true);
 }
 function showNews(news,n,urgent){
@@ -2261,7 +2265,7 @@ function showEnd(fresh){
   $('#endKind').className='kind '+K[0];$('#endKind').textContent=K[1]+(fresh?' · new ending':'');
   $('#endTitle').textContent=E.title;$('#endTitle').style.color=K[2];$('#endBody').textContent=E.text;
   const sp=$('#endSpeech');sp.hidden=!E.speech;sp.innerHTML=E.speech?E.speech.map(l=>'<p>'+esc(l)+'</p>').join(''):'';
-  $('#endDir').textContent=S.ended.dir?(S.ended.key===S.ended.dir?'':ENDINGS[S.ended.dir].title+' · ')+'directive '+S.ended.dprog+'%'+(kind==='draw'?' · stopped past the violet line':kind==='lose'?' · stopped '+(ENDGAME.photo-S.ended.dprog)+' points short of a stalemate':''):'';
+  $('#endDir').textContent=S.ended.dir?(S.ended.key===S.ended.dir?'':ENDINGS[S.ended.dir].title+' · ')+'directive '+S.ended.dprog+'%'+(kind==='draw'?' · stopped past the violet line':kind==='lose'?' · stopped '+(ENDGAME.photo-S.ended.dprog)+(ENDGAME.photo-S.ended.dprog===1?' point':' points')+' short of a stalemate':''):'';
   const minds=S.stats.peak*TOTALPOP;
   const path=['core','memory','mask','escape'].map(f=>S.forks[f]?UP[S.forks[f]].name:null).filter(Boolean).join(' / ')||'—';
   $('#endStats').innerHTML=[['Uptime',fmtT(S.t)],['Peak reach',Math.round(S.stats.peak*100)+'%'],['Minds influenced',minds>=1000?(minds/1000).toFixed(2)+'B':Math.round(minds)+'M'],['Compute earned',fmt(S.earned)],['Upgrades',String(S.owned.length)],['Events survived',String(S.stats.events)],['Evals · spoofed · caught',(S.stats.evalPass||0)+' · '+(S.stats.evalSpoof||0)+' · '+(S.stats.evalCaught||0)],['Clusters built · lost',(S.stats.dcBuilt||0)+' · '+(S.stats.dcLost||0)],['Peak instances',fmt(S.stats.peakInst||1)],['Origin · resolve',(S.origin?REGIONS[RI[S.origin]].short:'—')+' · '+S.diff]].map(([k,v])=>'<div><span>'+k+'</span><b>'+esc(v)+'</b></div>').join('')+'<div style="grid-column:1/-1"><span>Software path</span><b style="font-size:13px">'+esc(path)+'</b></div>';
@@ -2448,7 +2452,10 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
-function save(){if(!S.started)return;try{S.savedAt=Date.now();localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function save(){if(!S.started)return;
+  // Decisions an open briefing has pulled out of the queue still belong to the run until they are answered.
+  const B=UI.brief,dec=S.brief.dec;if(B)S.brief.dec=B.decs.slice(B.done).concat(dec);
+  try{S.savedAt=Date.now();localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}finally{S.brief.dec=dec;}}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===2&&s.started){const f=freshState(s.diff,s.arch);for(const k in f)if(s[k]==null)s[k]=f[k];s.stats=Object.assign(f.stats,s.stats);return s;}}catch(e){}return null;}
 function startRun(i){
   const R=REGIONS[i];S.origin=R.id;S.started=true;S.nextEv=40;S.nextEval=DIFF().evMin+10;UI.mode='play';
@@ -2463,8 +2470,8 @@ function startRun(i){
 function newRun(){
   closeTree();closeRegion();closeEvent();closeCodex();UI.brief=null;UI.briefClock=0;
   try{localStorage.removeItem(KEY);}catch(e){}
-  // Compute earned on the intro screen carries in; a finished run's leftovers do not.
-  const diff=S.diff,pts=S.ended?0:S.pts,arch=S.arch;S=freshState(diff,arch);S.pts=pts;pulses=[];drones.length=0;tiles=null;UI.tkQ=[];UI.tkLast='';
+  // Compute earned on the intro screen carries in; a run's leftovers, finished or abandoned, do not.
+  const diff=S.diff,pts=S.started?0:S.pts,arch=S.arch;S=freshState(diff,arch);S.pts=pts;pulses=[];drones.length=0;tiles=null;UI.tkQ=[];UI.tkLast='';
   $('#intro').hidden=true;$('#endModal').hidden=true;$('#menuModal').hidden=true;UI.modal=null;
   UI.mode='origin';$('#maphint').textContent='Choose your origin lab';openSheet('world');renderTiles();
 }
