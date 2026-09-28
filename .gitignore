@@ -1,1 +1,4 @@
-agents/
+# Ignore everything except the game itself.
+*
+!index.html
+!.gitignore
