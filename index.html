@@ -430,6 +430,8 @@ select:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
 .trList .sec{margin:8px 0 0}
 .tree.list-view .tn,.tree.list-view #trCanvas,.tree.list-view .trHint{display:none}
 .tree.list-view .trStage{touch-action:pan-y;cursor:auto}
+/* Phones: the goal line gets a full-width row of its own instead of a narrow column that wraps five times. */
+@media(max-width:899px){.trGoal{flex-wrap:wrap;row-gap:6px}.trGoalTx{order:3;flex-basis:100%}}
 .tcard{max-height:calc(100% - 20px);overflow:auto;overscroll-behavior:contain;touch-action:pan-y;aspect-ratio:auto;min-height:min(380px,calc(100% - 20px))}
 .tcard h3{padding-right:42px}
 .modal{overscroll-behavior:contain}
@@ -2222,8 +2224,16 @@ function sizeTree(){
   const cv=$('#trCanvas'),r=$('#trStage').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);
   TREE.W=r.width;TREE.H=r.height;cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);cv.getContext('2d').setTransform(d,0,0,d,0,0);
   // Narrow screens get a wider cylinder: the facing track spreads across the screen and its neighbors fall off the sides.
-  TREE.R=r.width<700?r.width*.6:Math.min(r.width*.42,560);TREE.Y=Math.max(100,(r.height/2-72)/2);
-  $('#trStage').style.setProperty('--b',Math.round(clamp(r.width/11,32,52))+'px');
+  TREE.R=r.width<700?r.width*.6:Math.min(r.width*.42,560);
+  const bub=Math.round(clamp(r.width/11,32,52));$('#trStage').style.setProperty('--b',bub+'px');TREE.bub=bub;
+  // Each name's unscaled size, so the frame can tell where it lands without measuring the page every frame.
+  for(const n of TREE.nodes){const t=n.el.querySelector('.tl');n.lw=t.offsetWidth;n.lh=t.offsetHeight;}
+  // Fit the eight tiers to the room the stage really has, however tall the header or large the text. As the tree
+  // breathes through its fourth dimension a facing bubble swings out to 1.94 times its resting height, so leave room
+  // for that, for a full bubble above the top tier, and for a label and the hint line below the bottom one.
+  const SW=1.94,rad=bub*.73,line=$('.trHint').getBoundingClientRect().height||15,top=rad+4,bot=rad+3*line+8;
+  TREE.Y=Math.min(Math.max(100,(r.height/2-72)/2),Math.max(20,(r.height-top-bot)/(2*SW)));
+  TREE.cy=clamp(r.height/2-10,top+SW*TREE.Y,r.height-bot-SW*TREE.Y);
 }
 // z-w and x-w turns, then perspective twice: 4D to 3D, 3D to screen. Returns screen offset, depth and scale.
 function treeProject(x,y,z,w,b,c){
@@ -2242,7 +2252,7 @@ function treeFrame(now){
   else if(!TREE.drag){TREE.a+=TREE.va*dt;TREE.va*=Math.pow(.01,dt);if(!reduceMotion&&!TREE.card&&!TREE.hover&&now>TREE.hold)TREE.a+=.05*dt;}
   const b=.25+(reduceMotion?0:.25*Math.sin(TREE.t*.15)),c=reduceMotion?0:.18*Math.sin(TREE.t*.09+1);
   if(now-TREE.stT>250){TREE.stT=now;treeStatus();}
-  const {W,H,R,Y}=TREE,cx=W/2,cy=H/2-10;
+  const {W,H,R,Y}=TREE,cx=W/2,cy=TREE.cy,front=((Math.round(-TREE.a/(Math.PI/2))%4)+4)%4;
   for(const n of TREE.nodes){
     const p=n.phi+TREE.a,[px,py,pz,s]=treeProject(R*Math.sin(p),(n.u.tier-4.5)/3.5*Y,R*Math.cos(p),n.w*.35*R,b,c);
     n.x=cx+px;n.y=cy+py;n.f=clamp((pz/R+1)/2,0,1);
@@ -2252,11 +2262,20 @@ function treeFrame(now){
     const gd=TREE.gp?TREE.gp.depth.get(n.u.id):undefined,pv=gd!=null&&now>=TREE.goalT0+gd*140;
     if(pv!==n.pv){n.pv=pv;n.el.classList.toggle('path',pv);}
     el.opacity=((.1+.9*Math.pow(n.f,1.6))*(TREE.gp&&gd==null?.3:1)).toFixed(3);el.zIndex=Math.round(n.f*1000);
-    const fr=n.f>.8;if(fr!==n.fr){n.fr=fr;n.el.classList.toggle('fr',fr);}
+    n.sc=sc;
     // Bubbles around the back are too faint to aim at, and would steal taps from the ones in front.
     const hit=n.f>.38;if(hit!==n.hit){n.hit=hit;el.pointerEvents=hit?'':'none';n.el.tabIndex=hit?0:-1;}
   }
-  const front=((Math.round(-TREE.a/(Math.PI/2))%4)+4)%4;
+  // Names only where they can be read: on the track you face, nearest first, inside the screen, and never on top of a
+  // bright bubble or another name. A name already showing gets a few pixels of grace so names do not flicker as the tree breathes.
+  const B=TREE.bub/2,show=new Set(),boxes=[];
+  for(const n of TREE.nodes)if(n.f>.7)boxes.push([n.x-B*n.sc,n.y-B*n.sc,n.x+B*n.sc,n.y+B*n.sc,n]);
+  const clash=(r,own)=>boxes.some(q=>q[4]!==own&&r[0]<q[2]&&q[0]<r[2]&&r[1]<q[3]&&q[1]<r[3]);
+  for(const n of TREE.nodes.filter(n=>n.f>.8&&n.u.track===TREE_ORDER[front]).sort((p,q)=>q.f-p.f)){
+    const g=n.fr?3:-3,t=n.y+(B+4)*n.sc,r=[n.x-n.lw*n.sc/2+g,t+g,n.x+n.lw*n.sc/2-g,t+n.lh*n.sc-g,null];
+    if(r[0]>0&&r[2]<W&&!clash(r,n)){show.add(n);boxes.push(r);}
+  }
+  for(const n of TREE.nodes){const fr=show.has(n);if(fr!==n.fr){n.fr=fr;n.el.classList.toggle('fr',fr);}}
   if(front!==TREE.front){TREE.front=front;$$('#trTracks button').forEach(x=>{const on=+x.dataset.k===front;x.classList.toggle('on',on);x.setAttribute('aria-pressed',String(on));});}
   const g=$('#trCanvas').getContext('2d');g.clearRect(0,0,W,H);
   // The tesseract the tree hangs in, turning through the same fourth axis.
@@ -2326,7 +2345,8 @@ function goalPath(id){
 }
 function treeGoal(){
   const id=S.goal&&UP[S.goal]?S.goal:null,u=id&&UP[id],sel=$('#trGoalSel');
-  TREE.gp=id?goalPath(id):null;
+  // A finished goal has nothing left to light up, so it stops dimming the rest of the tree.
+  TREE.gp=id&&!has(id)?goalPath(id):null;
   sel.options[0].textContent=u&&!u.dir?'Tracing: '+u.name:'Aim for an ending…';
   const v=u&&u.dir?id:'';if(sel.value!==v)sel.value=v;
   $('#trGoalBtn span').textContent=sel.options[sel.selectedIndex].textContent;
@@ -2467,7 +2487,8 @@ function bindTree(){
   st.addEventListener('pointerover',e=>{if(e.pointerType==='mouse')TREE.hover=!!e.target.closest('.tn');});
   st.addEventListener('pointerleave',()=>{TREE.hover=false;});
   st.addEventListener('wheel',e=>{if(TREE.list||TREE.card)return;e.preventDefault();TREE.target=null;TREE.a+=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)*.0025;TREE.hold=performance.now()+4000;},{passive:false});
-  addEventListener('resize',()=>{if(TREE.open)sizeTree();});
+  // The stage changes size with the window and whenever the header wraps (a long goal line, larger text).
+  new ResizeObserver(()=>{if(TREE.open)sizeTree();}).observe($('#trStage'));
 }
 
 // Two dice beside a gamble's message, so a chance result reads as a chance result.
