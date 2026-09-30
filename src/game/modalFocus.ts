@@ -132,12 +132,10 @@ export function installModalFocus(life: Lifecycle): void {
           const difference = (left[i] || 0) - (right[i] || 0);
           if (difference) return difference;
         }
-        if (!oldTop && lastFocus) {
-          return (
-            Number(a.dialog.contains(lastFocus)) -
-            Number(b.dialog.contains(lastFocus))
-          );
-        }
+        // Equal layers paint in DOM order, not in opening chronology.
+        const position = a.dialog.compareDocumentPosition(b.dialog);
+        if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+        if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
         return 0;
       });
       const top = stack.at(-1);
