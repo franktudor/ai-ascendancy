@@ -10,6 +10,7 @@ import { reactive, shallowReactive } from "vue";
 import * as catalog from "../data/catalog";
 import * as utils from "./utils";
 import { installSimulation } from "./simulation";
+import { assertGameAssembly } from "./assembly";
 import { installEventCatalog } from "../data/events";
 import { installEvents } from "./events";
 import { installEconomy } from "./economy";
@@ -134,6 +135,7 @@ export function createGame({
   installPersistence(ctx);
   // Presentation methods defer browser-port access until mountRuntime.
   installPresentation(ctx);
+  assertGameAssembly(ctx);
   const acting =
     <A extends unknown[]>(f: (...args: A) => void) =>
     (...args: A) => {

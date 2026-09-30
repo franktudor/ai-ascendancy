@@ -165,6 +165,11 @@ storage-denial and runtime-remount regressions were reproduced and then fixed.
   all Vue scripts and templates, using the TypeScript 6 compatibility API.
 
 `tests/types.test.ts` guards both compiler commands and their coverage.
+`tests/type-safety.test.ts` scans TypeScript AST `AnyKeyword` nodes in every
+source/SFC script, test, launcher, and config, with negative fixtures and a real
+member-widening compiler probe. The keyed runtime assembly guard checks all
+rules/presentation API members before a game escapes; a missing-economy-installer
+mutation must throw at construction.
 `tests/type-contracts.ts` additionally rejects widened IDs,
 wrong state/API values, untyped effects, invalid event shapes, and injection or
 controller signature drift without suppression directives.

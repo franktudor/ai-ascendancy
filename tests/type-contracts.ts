@@ -28,6 +28,15 @@ type Equal<A, B> =
 type IsAny<T> = 0 extends 1 & T ? true : false;
 type NotAny<T> = IsAny<T> extends false ? true : false;
 type DoesNotAccept<T, Invalid> = Invalid extends T ? false : true;
+type FunctionMembersSafe<T> = {
+  [K in keyof T]-?: T[K] extends (...args: infer A) => infer R
+    ? NotAny<R> extends true
+      ? { [I in keyof A]-?: NotAny<A[I]> }[number] extends true
+        ? true
+        : false
+      : false
+    : NotAny<T[K]>;
+}[keyof T];
 
 export type TypeContracts = [
   Assert<Equal<ReturnType<typeof createGame>, CompleteGameContext>>,
@@ -39,6 +48,10 @@ export type TypeContracts = [
   Assert<NotAny<CompleteGameContext["UP"][UpgradeId]>>,
   Assert<NotAny<EventDefinition>>,
   Assert<NotAny<Effects>>,
+  Assert<FunctionMembersSafe<Effects>>,
+  Assert<Equal<Parameters<Effects["pts"]>, [number]>>,
+  Assert<Equal<ReturnType<Effects["pts"]>, string>>,
+  Assert<FunctionMembersSafe<CompleteGameContext>>,
   Assert<NotAny<Parameters<RuntimeContext["SND"]["play"]>[0]>>,
   Assert<
     Equal<
