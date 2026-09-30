@@ -5,6 +5,7 @@
     "src/game/**/*.ts",
     "src/env.d.ts",
     "tests/**/*.ts",
+    "scripts/**/*.ts",
     "vite.config.ts",
     "playwright.config.ts"
   ]

@@ -10,7 +10,7 @@
     "typecheck:native": "tsc --noEmit -p tsconfig.native.json",
     "typecheck:vue": "vue-tsc --noEmit",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node.exe --import tsx --test tests/*.test.ts",
+    "test": "node.exe --import tsx scripts/run-tests.ts",
     "test:browser": "playwright test",
     "format": "prettier --write src/**/*.ts src/**/*.vue tests/**/*.ts *.ts"
   },

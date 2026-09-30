@@ -8,8 +8,12 @@ No analytics, accounts, or backend were added.
 ## Run
 
 Requires Node.js `^20.19.0 || >=22.12.0` and npm, matching the current Vite and
-Vue plugin engine requirements. Node 21 is not supported. The current dependency
-set was verified on Windows with Node 26.7.0 and npm 11.19.0.
+Vue plugin engine requirements. Node 21 is not supported. The installed native
+TypeScript 7.0.2 package declares Node `>=16.20.0`, the `tsx` loader `>=18`, and
+Playwright `>=20`; Vite sets the stricter project minimum. The dual TS7/TS6
+compiler checks, headless tests, and build are verified with Node 20.19.0 and
+22.12.0 on Windows, in addition to the original Node 26.7.0 verification.
+The test launcher explicitly discovers files, so Node 20 need not expand globs.
 
 ```sh
 npm.cmd ci
