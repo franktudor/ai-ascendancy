@@ -62,6 +62,7 @@ test("events preview without committing, all ending treatments render, and unmou
         .exposed.game;
     g.state.started = true;
     g.state.origin = "NA";
+    g.state.paused = true;
     g.ui.mode = "play";
     g.showEvent({
       kind: "INCIDENT",
