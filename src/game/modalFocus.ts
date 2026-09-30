@@ -1,9 +1,25 @@
 import type { Lifecycle } from "./types";
 
 interface FocusTarget {
-  element: HTMLElement;
+  element: HTMLElement | null;
   selector: string | null;
   fallback: string;
+}
+
+export interface ModalFocusPresentation {
+  entries: {
+    dialog: string;
+    opener: Omit<FocusTarget, "element"> | null;
+  }[];
+}
+
+const presentations = new WeakMap<Lifecycle, () => ModalFocusPresentation>();
+
+/** Capture stable identities only; the retiring lifecycle still owns all resources. */
+export function captureModalFocus(
+  life: Lifecycle,
+): ModalFocusPresentation | undefined {
+  return presentations.get(life)?.();
 }
 
 interface ModalEntry {
@@ -12,14 +28,27 @@ interface ModalEntry {
 }
 
 /** One focus owner for Vue overlays, imperative/nested dialogs and body teleports. */
-export function installModalFocus(life: Lifecycle): void {
+export function installModalFocus(
+  life: Lifecycle,
+  previous?: ModalFocusPresentation,
+): void {
   const selector = '[role="dialog"][aria-modal],#endSkip';
   const focusable =
     'button,a[href],input,select,textarea,summary,[tabindex], [contenteditable="true"]';
   const inert = new Map<HTMLElement, boolean>();
   const modal = new Map<HTMLElement, string | null>();
   const temporaryTabindex = new Set<HTMLElement>();
-  let stack: ModalEntry[] = [];
+  let stack: ModalEntry[] = (previous?.entries ?? []).flatMap((entry) => {
+    const dialog = document.querySelector<HTMLElement>(entry.dialog);
+    return dialog
+      ? [
+          {
+            dialog,
+            opener: entry.opener ? { ...entry.opener, element: null } : null,
+          },
+        ]
+      : [];
+  });
   const rememberFocus = (el: HTMLElement): FocusTarget => {
     // Qualify repeatable keys by their host: list and graph share data-id values.
     const key = ["data-id", "data-i", "data-tab", "data-k"].find((name) =>
@@ -197,6 +226,26 @@ export function installModalFocus(life: Lifecycle): void {
       syncing = false;
     }
   };
+  presentations.set(life, () => {
+    sync();
+    return {
+      entries: stack.flatMap(({ dialog, opener }) => {
+        const host = dialog.closest<HTMLElement>("[id]");
+        if (!host) return [];
+        return [
+          {
+            dialog:
+              "#" +
+              CSS.escape(host.id) +
+              (host === dialog ? "" : ' [role="dialog"][aria-modal]'),
+            opener: opener
+              ? { selector: opener.selector, fallback: opener.fallback }
+              : null,
+          },
+        ];
+      }),
+    };
+  });
   life.on(
     document,
     "focusin",
@@ -242,6 +291,7 @@ export function installModalFocus(life: Lifecycle): void {
     attributeFilter: ["hidden", "disabled"],
   });
   life.add(() => {
+    presentations.delete(life);
     observer.disconnect();
     for (const [el, original] of inert) el.inert = original;
     for (const [el, original] of modal) {

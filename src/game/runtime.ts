@@ -14,7 +14,7 @@ import { installEventController } from "./eventController";
 import { installEndingController } from "./endingController";
 import { installAudio } from "./audio";
 import { installRunActions } from "./runActions";
-import { installModalFocus } from "./modalFocus";
+import { captureModalFocus, installModalFocus } from "./modalFocus";
 
 /** Lifecycle bridge. Vue owns primary UI; controllers own only their host subtrees. */
 export function mountRuntime(game: CompleteGameContext): () => void {
@@ -37,6 +37,9 @@ export function mountRuntime(game: CompleteGameContext): () => void {
           more: !ctx.$("#endMore").hidden,
         }
       : null;
+  const previousFocus = ctx.life && !ctx.life.disposed
+    ? captureModalFocus(ctx.life)
+    : undefined;
   ctx.disposeRuntime?.();
   const life = (ctx.life = createLifecycle()),
     $ = (ctx.$ = <E extends HTMLElement = HTMLElement>(s: string): E => {
@@ -217,7 +220,6 @@ export function mountRuntime(game: CompleteGameContext): () => void {
     ctx.SND.play("tap");
   });
   ctx.bindTree();
-  installModalFocus(life);
   click("#menuSound", ctx.toggleSound);
   click("#menuMusic", ctx.toggleMusic);
   click("#menuClose", closeMenu);
@@ -504,5 +506,7 @@ export function mountRuntime(game: CompleteGameContext): () => void {
     }
     ctx.restoreEventPresentation();
   }
+  // Reconcile focus only after F03 has rebuilt the active presentation.
+  installModalFocus(life, previousFocus);
   return dispose;
 }
