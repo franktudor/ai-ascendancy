@@ -14,6 +14,7 @@ import { installEventController } from "./eventController";
 import { installEndingController } from "./endingController";
 import { installAudio } from "./audio";
 import { installRunActions } from "./runActions";
+import { installModalFocus } from "./modalFocus";
 
 /** Lifecycle bridge. Vue owns primary UI; controllers own only their host subtrees. */
 export function mountRuntime(game: CompleteGameContext): () => void {
@@ -214,6 +215,7 @@ export function mountRuntime(game: CompleteGameContext): () => void {
     ctx.SND.play("tap");
   });
   ctx.bindTree();
+  installModalFocus(life);
   click("#menuSound", ctx.toggleSound);
   click("#menuMusic", ctx.toggleMusic);
   click("#menuClose", closeMenu);
@@ -308,7 +310,10 @@ export function mountRuntime(game: CompleteGameContext): () => void {
   });
   life.on(document, "keydown", (e) => {
     const T = ctx.TREE;
-    if (T.open && $("#eventModal").hidden) {
+    const target = e.target instanceof HTMLElement ? e.target : null;
+    const activeDialog = target?.closest('[role="dialog"]');
+    if (T.open && $("#eventModal").hidden &&
+      (activeDialog?.id === "treeModal" || activeDialog?.id === "tcard")) {
       if (e.key === "Escape") {
         if (T.card) ctx.closeTreeCard();
         else ctx.closeTree();
@@ -329,9 +334,9 @@ export function mountRuntime(game: CompleteGameContext): () => void {
       }
     }
     if (e.key === "Escape") {
-      if (!$("#codexModal").hidden) ctx.closeCodex();
-      else if (ctx.ui.region >= 0) ctx.closeRegion();
-      else if (!$("#menuModal").hidden) closeMenu();
+      if (target?.closest("#codexModal")) ctx.closeCodex();
+      else if (target?.closest("#regionModal")) ctx.closeRegion();
+      else if (target?.closest("#menuModal")) closeMenu();
       else if (ctx.ui.sheetOpen && innerWidth < 900) ctx.closeSheet();
     }
     if (
