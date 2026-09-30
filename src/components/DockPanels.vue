@@ -3,12 +3,25 @@ import { useGame } from "../game/injection";
 import { computed } from "vue";
 import { REGIONS } from "../data/catalog";
 import { fmtT, kindLabel } from "../game/utils";
+import type { LogEntry } from "../game/types";
 const game = useGame(),
   ui = game.ui,
   state = computed(() => game.state);
 const ready = computed(
   () => game.UPGRADES.filter((u) => game.status(u) === "afford").length,
 );
+// Native details/focus state follows the entry, not its prepended array position.
+// IDs stay local to this component so the historical save schema is unchanged.
+const logIds = new WeakMap<LogEntry, number>();
+let nextLogId = 0;
+const logId = (entry: LogEntry) => {
+  let id = logIds.get(entry);
+  if (id === undefined) {
+    id = nextLogId++;
+    logIds.set(entry, id);
+  }
+  return id;
+};
 const title = computed(() =>
   ui.tab === "world"
     ? ui.mode === "origin"
@@ -119,7 +132,12 @@ const sub = computed(() =>
           </button></template
         >
         <template v-else-if="ui.tab === 'log'"
-          ><div v-for="(e, i) in state.log" :key="i" class="le" :class="e.kind">
+          ><div
+            v-for="e in state.log"
+            :key="logId(e)"
+            class="le"
+            :class="e.kind"
+          >
             <div class="lt">T+{{ fmtT(e.t) }} · {{ kindLabel(e.kind) }}</div>
             <b>{{ e.title }}</b
             >{{ e.text }}
