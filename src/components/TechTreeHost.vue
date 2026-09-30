@@ -14,6 +14,7 @@
       <button
         class="trView"
         id="trView"
+        aria-label="List view"
         aria-pressed="false"
         aria-controls="trList"
       >

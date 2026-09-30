@@ -582,6 +582,7 @@ export function installTree(ctx: RuntimeContext) {
   ctx.openTree = function openTree(track) {
     if (!ctx.TREE.built) ctx.buildTree();
     ctx.$("#treeModal").hidden = false;
+    ctx.$('#tabs [data-tab="tree"]').setAttribute("aria-expanded", "true");
     ctx.TREE.open = true;
     ctx.TREE.last = 0;
     ctx.TREE.stT = 0;
@@ -612,6 +613,7 @@ export function installTree(ctx: RuntimeContext) {
   ctx.closeTree = function closeTree() {
     ctx.closeTreeCard(true);
     ctx.$("#treeModal").hidden = true;
+    ctx.$('#tabs [data-tab="tree"]').setAttribute("aria-expanded", "false");
     ctx.TREE.open = false;
     ctx.TREE.drag = null;
     ctx.TREE.hover = false;
@@ -712,6 +714,8 @@ export function installTree(ctx: RuntimeContext) {
             ? "Aim for this"
             : "Trace path";
     if (pb.textContent !== pl) pb.textContent = pl;
+    pb.setAttribute("aria-label", "Trace path to " + u.name);
+    pb.setAttribute("aria-pressed", String(ctx.state.goal === id));
     pb.hidden = st === "owned" && ctx.state.goal !== id;
     const eta = st === "poor" ? ctx.etaText(u) : "";
     const req =

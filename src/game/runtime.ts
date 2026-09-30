@@ -98,7 +98,9 @@ export function mountRuntime(game: CompleteGameContext): () => void {
   const audioLabels = () => {
     ctx.ui.soundOn = ctx.SND.on;
     ctx.ui.musicOn = ctx.MUSIC.on;
+    $("#menuSound").setAttribute("aria-pressed", String(ctx.SND.on));
     $("#menuSound").textContent = "Sound: " + (ctx.SND.on ? "on" : "off");
+    $("#menuMusic").setAttribute("aria-pressed", String(ctx.MUSIC.on));
     $("#menuMusic").textContent = "Music: " + (ctx.MUSIC.on ? "on" : "off");
   };
   ctx.toggleSound = () => {

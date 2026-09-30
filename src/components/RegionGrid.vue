@@ -2,6 +2,7 @@
 import { useGame } from "../game/injection";
 import { computed } from "vue";
 import { REGIONS } from "../data/catalog";
+import { regionLabel } from "../game/accessibility";
 const game = useGame();
 const tiles = computed(() =>
   REGIONS.map((R, i) => {
@@ -50,7 +51,7 @@ const tiles = computed(() =>
       class="rt"
       :class="tile.classes"
       :data-i="tile.i"
-      :aria-label="tile.R.name"
+      :aria-label="regionLabel(game, tile.i)"
       @click="game.openRegion(tile.i)"
     >
       <span class="st">{{ tile.status }}</span>

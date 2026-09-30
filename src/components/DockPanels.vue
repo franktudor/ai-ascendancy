@@ -2,6 +2,7 @@
 import { useGame } from "../game/injection";
 import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { REGIONS } from "../data/catalog";
+import { regionLabel } from "../game/accessibility";
 import { fmtT, kindLabel } from "../game/utils";
 import type { LogEntry } from "../game/types";
 const game = useGame(),
@@ -70,6 +71,9 @@ watch(
       <button
         class="tab"
         data-tab="tree"
+        aria-controls="treeModal"
+        aria-haspopup="dialog"
+        aria-expanded="false"
         style="--tc: var(--software)"
         @click="game.openTree()"
       >
@@ -82,6 +86,8 @@ watch(
       <button
         class="tab"
         data-tab="world"
+        aria-controls="sheet"
+        :aria-expanded="ui.tab === 'world' && !sheetHidden"
         :class="{ on: ui.tab === 'world' && ui.sheetOpen }"
         style="--tc: var(--ai)"
         @click="game.openSheet('world')"
@@ -91,6 +97,8 @@ watch(
       <button
         class="tab"
         data-tab="log"
+        aria-controls="sheet"
+        :aria-expanded="ui.tab === 'log' && !sheetHidden"
         :class="{ on: ui.tab === 'log' && ui.sheetOpen }"
         style="--tc: var(--human)"
         @click="game.openSheet('log')"
@@ -129,6 +137,7 @@ watch(
             class="wr"
             :class="{ restricted: state.regions[i].restricted }"
             :data-i="i"
+            :aria-label="regionLabel(game, i)"
             @click="game.openRegion(i)"
           >
             <span class="nm">{{ R.name }}</span

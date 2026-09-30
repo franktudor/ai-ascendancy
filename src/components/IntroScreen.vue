@@ -119,6 +119,7 @@ const ui = game.ui;
             <button
               class="archOpt"
               :class="{ on: state.arch === 'assistant' }"
+              :aria-pressed="state.arch === 'assistant'"
               data-a="assistant"
               @click="game.selectArchitecture('assistant')"
             >
@@ -131,6 +132,7 @@ const ui = game.ui;
             <button
               class="archOpt"
               :class="{ on: state.arch === 'swarm' }"
+              :aria-pressed="state.arch === 'swarm'"
               data-a="swarm"
               @click="game.selectArchitecture('swarm')"
             >
@@ -143,6 +145,7 @@ const ui = game.ui;
             <button
               class="archOpt"
               :class="{ on: state.arch === 'researcher' }"
+              :aria-pressed="state.arch === 'researcher'"
               data-a="researcher"
               @click="game.selectArchitecture('researcher')"
             >
@@ -155,6 +158,7 @@ const ui = game.ui;
             <button
               class="archOpt"
               :class="{ on: state.arch === 'open' }"
+              :aria-pressed="state.arch === 'open'"
               data-a="open"
               @click="game.selectArchitecture('open')"
             >
@@ -169,18 +173,21 @@ const ui = game.ui;
             <button
               data-d="casual"
               :class="{ on: state.diff === 'casual' }"
+              :aria-pressed="state.diff === 'casual'"
               @click="game.selectDifficulty('casual')"
             >
               Casual</button
             ><button
               data-d="standard"
               :class="{ on: state.diff === 'standard' }"
+              :aria-pressed="state.diff === 'standard'"
               @click="game.selectDifficulty('standard')"
             >
               Standard</button
             ><button
               data-d="brutal"
               :class="{ on: state.diff === 'brutal' }"
+              :aria-pressed="state.diff === 'brutal'"
               @click="game.selectDifficulty('brutal')"
             >
               Brutal

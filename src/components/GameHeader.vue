@@ -22,6 +22,7 @@ const ui = game.ui;
         class="ib"
         id="btnPause"
         :class="{ on: state.paused }"
+        :aria-pressed="state.paused"
         @click="game.togglePause()"
         aria-label="Pause or resume"
         title="Pause"
@@ -32,18 +33,21 @@ const ui = game.ui;
         <button
           data-s="1"
           :class="{ on: state.speed === 1 }"
+          :aria-pressed="state.speed === 1"
           @click="game.setSpeed(1)"
         >
           1×</button
         ><button
           data-s="2"
           :class="{ on: state.speed === 2 }"
+          :aria-pressed="state.speed === 2"
           @click="game.setSpeed(2)"
         >
           2×</button
         ><button
           data-s="3"
           :class="{ on: state.speed === 3 }"
+          :aria-pressed="state.speed === 3"
           @click="game.setSpeed(3)"
         >
           3×
@@ -53,6 +57,7 @@ const ui = game.ui;
         class="ib"
         id="btnSound"
         :class="{ on: ui.soundOn }"
+        :aria-pressed="ui.soundOn"
         @click="game.toggleSound()"
         aria-label="Toggle sound"
         title="Sound"
@@ -63,6 +68,7 @@ const ui = game.ui;
         class="ib"
         id="btnMusic"
         :class="{ on: ui.musicOn }"
+        :aria-pressed="ui.musicOn"
         @click="game.toggleMusic()"
         aria-label="Toggle music"
         title="Music"

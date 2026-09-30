@@ -130,6 +130,7 @@ const minds = computed(() => {
         :key="p"
         :data-p="p"
         :class="{ on: state.posture === p }"
+        :aria-pressed="state.posture === p"
         @click="game.setPosture(p)"
       >
         {{ p[0].toUpperCase() + p.slice(1) }}
