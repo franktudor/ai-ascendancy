@@ -13,6 +13,7 @@ export function installRunActions(ctx: RuntimeContext) {
       const oi = ctx.RI[ctx.state.origin];
       ctx.state.regions[oi].a = Math.max(ctx.state.regions[oi].a, 0.03);
     }
+    ctx.recordPeak();
     if (ctx.state.arch === "swarm") ctx.state.inst = 25;
     ctx.closeRegion();
     ctx.bulletin(

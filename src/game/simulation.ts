@@ -75,6 +75,9 @@ export function installSimulation(ctx: CompleteGameContext) {
       s += ctx.state.regions[i].a * ctx.REGIONS[i].pop;
     return s / ctx.TOTALPOP;
   };
+  ctx.recordPeak = () => {
+    ctx.state.stats.peak = Math.max(ctx.state.stats.peak, ctx.reach());
+  };
   ctx.nodeCount = function nodeCount() {
     let n = 0;
     for (const r of ctx.state.regions) if (r.dc && !r.struck) n++;
@@ -362,6 +365,7 @@ export function installSimulation(ctx: CompleteGameContext) {
         r.a = ctx.clamp(r.a + dA, 0, 1);
       }
     }
+    ctx.recordPeak();
     // The Collective: instances scale with reach and data centers.
     {
       const A = ctx.ARCHFX(),
@@ -683,7 +687,9 @@ export function installSimulation(ctx: CompleteGameContext) {
     if (!live.length) return;
     const i = ctx.pick(live);
     const r = ctx.state.regions[i];
+    ctx.recordPeak();
     r.a = ctx.clamp(r.a + 0.05 * (1 - r.a), 0, 1);
+    ctx.recordPeak();
     ctx.pulseRegion(i, "170,255,170");
     ctx.pushTicker(
       ctx.pick([
@@ -702,7 +708,9 @@ export function installSimulation(ctx: CompleteGameContext) {
     return ctx.state.contain - was;
   };
   ctx.adopt = (r, f) => {
+    ctx.recordPeak();
     r.a = ctx.clamp(r.a + f * (f > 0 ? 1 - r.a : r.a), 0, 1);
+    ctx.recordPeak();
   };
   ctx.FX = {
     // Outcome text reports the change that actually landed, after difficulty scaling and every clamp, and says why

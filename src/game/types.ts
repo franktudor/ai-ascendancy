@@ -613,6 +613,7 @@ export interface RulesAPI {
   DIFF(): DifficultyDefinition;
   has(id: UpgradeId): boolean;
   reach(): number;
+  recordPeak(): void;
   nodeCount(): number;
   capped(): boolean | undefined;
   costOf(u: UpgradeDefinition): number;

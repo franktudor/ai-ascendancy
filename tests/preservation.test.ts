@@ -77,10 +77,11 @@ function reference(): ReferenceGame {
       0,
       script.indexOf("addEventListener('resize',setAppHeight);"),
     ) +
-      `\nthis.api={get state(){return S},set state(s){S=s},freshState,tick,derive,costOf,status,UPGRADES,EVENTS,ENDINGS,UP,FX,buy,buildDC,checkRebuilds,endGame,makeEval,load,save,codexGet};toast=()=>{};bulletin=(kind,title,text,out,opt,real)=>{log(kind,title,text,out,real);};pushTicker=pulseRegion=showEnd=openRegion=()=>{};SND.play=()=>{};`,
+      `\nthis.api={get state(){return S},set state(s){S=s;for(const r of S.regions){let a=r.a;Object.defineProperty(r,"a",{enumerable:true,configurable:true,get(){return a},set(v){S.stats.peak=Math.max(S.stats.peak,reach());a=v;S.stats.peak=Math.max(S.stats.peak,reach());}})}},freshState,tick,derive,costOf,status,UPGRADES,EVENTS,ENDINGS,UP,FX,buy,buildDC,checkRebuilds,endGame,makeEval,load,save,codexGet};toast=()=>{};bulletin=(kind,title,text,out,opt,real)=>{log(kind,title,text,out,real);};pushTicker=pulseRegion=showEnd=openRegion=()=>{};SND.play=()=>{};`,
     sandbox,
   );
-  // The historical source is deliberately executed unchanged in a VM.
+  // The historical rules execute unchanged. F18 observes region adoption writes
+  // in the reference state setter solely to normalize the deliberate peak delta.
   // Only its explicit exported reference port crosses the untyped realm boundary.
   return (sandbox as typeof sandbox & { api: ReferenceGame }).api;
 }
@@ -200,6 +201,7 @@ test("every event effect and choice produces the original outcome and state unde
         game.state.regions.forEach((x) =>
           Object.assign(x, { a: 0.5, dc: true }),
         );
+        game.state.stats.peak = 0.5;
       }
       const expected = fixedRandom(
         () =>

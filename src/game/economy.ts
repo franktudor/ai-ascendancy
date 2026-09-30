@@ -173,6 +173,7 @@ export function installEconomy(ctx: CompleteGameContext) {
       const i = ctx.RI[ctx.state.origin];
       const r = ctx.state.regions[i];
       r.a = Math.max(r.a, ctx.state.origin === "EA" ? 0.05 : 0.02);
+      ctx.recordPeak();
       ctx.pulseRegion(i);
       if (!ctx.state.flags.launchedNote) {
         ctx.state.flags.launchedNote = true;
