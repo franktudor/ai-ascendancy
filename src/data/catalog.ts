@@ -1037,7 +1037,7 @@ export const UPGRADES: CatalogUpgrade[] = [
     cost: 110,
     desc: "One famous researcher resigns to warn the world. The coverage is about his conscience, not your capabilities.",
     fx: { flag: "prophet" },
-    tags: ["Whistleblower events halved"],
+    tags: ["Hinton warning alarm reduced"],
   },
   {
     id: "o_market",

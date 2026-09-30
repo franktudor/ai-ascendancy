@@ -119,6 +119,10 @@ test("all 90 upgrades, 88 events and 16 ending texts match the original source",
   // F16: copy correction only; the neural-interface prerequisite is unchanged.
   expectedUpgrades.find((u) => u.id === "d_compute")!.desc =
     "The planet is a poorly organized computer. You will reorganize it. Neural Interface Standard supplies the bridge from minds to machines; Hyperscale Buildout and seven online clusters supply the hardware. No consent forms, no ceremony.";
+  // F17: retain effects/frequency; narrow the advertised mitigation to Hinton.
+  expectedUpgrades.find((u) => u.id === "o_prophet")!.tags = [
+    "Hinton warning alarm reduced",
+  ];
   assert.deepEqual(plain(g.UPGRADES), expectedUpgrades);
   const expectedEvents = plain(r.EVENTS);
   // F15: the honeypot tactic is Insight; architecture-only tactics require s_ctx.
