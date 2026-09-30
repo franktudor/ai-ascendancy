@@ -65,6 +65,78 @@ for (const replacement of [false, true]) {
   });
 }
 
+for (const phone of [false, true]) {
+  for (const replacement of ["none", "before close", "after close"] as const) {
+    test(`F21 detached region opener retains its ${phone ? "phone fallback" : "World ancestor"} with replacement ${replacement}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: phone ? 390 : 1280, height: 844 });
+      await pausedRun(page);
+      await page.evaluate(() => {
+        document.querySelector<GameAppElement>(
+          "#app",
+        )!.__vue_app__._instance.exposed.game.state.flags.launched = true;
+      });
+      if (phone) await page.locator('#tabs [data-tab="world"]').click();
+      const opener = page.locator('#sheetBody > [data-i="0"]');
+      await opener.focus();
+      await page.keyboard.press("Enter");
+      await expect(page.locator("#rgDC")).toBeVisible();
+      await page.locator("#rgDC").focus();
+      await page.evaluate(() => {
+        const g =
+          document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
+            .exposed.game;
+        g.state.brief.news.push({
+          kind: "HEADLINE",
+          title: "Detached opener",
+          out: "News behind the region",
+          u: false,
+        });
+        g.openBriefing();
+      });
+      await expect(page.locator("#eventModal")).toBeVisible();
+      await expect(page.locator("#rgDC")).toBeFocused();
+      if (replacement === "before close") {
+        expect(await replaceRuntime(page)).toEqual({
+          disposed: true,
+          counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+        });
+        // The briefing must retain the original ancestry even if replacement
+        // chooses the first region control as the foreground focus target.
+        await page.locator("#rgDC").focus();
+      }
+      await page.keyboard.press("Escape");
+      await expect(page.locator("#regionModal")).toBeHidden();
+      await expect(page.locator("#rgDC")).toHaveCount(0);
+      await focusInside(page, "#eventModal [role=dialog]");
+      if (replacement === "after close") {
+        expect(await replaceRuntime(page)).toEqual({
+          disposed: true,
+          counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+        });
+      }
+      if (phone) {
+        await page.evaluate(() =>
+          document
+            .querySelector<GameAppElement>("#app")!
+            .__vue_app__._instance.exposed.game.closeSheet(),
+        );
+        await expect(page.locator("#sheet")).toHaveAttribute(
+          "aria-hidden",
+          "true",
+        );
+      }
+      await page.locator("#evContinue").focus();
+      await page.keyboard.press("Enter");
+      await expect(page.locator("#eventModal")).toBeHidden();
+      await expect(
+        phone ? page.locator('#tabs [data-tab="world"]') : opener,
+      ).toBeFocused();
+    });
+  }
+}
+
 for (const key of ["Enter", "Space"] as const) {
   for (const initialGoal of [null, "a_img"] as const) {
     test(`F21 keyboard ${key} ${initialGoal ? "clear" : "set"} path restores the rebuilt list opener`, async ({

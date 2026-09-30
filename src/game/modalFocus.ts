@@ -3,6 +3,7 @@ import type { Lifecycle } from "./types";
 interface FocusTarget {
   element: HTMLElement | null;
   selector: string | null;
+  owner: string | null;
   fallback: string;
 }
 
@@ -38,6 +39,14 @@ export function installModalFocus(
   const inert = new Map<HTMLElement, boolean>();
   const modal = new Map<HTMLElement, string | null>();
   const temporaryTabindex = new Set<HTMLElement>();
+  const dialogIdentity = (dialog: HTMLElement): string | null => {
+    const host = dialog.closest<HTMLElement>("[id]");
+    return host
+      ? "#" +
+          CSS.escape(host.id) +
+          (host === dialog ? "" : ' [role="dialog"][aria-modal]')
+      : null;
+  };
   let stack: ModalEntry[] = (previous?.entries ?? []).flatMap((entry) => {
     const dialog = document.querySelector<HTMLElement>(entry.dialog);
     return dialog
@@ -67,9 +76,13 @@ export function installModalFocus(
       : el.closest("#treeModal")
         ? "tree"
         : null;
+    const dialog = el.closest<HTMLElement>('[role="dialog"],#endSkip');
     return {
       element: el,
       selector,
+      // Capture ownership while attached: Vue may detach the control before
+      // the next observer delivery, leaving no DOM ancestry to inspect.
+      owner: dialog ? dialogIdentity(dialog) : null,
       fallback: panel ? `#tabs [data-tab="${panel}"]` : "#btnMenu",
     };
   };
@@ -168,21 +181,14 @@ export function installModalFocus(
         ...document.querySelectorAll<HTMLElement>(selector),
       ].filter(visible);
       // A surviving dialog must inherit the dismissed owner's return destination.
-      // Resolve selectors too: replacement presentations carry no old DOM nodes.
+      // Ownership survives detached controls and DOM-free replacement captures.
       for (const removed of stack.filter(
         (entry) => !shown.includes(entry.dialog),
       )) {
+        const owner = dialogIdentity(removed.dialog);
         for (const entry of stack) {
           if (entry === removed) continue;
-          const opener = entry.opener;
-          if (
-            [
-              opener?.element,
-              opener?.selector
-                ? document.querySelector<HTMLElement>(opener.selector)
-                : null,
-            ].some((el) => el && removed.dialog.contains(el))
-          )
+          if (owner && entry.opener?.owner === owner)
             entry.opener = removed.opener;
         }
       }
@@ -249,16 +255,17 @@ export function installModalFocus(
     sync();
     return {
       entries: stack.flatMap(({ dialog, opener }) => {
-        const host = dialog.closest<HTMLElement>("[id]");
-        if (!host) return [];
+        const identity = dialogIdentity(dialog);
+        if (!identity) return [];
         return [
           {
-            dialog:
-              "#" +
-              CSS.escape(host.id) +
-              (host === dialog ? "" : ' [role="dialog"][aria-modal]'),
+            dialog: identity,
             opener: opener
-              ? { selector: opener.selector, fallback: opener.fallback }
+              ? {
+                  selector: opener.selector,
+                  owner: opener.owner,
+                  fallback: opener.fallback,
+                }
               : null,
           },
         ];
