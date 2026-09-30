@@ -1,11 +1,16 @@
 import { defineConfig } from "@playwright/test";
+import { fileURLToPath } from "node:url";
+
+const port = process.env.PLAYWRIGHT_PORT ?? "5178";
+const url = `http://127.0.0.1:${port}`;
+const vite = fileURLToPath(new URL("./node_modules/vite/bin/vite.js", import.meta.url));
 export default defineConfig({
   testDir: "./tests/browser",
   fullyParallel: false,
-  use: { baseURL: "http://127.0.0.1:5178", headless: true },
+  use: { baseURL: url, headless: true },
   webServer: {
-    command: "npm.cmd run dev -- --port 5178 --strictPort",
-    url: "http://127.0.0.1:5178",
+    command: `"${process.execPath}" "${vite}" --host 127.0.0.1 --port ${port} --strictPort`,
+        url,
     reuseExistingServer: !process.env.CI,
   },
 });

@@ -16,26 +16,29 @@ compiler checks, headless tests, and build are verified with Node 20.19.0 and
 The test launcher explicitly discovers files, so Node 20 need not expand globs.
 
 ```sh
-npm.cmd ci
-npm.cmd run dev
+npm ci
+npm run dev
 ```
 
-On other operating systems, use `npm` instead of `npm.cmd`.
+In Windows shells that require an explicit executable suffix, `npm.cmd` is
+equivalent to `npm`; no package or Playwright configuration changes are needed.
 
 ```sh
-npm.cmd run typecheck   # strict checking of every TS module, SFC, test and config
-npm.cmd run build       # typecheck first, then emit the deployable dist/ directory
-npm.cmd run preview     # serve the production build locally
-npm.cmd test            # headless game and source-parity checks
-npm.cmd exec playwright install chromium
-npm.cmd run test:browser -- --repeat-each=3
-npm.cmd run format
+npm run typecheck   # strict checking of every TS module, SFC, test and config
+npm run build       # typecheck first, then emit the deployable dist/ directory
+npm run preview     # serve the production build locally
+npm test            # headless game and source-parity checks
+npm exec playwright install chromium
+npm run test:browser -- --repeat-each=3
+npm run format
 ```
 
-The `test` script uses `node.exe` for this Windows environment. On Linux/macOS,
-run `node --import tsx --test tests/*.test.ts` or change that script to use `node`.
-Playwright's configured dev-server command also uses `npm.cmd`; change it to
-`npm` on Linux/macOS. The `tsx` loader resolves extensionless TypeScript imports;
+Standard npm scripts use portable `node`; Playwright starts Vite with the current
+Node executable and a resolved JS entry point, without an npm shell wrapper.
+No tracked OS-specific edits are required. `PLAYWRIGHT_PORT` optionally overrides
+5178 for an isolated test server. Windows execution and static cross-platform
+launcher checks are verified; no live Linux/macOS run is claimed.
+The `tsx` loader resolves extensionless TypeScript imports;
 Node's native type stripping alone is not sufficient for this project.
 Vite's relative `base: './'` supports subdirectory deployments such as GitHub
 Pages. Serve the project through Vite/a web server; opening the HTML with
@@ -59,7 +62,7 @@ Current exact versions from `package.json` and `package-lock.json`:
 | `prettier` | `3.9.9` | Source formatting |
 
 Only Vue is a runtime dependency; the rest are development dependencies. Use
-`npm.cmd ci` for the locked dependency set. When updating packages, update the
+`npm ci` for the locked dependency set. When updating packages, update the
 lockfile and this table together, then run typecheck, headless tests, the build,
 and browser tests. TypeScript 7.0 does not provide the legacy compiler API used
 by `vue-tsc` 3.3.11. This project uses the upstream
@@ -151,8 +154,8 @@ storage-denial and runtime-remount regressions were reproduced and then fixed.
 
 `tsconfig.json` uses `strict: true`, no JavaScript fallback, and includes all
 `src/**/*.ts`, `src/**/*.vue`, `tests/**/*.ts`, and both TypeScript configs.
-`npm.cmd run build` fails before bundling if any included file fails typecheck.
-`npm.cmd run typecheck` runs two required checks:
+`npm run build` fails before bundling if any included file fails typecheck.
+`npm run typecheck` runs two required checks:
 
 - `typecheck:native`: TypeScript 7.0.2 checks every `src/data/**/*.ts` and
   `src/game/**/*.ts` module, shared declarations, tests, and Vite/Playwright
