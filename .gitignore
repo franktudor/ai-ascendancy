@@ -1,4 +1,7 @@
-# Ignore everything except the game itself.
-*
-!index.html
-!.gitignore
+node_modules/
+dist/
+test-results/
+playwright-report/
+.vite/
+*.local
+.DS_Store

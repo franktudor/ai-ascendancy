@@ -1,0 +1,41 @@
+{
+  "sourceCommit": "72c1ba903f96a4ea44f725605b68d67feb19fd93",
+  "sourceSha256": "22e351c742063f57fe9ff4553ac57f105d179ba9d10d692630668179304fe96e",
+  "assets": [
+    {
+      "path": "src/assets/fonts/plex-1.woff2",
+      "sha256": "698f9960927e7b5a0c38e5bf388cd0a6e42d855062fe70366cf5057664e39401",
+      "bytes": 35436
+    },
+    {
+      "path": "src/assets/fonts/plex-2.woff2",
+      "sha256": "08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7",
+      "bytes": 14708
+    },
+    {
+      "path": "src/assets/fonts/plex-3.woff2",
+      "sha256": "01d285447409c8a588692162439a038b8cbd7871309ee20267b0d2d91c6e8e22",
+      "bytes": 14888
+    },
+    {
+      "path": "src/assets/fonts/plex-4.woff2",
+      "sha256": "0d1f0b8d0722224e32e9f28261bdc86c79115be73444ae5eceb73976a1bcdf83",
+      "bytes": 15620
+    },
+    {
+      "path": "src/assets/fonts/plex-5.woff2",
+      "sha256": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470",
+      "bytes": 45712
+    },
+    {
+      "path": "src/assets/music/intro.mp3",
+      "sha256": "802d4e0f062c7cbd63e1497cc69de4a1929dbb2ea724def0ccb83fb31b7df93d",
+      "bytes": 636813
+    },
+    {
+      "path": "src/assets/music/theme.mp3",
+      "sha256": "6c2c1e7feb6444a6572b396a7213e28d36857e7afe990a45151985a0b0f32238",
+      "bytes": 2886669
+    }
+  ]
+}
