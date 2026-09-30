@@ -703,6 +703,7 @@ type CatalogAPI = Omit<typeof catalog, "UPGRADES" | "UP">;
 export interface GameContext extends CatalogAPI, RulesAPI, PresentationAPI {
   state: GameState;
   ui: GameUI;
+  withIsolatedState<T>(state: GameState, ui: GameUI, run: () => T): T;
   storage: StoragePort | null;
   KEY: string;
   UPGRADES: UpgradeDefinition[];

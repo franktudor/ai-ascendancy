@@ -1,4 +1,11 @@
-import type { RuntimeContext, EventChoice, NewsEntry } from "./types";
+import type {
+  RuntimeContext,
+  EventChoice,
+  NewsEntry,
+  GameState,
+  GameUI,
+} from "./types";
+import { toRaw } from "vue";
 // Extracted original rules/controller; all cross-domain access is explicit.
 export function installEventController(ctx: RuntimeContext) {
   ctx.DICE_SVG =
@@ -17,8 +24,15 @@ export function installEventController(ctx: RuntimeContext) {
       : ctx.esc(text);
   };
   ctx.previewChoice = function previewChoice(c) {
-    const real = ctx.state,
-      keep = {
+    // Read Vue's raw state once. History text is not serialized 200 times.
+    const snapshot = JSON.parse(
+      JSON.stringify({
+        state: toRaw(ctx.state),
+        ui: toRaw(ctx.ui),
+      }),
+    ) as { state: GameState; ui: GameUI };
+    const { log, ...rules } = snapshot.state;
+    const keep = {
         toast: ctx.toast,
         bulletin: ctx.bulletin,
         log: ctx.log,
@@ -28,7 +42,6 @@ export function installEventController(ctx: RuntimeContext) {
         randIds: ctx.randIds,
         play: ctx.SND.play,
         rnd: Math.random,
-        dirty: ctx.ui.dirty,
       },
       outs: string[] = [];
     let chance = false;
@@ -59,14 +72,20 @@ export function installEventController(ctx: RuntimeContext) {
           t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
           return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
         };
-        ctx.state = JSON.parse(JSON.stringify(real));
         try {
-          const o = c.fx() || "Nothing changes.";
+          const sample = {
+            ...structuredClone(rules),
+            log: log.map((e) => ({ ...e })),
+          };
+          const o = ctx.withIsolatedState(
+            sample,
+            structuredClone(snapshot.ui),
+            () => c.fx() || "Nothing changes.",
+          );
           if (!outs.includes(o)) outs.push(o);
         } catch (err) {}
       }
     } finally {
-      ctx.state = real;
       ctx.toast = keep.toast;
       ctx.bulletin = keep.bulletin;
       ctx.log = keep.log;
@@ -76,7 +95,6 @@ export function installEventController(ctx: RuntimeContext) {
       ctx.randIds = keep.randIds;
       ctx.SND.play = keep.play;
       Math.random = keep.rnd;
-      ctx.ui.dirty = keep.dirty;
     }
     return { outs, chance };
   };
@@ -169,6 +187,7 @@ export function installEventController(ctx: RuntimeContext) {
         if (resolved) return;
         picked = c;
         const { outs, chance } = ctx.previewChoice(c);
+        pickedChance = chance;
         ch.hidden = true;
         ctx.$("#evOutcome").hidden = false;
         ctx.setOutcome(
@@ -189,6 +208,7 @@ export function installEventController(ctx: RuntimeContext) {
       ch.appendChild(b);
     });
     let picked: EventChoice | null = null;
+    let pickedChance = false;
     ctx.$("#evOutcome").hidden = true;
     ctx.$("#evContinue").hidden = true;
     ctx.$("#evContinue").textContent = "Continue";
@@ -196,6 +216,7 @@ export function installEventController(ctx: RuntimeContext) {
     ctx.$("#evBack").onclick = () => {
       if (resolved) return;
       picked = null;
+      pickedChance = false;
       ch.hidden = false;
       ctx.$("#evOutcome").hidden = true;
       ctx.$("#evContinue").hidden = true;
@@ -209,7 +230,7 @@ export function installEventController(ctx: RuntimeContext) {
       }
       resolved = true;
       const c = picked,
-        gamble = ctx.previewChoice(c).chance;
+        gamble = pickedChance;
       ctx.$("#evBack").hidden = true;
       const out = c.fx() || "Done.";
       if (ctx.ui.brief) ctx.ui.brief.done = ctx.ui.brief.i;

@@ -1,6 +1,7 @@
 import type {
   CompleteGameContext,
   GameState,
+  GameUI,
   StoragePort,
   UpgradeId,
   UpgradeDefinition,
@@ -21,11 +22,13 @@ export function createGame({
   storage = null,
 }: { storage?: StoragePort | null } = {}): CompleteGameContext {
   const holder = shallowReactive<{ state: GameState | null }>({ state: null });
+  let isolated: { state: GameState; ui: GameUI } | null = null;
   type GameSeed = Pick<
     CompleteGameContext,
     | keyof typeof catalog
     | keyof typeof utils
     | "state"
+    | "withIsolatedState"
     | "storage"
     | "KEY"
     | "ui"
@@ -47,38 +50,55 @@ export function createGame({
       UpgradeDefinition
     >,
     get state(): GameState {
+      if (isolated) return isolated.state;
       if (!holder.state)
         throw new Error("Game state accessed before initialization");
       return holder.state;
     },
     set state(value: GameState) {
+      if (isolated) {
+        isolated.state = value;
+        return;
+      }
       holder.state = reactive(value);
+    },
+    withIsolatedState(state, ui, run) {
+      const previous = isolated;
+      isolated = { state, ui };
+      try {
+        return run();
+      } finally {
+        isolated = previous;
+      }
     },
     storage,
     KEY: "ai-ascendancy.v2",
-    ui: reactive({
-      mode: "intro",
-      tab: null,
-      sheetOpen: false,
-      sel: -1,
-      dirty: true,
-      modal: null,
-      lastUi: 0,
-      lastMap: 0,
-      tkLast: "",
-      tkT: 0,
-      tkQ: [],
-      region: -1,
-      sig: "",
-      briefClock: 0,
-      soundOn: true,
-      musicOn: true,
-      newArmed: false,
-    }),
+    get ui() {
+      return isolated?.ui ?? publishedUI;
+    },
     pulses: [],
     drones: [],
     SND: { play() {} },
   };
+  const publishedUI = reactive<GameUI>({
+    mode: "intro",
+    tab: null,
+    sheetOpen: false,
+    sel: -1,
+    dirty: true,
+    modal: null,
+    lastUi: 0,
+    lastMap: 0,
+    tkLast: "",
+    tkT: 0,
+    tkQ: [],
+    region: -1,
+    sig: "",
+    briefClock: 0,
+    soundOn: true,
+    musicOn: true,
+    newArmed: false,
+  });
   // Only this assembly boundary is asserted: the seed is fully checked above,
   // and installers synchronously fill the declared APIs before ctx escapes.
   const ctx = seed as CompleteGameContext;
