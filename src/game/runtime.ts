@@ -454,6 +454,7 @@ export function mountRuntime(game: CompleteGameContext): () => void {
     if (life.disposed) return;
     ctx.save();
     ctx.endReset();
+    ctx.closeTreeCard(true);
     life.dispose();
     for (const host of [
       "#treeModal",

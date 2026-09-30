@@ -666,7 +666,9 @@ export function installTree(ctx: RuntimeContext) {
     ctx.SND.play("tap");
   };
   ctx.closeTreeCard = function closeTreeCard(now) {
-    if (!ctx.TREE.card) return;
+    // Immediate teardown also completes a dismissal whose logical card already
+    // cleared but whose delayed DOM cleanup has not run yet.
+    if (!ctx.TREE.card && !now) return;
     ctx.TREE.card = null;
     ctx.TREE.hold = performance.now() + 2500;
     const c = ctx.$("#tcard"),
