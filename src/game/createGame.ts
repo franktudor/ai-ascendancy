@@ -11,6 +11,7 @@ import * as catalog from "../data/catalog";
 import * as utils from "./utils";
 import { installSimulation } from "./simulation";
 import { assertGameAssembly } from "./assembly";
+import type { GameSeed } from "./assembly";
 import { installEventCatalog } from "../data/events";
 import { installEvents } from "./events";
 import { installEconomy } from "./economy";
@@ -24,19 +25,6 @@ export function createGame({
 }: { storage?: StoragePort | null } = {}): CompleteGameContext {
   const holder = shallowReactive<{ state: GameState | null }>({ state: null });
   let isolated: { state: GameState; ui: GameUI } | null = null;
-  type GameSeed = Pick<
-    CompleteGameContext,
-    | keyof typeof catalog
-    | keyof typeof utils
-    | "state"
-    | "withIsolatedState"
-    | "storage"
-    | "KEY"
-    | "ui"
-    | "pulses"
-    | "drones"
-    | "SND"
-  >;
   // Conditions capture ctx but cannot run until the installers finish.
   const upgrades: UpgradeDefinition[] = catalog.UPGRADES.map((u) => ({
     ...u,
@@ -127,6 +115,8 @@ export function createGame({
   };
   ctx.ARCHFX = () => (ctx.ARCH[ctx.state.arch] || ctx.ARCH.assistant).fx;
   installSimulation(ctx);
+  // freshState is consumed during construction, before the final escape guard.
+  assertGameAssembly(ctx, "installSimulation");
   ctx.state = ctx.freshState("standard");
   installEventCatalog(ctx);
   installEvents(ctx);

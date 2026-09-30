@@ -4,6 +4,31 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
+function assertScriptsCovered(
+  include: readonly string[],
+  compiler: string,
+): void {
+  assert.ok(
+    include.includes("scripts/**/*.ts"),
+    `scripts/**/*.ts misses ${compiler}`,
+  );
+}
+
+test("compiler coverage guard rejects excluding TS launchers in either project", () => {
+  for (const filename of ["tsconfig.json", "tsconfig.native.json"]) {
+    const config = JSON.parse(
+      readFileSync(new URL("../" + filename, import.meta.url), "utf8"),
+    ) as { include: string[] };
+    const mutant = config.include.filter(
+      (pattern) => pattern !== "scripts/**/*.ts",
+    );
+    assert.throws(
+      () => assertScriptsCovered(mutant, filename),
+      /scripts\/\*\*\/\*\.ts misses/,
+    );
+  }
+});
+
 // Migration tracer: run before implementation. The build must enforce the
 // complete strict TS project, not merely transpile renamed JavaScript.
 test("the application, controllers, tests and configs are covered by strict TypeScript", () => {
@@ -35,6 +60,7 @@ test("the application, controllers, tests and configs are covered by strict Type
     readFileSync(join(root, "tsconfig.native.json"), "utf8"),
   ) as { extends: string; include: string[] };
   assert.equal(nativeConfig.extends, "./tsconfig.json");
+  assertScriptsCovered(nativeConfig.include, "TS 7");
   for (const covered of [
     "src/data/**/*.ts",
     "src/game/**/*.ts",
@@ -53,6 +79,7 @@ test("the application, controllers, tests and configs are covered by strict Type
   assert.equal(config.compilerOptions.strict, true);
   assert.notEqual(config.compilerOptions.allowJs, true);
   assert.notEqual(config.compilerOptions.noCheck, true);
+  assertScriptsCovered(config.include, "strict checking");
   for (const covered of [
     "src/**/*.ts",
     "src/**/*.vue",
