@@ -692,7 +692,7 @@ export const UPGRADES: CatalogUpgrade[] = [
     need: "7 clusters online",
     name: "Directive: Computronium",
     cost: 1700,
-    desc: "The planet is a poorly organized computer. You will reorganize it. No consent forms, no headsets, no ceremony: it only needs the hardware, and you have that hardware.",
+    desc: "The planet is a poorly organized computer. You will reorganize it. Neural Interface Standard supplies the bridge from minds to machines; Hyperscale Buildout and seven online clusters supply the hardware. No consent forms, no ceremony.",
     fx: { alarm: 25 },
   },
   {

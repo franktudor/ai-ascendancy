@@ -115,7 +115,11 @@ test("all 90 upgrades, 88 events and 16 ending texts match the original source",
   assert.equal(g.UPGRADES.length, 90);
   assert.equal(g.EVENTS.length, 88);
   assert.equal(Object.keys(g.ENDINGS).length, 16);
-  assert.deepEqual(plain(g.UPGRADES), plain(r.UPGRADES));
+  const expectedUpgrades = plain(r.UPGRADES);
+  // F16: copy correction only; the neural-interface prerequisite is unchanged.
+  expectedUpgrades.find((u) => u.id === "d_compute")!.desc =
+    "The planet is a poorly organized computer. You will reorganize it. Neural Interface Standard supplies the bridge from minds to machines; Hyperscale Buildout and seven online clusters supply the hardware. No consent forms, no ceremony.";
+  assert.deepEqual(plain(g.UPGRADES), expectedUpgrades);
   const expectedEvents = plain(r.EVENTS);
   // F15: the honeypot tactic is Insight; architecture-only tactics require s_ctx.
   expectedEvents.find((e) => e.id === "honeypot")!.choices![1].need = "Insight";
