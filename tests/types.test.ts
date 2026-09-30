@@ -9,14 +9,41 @@ import { join } from "node:path";
 test("the application, controllers, tests and configs are covered by strict TypeScript", () => {
   const root = fileURLToPath(new URL("../", import.meta.url));
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
-    scripts: { typecheck?: string; build: string };
+    scripts: Record<string, string>;
+    devDependencies: { typescript: string; "@typescript/native": string };
   };
   assert.equal(
     pkg.scripts.typecheck,
-    "vue-tsc --noEmit",
+    "npm run typecheck:native && npm run typecheck:vue",
     "missing strict typecheck command",
   );
   assert.match(pkg.scripts.build, /typecheck.*vite build/);
+  assert.equal(
+    pkg.devDependencies["@typescript/native"],
+    "npm:typescript@7.0.2",
+  );
+  assert.equal(
+    pkg.devDependencies.typescript,
+    "npm:@typescript/typescript6@6.0.2",
+  );
+  assert.equal(pkg.scripts["typecheck:vue"], "vue-tsc --noEmit");
+  assert.equal(
+    pkg.scripts["typecheck:native"],
+    "tsc --noEmit -p tsconfig.native.json",
+  );
+  const nativeConfig = JSON.parse(
+    readFileSync(join(root, "tsconfig.native.json"), "utf8"),
+  ) as { extends: string; include: string[] };
+  assert.equal(nativeConfig.extends, "./tsconfig.json");
+  for (const covered of [
+    "src/data/**/*.ts",
+    "src/game/**/*.ts",
+    "src/env.d.ts",
+    "tests/**/*.ts",
+    "vite.config.ts",
+    "playwright.config.ts",
+  ])
+    assert.ok(nativeConfig.include.includes(covered), `${covered} misses TS 7`);
   const config = JSON.parse(
     readFileSync(join(root, "tsconfig.json"), "utf8"),
   ) as {

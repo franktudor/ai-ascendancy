@@ -46,7 +46,8 @@ Current exact versions from `package.json` and `package-lock.json`:
 | `vue` | `3.5.43` | Application runtime |
 | `vite` | `8.3.1` | Development server and production build |
 | `@vitejs/plugin-vue` | `6.0.9` | Vue single-file component support |
-| `typescript` | `5.9.3` | TypeScript compiler |
+| `@typescript/native` → `typescript` | `7.0.2` | Native compiler for TS modules, tests, and configs |
+| `typescript` → `@typescript/typescript6` | `6.0.2` (API compiler `6.0.3`) | Compatibility API required by Vue SFC tooling |
 | `vue-tsc` | `3.3.11` | Strict TypeScript and Vue template checking |
 | `tsx` | `4.23.15` | TypeScript loader for headless tests |
 | `@types/node` | `26.6.3` | Node.js types for tooling and tests |
@@ -56,9 +57,12 @@ Current exact versions from `package.json` and `package-lock.json`:
 Only Vue is a runtime dependency; the rest are development dependencies. Use
 `npm.cmd ci` for the locked dependency set. When updating packages, update the
 lockfile and this table together, then run typecheck, headless tests, the build,
-and browser tests. The checked combination is TypeScript 5.9.3 with `vue-tsc`
-3.3.11; compiler upgrades should be verified against the Vue checker rather than
-assumed compatible.
+and browser tests. TypeScript 7.0 does not provide the legacy compiler API used
+by `vue-tsc` 3.3.11. This project uses the upstream
+[dual-install arrangement](https://github.com/vuejs/language-tools/pull/6123):
+native TypeScript 7 supplies `tsc`, while the package named `typescript` exposes
+the maintained TypeScript 6 API for Vue. The lockfile pins its underlying API
+compiler to 6.0.3. Neither checker is bypassed to make the build pass.
 
 ## Architecture
 
@@ -144,10 +148,17 @@ storage-denial and runtime-remount regressions were reproduced and then fixed.
 `tsconfig.json` uses `strict: true`, no JavaScript fallback, and includes all
 `src/**/*.ts`, `src/**/*.vue`, `tests/**/*.ts`, and both TypeScript configs.
 `npm.cmd run build` fails before bundling if any included file fails typecheck.
-`tests/types.test.ts` guards the migration coverage and build commands; before
-implementation, `node.exe --test tests/types.test.ts` failed with
-`AssertionError: missing strict typecheck command` (expected `vue-tsc --noEmit`,
-actual `undefined`). `tests/type-contracts.ts` additionally rejects widened IDs,
+`npm.cmd run typecheck` runs two required checks:
+
+- `typecheck:native`: TypeScript 7.0.2 checks every `src/data/**/*.ts` and
+  `src/game/**/*.ts` module, shared declarations, tests, and Vite/Playwright
+  configs through `tsconfig.native.json`, which inherits the strict settings.
+  `src/main.ts` is checked by the Vue pass because it imports an SFC.
+- `typecheck:vue`: `vue-tsc` checks the entire original project, including
+  all Vue scripts and templates, using the TypeScript 6 compatibility API.
+
+`tests/types.test.ts` guards both compiler commands and their coverage.
+`tests/type-contracts.ts` additionally rejects widened IDs,
 wrong state/API values, untyped effects, invalid event shapes, and injection or
 controller signature drift without suppression directives.
 
