@@ -5,11 +5,18 @@ export function installPersistence(ctx: CompleteGameContext) {
   ctx.CODEX_KEY = ctx.KEY + ".codex";
   ctx.codexGet = () => {
     try {
-      return (
-        (JSON.parse(storage?.getItem(ctx.CODEX_KEY) ?? "null") as Partial<
-          Record<EndingId, number>
-        > | null) || {}
+      const parsed: unknown = JSON.parse(
+        storage?.getItem(ctx.CODEX_KEY) ?? "null",
       );
+      const counts: Partial<Record<EndingId, number>> = {};
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        for (const key of ctx.END_ORDER) {
+          const value = (parsed as Record<string, unknown>)[key];
+          if (typeof value === "number" && Number.isFinite(value) && value >= 0)
+            counts[key] = Math.floor(value);
+        }
+      }
+      return counts;
     } catch {
       return {};
     }
