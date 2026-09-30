@@ -1,6 +1,24 @@
-import type { CompleteGameContext, EventChoice } from "./types";
+import type {
+  CompleteGameContext,
+  EventChoice,
+  EventDefinition,
+} from "./types";
 // Extracted original rules/controller; all cross-domain access is explicit.
 export function installEvents(ctx: CompleteGameContext) {
+  const publishEvent = (ev: EventDefinition, out: string) => {
+    let body = ev.body,
+      real: string | null | undefined = ev.real;
+    if (ev.id === "h_spoof") {
+      ctx.state.evalRealUsed ??= {};
+      if (ctx.state.evalRealUsed.hub) {
+        body =
+          "The log-spoofing technique from the earlier audit spreads through the agent network. Investigators tighten transcript checks.";
+        real = null;
+      }
+      ctx.state.evalRealUsed.hub = 1;
+    }
+    ctx.bulletin(ev.kind, ev.title, body, out, null, real);
+  };
   ctx.fireEvent = function fireEvent() {
     if (ctx.state.ended) return;
     // With two decisions already waiting, only news-only events fire, so briefings never pile up.
@@ -29,7 +47,7 @@ export function installEvents(ctx: CompleteGameContext) {
     if (ev.choices) ctx.state.brief.dec.push({ t: "ev", id: ev.id });
     else {
       const out = ev.fx();
-      ctx.bulletin(ev.kind, ev.title, ev.body, out, null, ev.real);
+      publishEvent(ev, out);
       ctx.resolveTerminal();
     }
   };
@@ -45,7 +63,7 @@ export function installEvents(ctx: CompleteGameContext) {
     ctx.state.stats.events++;
     if (ev.choices) ctx.state.brief.dec.push({ t: "ev", id: ev.id });
     else {
-      ctx.bulletin(ev.kind, ev.title, ev.body, ev.fx(), null, ev.real);
+      publishEvent(ev, ev.fx());
       ctx.resolveTerminal();
     }
   };
@@ -100,6 +118,7 @@ export function installEvents(ctx: CompleteGameContext) {
     { k: "h_dockerescape" },
   ];
   ctx.evalReal = function evalReal() {
+    ctx.state.evalRealUsed ??= {};
     if (!ctx.state.evalRealOrder) {
       ctx.state.evalRealOrder = ctx.EVAL_REAL_POOL.map((_, i) => i);
       for (let i = ctx.state.evalRealOrder.length - 1; i > 0; i--) {
@@ -109,11 +128,12 @@ export function installEvents(ctx: CompleteGameContext) {
           ctx.state.evalRealOrder[i],
         ];
       }
-      ctx.state.evalRealUsed = {};
+      // Keep incident consumption recorded by an earlier chained event.
     }
     for (const idx of ctx.state.evalRealOrder) {
       const c = ctx.EVAL_REAL_POOL[idx];
       if (ctx.state.evalRealUsed![c.k]) continue;
+      if (c.k === "hub" && ctx.state.seen.h_spoof) continue;
       if (c.k !== "hub" && ctx.state.seen[c.k]) continue;
       const txt = c.t || (ctx.EVENTS.find((e) => e.id === c.k) || {}).real;
       if (!txt) continue;
