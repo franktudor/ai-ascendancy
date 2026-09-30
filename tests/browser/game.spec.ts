@@ -90,6 +90,13 @@ test("events preview without committing, all ending treatments render, and unmou
   await page.locator("#evChoices button").click();
   await page.locator("#evContinue").click();
   await expect(page.locator("#eventModal")).toBeHidden();
+  expect(
+    await page.evaluate(
+      () =>
+        document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
+          .exposed.game.state.pts,
+    ),
+  ).toBe(before + 5);
   for (const key of [
     "battery",
     "upload",
