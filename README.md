@@ -138,10 +138,39 @@ binary assets. The original single-file source is available in git history:
 git show 72c1ba9:index.html
 ```
 
-`tests/preservation.test.ts` executes that actual historical script in an
-isolated reference realm and compares data/text, every event effect/choice,
-simulation across all architecture/difficulty combinations, costs, availability,
-endings, save migration, and original CSS. Tests require the cloned git history.
+The preservation suites execute the pinned historical script in an isolated VM;
+they require cloned git history. `preservation.test.ts` retains data/text, legacy
+save and CSS checks. Additional executable suites cover:
+
+- `conditions.test.ts`: 1,800 deterministic state samples across 12 architecture/
+  difficulty combinations, all 101 callable conditions, and every purchase gate.
+  At least 90 condition callables see both truth outcomes; this is not every
+  possible state or every branch combination.
+- `branches.test.ts`: all 88 events, 160 choices and 15 direct effects, both
+  no-flags/all-flags states, forced low/high RNG and four seeded outcomes. Both
+  actual catalog gambling outcomes are independently asserted.
+- `audits.test.ts`: generated audit text and each callable tactic across low,
+  middle and high scrutiny, flags on/off and RNG low/high; scheduler and four
+  nonrepeating grounding stories.
+- `dispatch.test.ts`: weighted selection, decision caps, all direct once-only
+  deliveries and six actual chain roots, comparing real log/news contents.
+- `progression.test.ts`, `long-traces.test.ts`, `clusters.test.ts`: active phase
+  0/1/2 traces, all architecture/difficulty/posture long traces, every upgrade
+  purchase, strike/interception/rebuild branches, nine directive mappings and
+  all sixteen ending keys against the original (never the migrated draw map).
+- `assets.test.ts`: exactly seven unique paths, pinned source identity and
+  independent decoding/byte comparison, including empty/duplicate/tampered
+  manifest rejection.
+
+Only wall-clock save/end timestamps are normalized. Functions are called, not
+JSON-serialized as an oracle. Headless action bulletins use the documented
+retain-news policy; browser effects are separate. These deterministic samples
+are broad regression coverage, not proof of exhaustive random-path equivalence.
+`parity-mutations.test.ts` proves the actual suites reject all-false conditions,
+a throwing audit generator and a changed battery draw map. The historical oracle
+starts with no rule deltas; later intentional fixes must use a unique exact
+source replacement with finding/rationale and an independent regression test in
+`helpers/reference-deltas.ts`, not blanket state-field exclusions.
 `tests/browser/game.spec.ts` exercises real Chromium: selection, origin, launch,
 saves and erase confirmation, previews, all ending renderers, mobile tree views,
 Web Audio decoding, storage denial, runtime remount, and disposal.
@@ -192,4 +221,5 @@ controllers rather than being rewritten entirely in Vue. This preserves their
 original detailed behavior. Browser automation checks rendering and playback
 state, not subjective audio listening or pixel-perfect screenshot equivalence.
 Full-length human playthroughs of every random path were not performed; the
-complete rules/effects are covered against the original source instead.
+automated callable matrices and traces compare the sampled rules/effects against
+the original source; exhaustive human/random-path coverage is not claimed.
