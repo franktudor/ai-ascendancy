@@ -39,9 +39,9 @@ for (const [mutation, file, pattern] of [
 
 test("historical oracle deltas reject broad or stale targets", () => {
   assert.equal(
-    new Set(verifiedDeltas.map((delta) => delta.finding)).size,
+    new Set(verifiedDeltas.map((delta) => delta.before)).size,
     verifiedDeltas.length,
-    "one narrow delta per finding",
+    "each independently justified historical location has a distinct exact target",
   );
   assert.throws(
     () =>

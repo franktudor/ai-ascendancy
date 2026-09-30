@@ -162,15 +162,47 @@ save and CSS checks. Additional executable suites cover:
   independent decoding/byte comparison, including empty/duplicate/tampered
   manifest rejection.
 
-Only wall-clock save/end timestamps are normalized. Functions are called, not
-JSON-serialized as an oracle. Headless action bulletins use the documented
-retain-news policy; browser effects are separate. These deterministic samples
-are broad regression coverage, not proof of exhaustive random-path equivalence.
-`parity-mutations.test.ts` proves the actual suites reject all-false conditions,
-a throwing audit generator and a changed battery draw map. The historical oracle
-starts with no rule deltas; later intentional fixes must use a unique exact
-source replacement with finding/rationale and an independent regression test in
-`helpers/reference-deltas.ts`, not blanket state-field exclusions.
+Only wall-clock save/end timestamps are normalized by state comparison. Functions
+are called, not JSON-serialized as an oracle. Headless action bulletins retain
+news through the actual historical publication function; browser effects are
+separate. These deterministic samples are broad regression coverage, not proof
+of exhaustive random-path equivalence. `parity-mutations.test.ts` still proves
+the actual suites reject all-false conditions, a throwing audit generator and a
+changed battery draw map.
+
+The expanded oracle starts from `72c1ba9:index.html` and applies only the exact,
+unique source targets in `tests/helpers/reference-deltas.ts`. Each target names
+its finding and independent regression evidence:
+
+- F14: resolve terminal outcomes after complete purchases, cluster builds,
+  non-choice dispatch and logged choice commits; win first on a tie. Preserve
+  the historical early tick victory and loss/draw mapping, and stop later
+  committed work once ended. Individual effects/previews are not commits.
+- F15: two Extended Context tactics require `s_ctx` ownership; honeypot still
+  uses learned Insight and labels that prerequisite accurately.
+- F16/F17: only Computronium's description and Prophet's advertised tag change;
+  costs, prerequisites, effects and event frequency remain historical.
+- F18: `tests/helpers/reference.ts` independently measures weighted adoption
+  from historical region populations. Exact call sites observe before/after
+  adopt and burst, after launch/boot seeding, and once after a started tick's
+  complete growth batch. Fixture writes and intro ticks are not observations;
+  the historical periodic/end samples remain. Only `stats.peak` is updated by
+  the observer; all statistics still participate in exact state comparison.
+- F20: dispatch and audit share the `hub` history identity. Audit-first spoofing
+  uses the verified callback text without retiring the event or its chain;
+  event-first and legacy-seen runs skip the audit retelling. Catalog incident
+  text/effects remain historical, and the first shuffle retains prior history.
+
+`tests/reference-policy.test.ts` checks these oracle semantics and confinement,
+including boot/preview/actual historical Continue handlers, raw-baseline contrast
+and exact reverse restoration of the pinned source. Its minimal typed DOM ports
+only supply presentation elements/click callbacks; effects and log/news still
+execute historical functions. The finding-specific production regressions remain
+independent. No migrated function bodies are substituted, no state/stat/log/news
+fields are excluded, and no mutation guards are bypassed. The older
+`preservation.test.ts` separately retains its narrow copy expectations and
+adoption-write observer for legacy fixtures; the expanded oracle uses the
+explicit observation policy above.
 `tests/browser/game.spec.ts` exercises real Chromium: selection, origin, launch,
 saves and erase confirmation, previews, all ending renderers, mobile tree views,
 Web Audio decoding, storage denial, runtime remount, and disposal.
@@ -207,8 +239,17 @@ There are no blanket `any` types or TypeScript suppression directives. Deliberat
 assertions are confined to known boundaries: synchronously assembled game/runtime
 APIs, generated keyed catalog indexes, mounted controller DOM nodes/attributes,
 verified non-null controller state, and the original VM reference API. Storage
-JSON is a compatibility boundary: loading retains the original v2/v3 envelope
-check and default-field merge, not a new incompatible validation policy.
+JSON is a compatibility boundary: `src/game/saveValidation.ts` accepts valid
+started v2/v3 saves, supplies missing defaults, merges partial statistics and
+retains the original restriction-hold migration and clamped research multiplier.
+It rejects malformed supplied values, inconsistent IDs/forks/directives and
+invalid region, ending, log/news, decision or queue shapes without publishing a
+load result to live state. `src/game/persistence.ts` also normalizes codex counts
+to finite, nonnegative integers for known endings. `tests/save-validation.test.ts`
+and `tests/codex-validation.test.ts` cover these intentional F12/F13 safety
+changes separately from ordinary-rule parity. Both strict compiler passes cover
+these modules, every oracle helper and `tests/reference-policy.test.ts` through
+their existing source/test includes.
 
 The compiler and supporting tool versions are listed under Dependencies above;
 `package-lock.json` records the complete resolved dependency graph.
