@@ -7,6 +7,7 @@ const members = {
   DIFF: "function",
   has: "function",
   reach: "function",
+  recordPeak: "function",
   nodeCount: "function",
   capped: "function",
   costOf: "function",
