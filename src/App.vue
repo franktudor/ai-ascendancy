@@ -47,5 +47,6 @@ onBeforeUnmount(() => dispose?.());
   <DockPanels />
   <div id="toasts" aria-live="polite"></div>
   <IntroScreen />
-  <TechTreeHost /><EventHost /><RegionDialog /><CodexHost /><MenuDialog /><EndingHost />
+  <TechTreeHost /><EventHost /><RegionDialog /><CodexHost /><MenuDialog />
+  <Teleport to="body"><EndingHost /></Teleport>
 </template>
