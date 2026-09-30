@@ -498,9 +498,15 @@ export interface EventOptions {
   quiet?: boolean;
 }
 export type EventPresentation =
-  | { type: "decision"; event: DecisionEvent; options: EventOptions;
-      picked: EventChoice | null; preview: { outs: string[]; chance: boolean } | null;
-      resolved: boolean; out: string | null }
+  | {
+      type: "decision";
+      event: DecisionEvent;
+      options: EventOptions;
+      picked: EventChoice | null;
+      preview: { outs: string[]; chance: boolean } | null;
+      resolved: boolean;
+      out: string | null;
+    }
   | { type: "news"; news: NewsEntry[]; n: number; urgent: boolean };
 interface EventBase {
   id: EventId;
@@ -946,10 +952,7 @@ export interface BrowserAPI {
   previewChoice(c: EventChoice): { outs: string[]; chance: boolean };
   eventPresentation: EventPresentation | null;
   restoreEventPresentation(): void;
-  showEvent(
-    e: DecisionEvent,
-    opt?: EventOptions,
-  ): void;
+  showEvent(e: DecisionEvent, opt?: EventOptions): void;
   closeEvent(): void;
   BRIEF_EVERY: number;
   URGENT_GAP: number;

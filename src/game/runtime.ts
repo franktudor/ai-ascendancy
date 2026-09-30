@@ -37,9 +37,8 @@ export function mountRuntime(game: CompleteGameContext): () => void {
           more: !ctx.$("#endMore").hidden,
         }
       : null;
-  const previousFocus = ctx.life && !ctx.life.disposed
-    ? captureModalFocus(ctx.life)
-    : undefined;
+  const previousFocus =
+    ctx.life && !ctx.life.disposed ? captureModalFocus(ctx.life) : undefined;
   ctx.disposeRuntime?.();
   const life = (ctx.life = createLifecycle()),
     $ = (ctx.$ = <E extends HTMLElement = HTMLElement>(s: string): E => {
@@ -316,8 +315,11 @@ export function mountRuntime(game: CompleteGameContext): () => void {
     const T = ctx.TREE;
     const target = e.target instanceof HTMLElement ? e.target : null;
     const activeDialog = target?.closest('[role="dialog"]');
-    if (T.open && $("#eventModal").hidden &&
-      (activeDialog?.id === "treeModal" || activeDialog?.id === "tcard")) {
+    if (
+      T.open &&
+      $("#eventModal").hidden &&
+      (activeDialog?.id === "treeModal" || activeDialog?.id === "tcard")
+    ) {
       if (e.key === "Escape") {
         if (T.card) ctx.closeTreeCard();
         else ctx.closeTree();

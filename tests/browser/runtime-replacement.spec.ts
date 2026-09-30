@@ -168,12 +168,18 @@ test("replacement rebuilds open tree nodes, list view and card handlers", async 
   await expect(page.locator("#treeModal")).toBeHidden();
 });
 
-test("replacement during card dismissal finishes hiding its pointer-blocking scrim", async ({ page }) => {
+test("replacement during card dismissal finishes hiding its pointer-blocking scrim", async ({
+  page,
+}) => {
   await setup(page);
   await page.evaluate(async () => {
-    const g = document.querySelector<GameAppElement>("#app")!.__vue_app__._instance.exposed.game;
+    const g =
+      document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
+        .exposed.game;
     const runtimeUrl = "/src/game/runtime.ts";
-    const { mountRuntime } = (await import(runtimeUrl)) as typeof import("../../src/game/runtime");
+    const { mountRuntime } = (await import(
+      runtimeUrl
+    )) as typeof import("../../src/game/runtime");
     g.openTree("adoption");
     g.setTreeView(true);
     g.TREE.listTrack = "adoption";
@@ -188,7 +194,13 @@ test("replacement during card dismissal finishes hiding its pointer-blocking scr
   await page.locator('#trList [data-id="a_img"]').click();
   await expect(page.locator("#tcName")).toHaveText("Image Playground");
   await page.locator("#tcBuy").click();
-  expect(await page.evaluate(() => document.querySelector<GameAppElement>("#app")!.__vue_app__._instance.exposed.game.has("a_img"))).toBe(true);
+  expect(
+    await page.evaluate(() =>
+      document
+        .querySelector<GameAppElement>("#app")!
+        .__vue_app__._instance.exposed.game.has("a_img"),
+    ),
+  ).toBe(true);
 });
 
 test("replacement restores cinematic and revealed endings without duplicate codex writes", async ({
