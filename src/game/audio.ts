@@ -1,12 +1,15 @@
-import type { RuntimeContext } from "./types";
+import type { RuntimeContext, MusicId } from "./types";
 // Extracted original rules/controller; all cross-domain access is explicit.
 import INTRO_SRC from "../assets/music/intro.mp3";
 import MUSIC_SRC from "../assets/music/theme.mp3";
 
 export function installAudio(ctx: RuntimeContext) {
-  ctx.audioAbort = new AbortController();
-  ctx.life.add(() => {
-    ctx.audioAbort.abort();
+  const life = ctx.life,
+    abort = (ctx.audioAbort = new AbortController());
+  const retryAtHandoff = new Set<MusicId>();
+  life.add(() => {
+    abort.abort();
+    retryAtHandoff.clear();
     ctx.MUSIC.started = false;
     for (const t of Object.values(ctx.MUSIC.T)) {
       if (t.src) {
@@ -18,6 +21,7 @@ export function installAudio(ctx: RuntimeContext) {
       }
       t.g?.disconnect();
       t.src = t.g = t.buf = null;
+      t.loading = false;
     }
     ctx.MUSIC.gain?.disconnect();
     ctx.MUSIC.gain = null;
@@ -32,7 +36,7 @@ export function installAudio(ctx: RuntimeContext) {
     on: true,
     buf: null,
     init() {
-      if (this.ctx) return;
+      if (this.ctx || life.disposed) return;
       try {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       } catch (e) {}
@@ -48,9 +52,10 @@ export function installAudio(ctx: RuntimeContext) {
       return (this.buf = b);
     },
     play(type) {
-      if (!this.on || !this.ctx) return;
+      if (!this.on || !this.ctx || life.disposed || this.ctx.state === "closed")
+        return;
       const c = this.ctx;
-      if (c.state === "suspended") c.resume();
+      if (c.state === "suspended") c.resume().catch(() => {});
       const t = c.currentTime;
       const buf = this.noise();
       if (!buf) return;
@@ -152,35 +157,60 @@ export function installAudio(ctx: RuntimeContext) {
     load(k) {
       const t = this.T[k],
         d = k === "intro" ? INTRO_SRC : MUSIC_SRC;
-      if (t.loading || !d || ctx.life.disposed) return;
+      if (t.buf || t.loading || !d || life.disposed) return;
       ctx.SND.init();
       const c = ctx.SND.ctx;
-      if (!c) return;
+      if (!c || c.state === "closed") return;
       t.loading = true;
-      fetch(d, { signal: ctx.audioAbort.signal })
+      fetch(d, { signal: abort.signal })
         .then((r) => {
           if (!r.ok) throw new Error("Audio asset " + r.status);
           return r.arrayBuffer();
         })
-        .then((a) => c.decodeAudioData(a))
+        .then((a) => {
+          if (life.disposed || c.state === "closed")
+            throw new Error("Audio runtime closed");
+          return c.decodeAudioData(a);
+        })
         .then((buf) => {
-          if (ctx.life.disposed) return;
+          t.loading = false;
+          retryAtHandoff.delete(k);
+          if (life.disposed || c.state === "closed" || c !== ctx.SND.ctx)
+            return;
           t.buf = buf;
           this.play();
         })
         .catch(() => {
           t.loading = false;
+          // A handoff during an in-flight prefetch gets one recovery attempt.
+          // A failed handoff request itself is not recursively retried.
+          if (
+            retryAtHandoff.delete(k) &&
+            !life.disposed &&
+            c.state !== "closed"
+          )
+            this.load(k);
         });
     },
     // start() says music is wanted; play() makes the current track audible once it is decoded.
     start() {
+      if (life.disposed) return;
       this.started = true;
       this.play();
     },
     play() {
       const c = ctx.SND.ctx,
         t = this.T[this.cur];
-      if (!this.started || !t.buf || t.src || !c) return;
+      if (
+        !this.on ||
+        !this.started ||
+        !t.buf ||
+        t.src ||
+        !c ||
+        life.disposed ||
+        c.state === "closed"
+      )
+        return;
       if (!this.gain) {
         this.gain = c.createGain();
         this.gain.gain.value = 0.35;
@@ -198,12 +228,19 @@ export function installAudio(ctx: RuntimeContext) {
       // A track that runs out hands off to the next, which decodes while this one plays.
       else {
         s.onended = () => {
-          if (t.src === s) this.next();
+          if (!life.disposed && t.src === s) this.next();
         };
         this.load(t.then!);
       }
       s.connect(g).connect(this.gain);
-      s.start(0, t.pos);
+      try {
+        s.start(0, t.pos);
+      } catch {
+        s.onended = null;
+        s.disconnect();
+        g.disconnect();
+        return;
+      }
       t.src = s;
       t.g = g;
       t.t0 = c.currentTime - t.pos;
@@ -214,11 +251,19 @@ export function installAudio(ctx: RuntimeContext) {
     },
     // The intro has played out: let its buffer go and move on for good.
     next() {
+      if (life.disposed) return;
       const t = this.T[this.cur];
-      t.src!.disconnect();
-      t.g!.disconnect();
-      t.src = t.buf = null;
-      this.cur = t.then!;
+      if (!t.then) return;
+      if (t.src) t.src.onended = null;
+      t.src?.disconnect();
+      t.g?.disconnect();
+      t.src = t.g = t.buf = null;
+      this.cur = t.then;
+      const next = this.T[this.cur];
+      if (!next.buf && this.started && this.on) {
+        if (next.loading) retryAtHandoff.add(this.cur);
+        else this.load(this.cur);
+      }
       this.play();
     },
     // Keep the playhead, folding laps of the loop back into it, so music resumes where it stopped.
@@ -234,11 +279,13 @@ export function installAudio(ctx: RuntimeContext) {
       }
       t.pos = p;
       t.src = null;
+      s.onended = null;
       try {
         s.stop();
       } catch (e) {}
       s.disconnect();
       t.g!.disconnect();
+      t.g = null;
     },
   };
 }
