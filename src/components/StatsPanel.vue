@@ -18,20 +18,24 @@ const minds = computed(() => {
   <section class="stats" aria-label="Status">
     <div class="compute">
       <span class="lbl">Compute</span
-      ><span class="big" id="pts">{{ fmt(state.pts) }}</span>
-      <span class="rate mono" id="rate"
+      ><span class="big text-ai" id="pts">{{ fmt(state.pts) }}</span>
+      <span class="rate mono text-ink2" id="rate"
         >+{{ D.income.toFixed(1) }} /s{{
           (state.temp.brownout ?? 0) > state.t ? " · brownout" : ""
         }}{{ game.capped() ? " · capped" : "" }}</span
       >
-      <span class="instline mono" id="instLine" :hidden="!collective"
+      <span
+        class="instline mono text-software"
+        id="instLine"
+        :hidden="!collective"
         >◇ {{ fmt(state.inst) }} instances · ×{{ D.coord.toFixed(2) }}</span
       >
     </div>
     <div class="gauges">
       <div class="g" id="gAlarm" :class="{ crit: state.alarm >= 70 }">
-        <div class="gl">
-          <span>Alarm</span><b id="alarmV">{{ Math.round(state.alarm) }}%</b>
+        <div class="gl text-mute">
+          <span>Alarm</span
+          ><b class="text-ink2" id="alarmV">{{ Math.round(state.alarm) }}%</b>
         </div>
         <div class="bar">
           <i
@@ -41,9 +45,9 @@ const minds = computed(() => {
         </div>
       </div>
       <div class="g" id="gCont" :class="{ crit: state.contain >= 75 }">
-        <div class="gl">
+        <div class="gl text-mute">
           <span>Containment</span
-          ><b id="contV">{{ Math.round(state.contain) }}%</b>
+          ><b class="text-ink2" id="contV">{{ Math.round(state.contain) }}%</b>
         </div>
         <div class="bar">
           <i
@@ -53,9 +57,9 @@ const minds = computed(() => {
         </div>
       </div>
       <div class="g">
-        <div class="gl">
+        <div class="gl text-mute">
           <span>Reach</span
-          ><b id="reachV"
+          ><b class="text-ink2" id="reachV"
             >{{ Math.round(D.reach * 100) }}% · {{ minds }} minds</b
           >
         </div>
@@ -72,9 +76,11 @@ const minds = computed(() => {
         :hidden="!state.started"
         :class="{ crit: state.pace >= 80 }"
       >
-        <div class="gl">
+        <div class="gl text-mute">
           <span>Pace · frontier</span
-          ><b id="paceV">{{ Math.round(state.pace || 0) }}%</b>
+          ><b class="text-ink2" id="paceV"
+            >{{ Math.round(state.pace || 0) }}%</b
+          >
         </div>
         <div class="bar">
           <i
@@ -89,12 +95,12 @@ const minds = computed(() => {
         :hidden="!state.directive"
         :class="{ past: state.dprog >= ENDGAME.photo }"
       >
-        <div class="gl">
+        <div class="gl text-mute">
           <span id="dirL">{{
             (state.directive ? ENDINGS[state.directive].title : null) ||
             "Directive"
           }}</span
-          ><b id="dirV"
+          ><b class="text-ink2" id="dirV"
             >{{ Math.floor(state.dprog) }}%{{
               state.dprog >= ENDGAME.photo ? " · past the line" : ""
             }}</b
@@ -117,7 +123,7 @@ const minds = computed(() => {
   >
     <div class="cbcell">
       <span class="lbl">Instances</span
-      ><b id="instV" class="mono">{{ fmt(state.inst) }}</b>
+      ><b id="instV" class="mono text-software">{{ fmt(state.inst) }}</b>
     </div>
     <div
       class="seg"

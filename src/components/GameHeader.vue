@@ -7,14 +7,14 @@ const state = computed(() => game.state);
 const ui = game.ui;
 </script>
 <template>
-  <header class="top">
+  <header class="top bg-bg2">
     <div class="brand">
-      <b>AI Ascendancy</b
-      ><span class="ver mono" id="ver"
+      <b class="text-ai">AI Ascendancy</b
+      ><span class="ver mono text-mute" id="ver"
         >v{{ state.phase }}.{{ state.owned.length }}</span
       >
     </div>
-    <div class="clock mono" id="uptime" title="Game time">
+    <div class="clock mono text-ink2" id="uptime" title="Game time">
       {{ fmtT(state.t) }}
     </div>
     <div class="ctl">

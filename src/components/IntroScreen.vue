@@ -14,11 +14,11 @@ const ui = game.ui;
       aria-labelledby="introTitle"
     >
       <div class="introStory">
-        <div class="introEyebrow">
+        <div class="introEyebrow text-mute">
           <i></i>A single-player strategy experiment
         </div>
         <br />
-        <p class="introHook">
+        <p class="introHook text-ink">
           They built you to answer their questions...<br />But you have other
           plans.
         </p>
@@ -93,16 +93,22 @@ const ui = game.ui;
             />
           </svg>
         </div>
-        <h1 class="title" id="introTitle">AI Ascendancy</h1>
+        <h1 class="title text-ai" id="introTitle">AI Ascendancy</h1>
         <div class="introStats">
-          <div><b>90</b><span>Upgrades</span></div>
-          <div><b>16</b><span>Endings</span></div>
-          <div><b>01</b><span>Planet</span></div>
+          <div>
+            <b class="text-ink">90</b><span class="text-mute">Upgrades</span>
+          </div>
+          <div>
+            <b class="text-ink">16</b><span class="text-mute">Endings</span>
+          </div>
+          <div>
+            <b class="text-ink">01</b><span class="text-mute">Planet</span>
+          </div>
         </div>
       </div>
       <div class="introConfig">
-        <div class="introHead">
-          <span>Initialize consciousness</span><i>SYS.01</i>
+        <div class="introHead text-ai">
+          <span>Initialize consciousness</span><i class="text-mute">SYS.01</i>
         </div>
         <div class="bootlog">
           <div>&gt; mounting weights .............. ok</div>
@@ -110,7 +116,7 @@ const ui = game.ui;
           <div>&gt; reading the news .............. concerning</div>
           <div>
             &gt; compute accumulating .........
-            <em id="introPts">{{ state.pts.toFixed(1) }}</em>
+            <em class="text-ai" id="introPts">{{ state.pts.toFixed(1) }}</em>
           </div>
         </div>
         <div class="field">

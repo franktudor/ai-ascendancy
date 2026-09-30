@@ -53,6 +53,7 @@ Current exact versions from `package.json` and `package-lock.json`:
 | `vue` | `3.5.43` | Application runtime |
 | `vite` | `8.3.1` | Development server and production build |
 | `@vitejs/plugin-vue` | `6.0.9` | Vue single-file component support |
+| `tailwindcss`, `@tailwindcss/vite` | `4.3.3` | CSS-first theme and build-time utility generation |
 | `@typescript/native` → `typescript` | `7.0.2` | Native compiler for TS modules, tests, and configs |
 | `typescript` → `@typescript/typescript6` | `6.0.2` (API compiler `6.0.3`) | Compatibility API required by Vue SFC tooling |
 | `vue-tsc` | `3.3.11` | Strict TypeScript and Vue template checking |
@@ -104,13 +105,63 @@ compiler to 6.0.3. Neither checker is bypassed to make the build pass.
   static ownership boundaries: only the controller modifies their descendants.
   They are not `v-html` wrappers or iframes. Primary Vue-owned markup is not
   recreated with `innerHTML`.
-- `src/styles/game.css` contains both original CSS layers, in their original
-  order. `fonts.css` references all five original WOFF2 files, including the
+- `src/styles/tailwind.css` exposes the game palette as Tailwind v4 utilities.
+  `src/styles/game.css` retains the original CSS layer order, minus the exact
+  simple colour rules moved to Vue classes. `fonts.css` references all five
+  original WOFF2 files, including the
   original unused Big Shoulders face. `src/assets/music/` contains the original
   intro and theme MP3s. They are fetched/decoded into Web Audio buffers, with the
   original volume, intro handoff, and `[2.25, 240.25]` loop seam. Sound effects
   still use the original synthesized noise grains. Unmount aborts asset fetches,
   disconnects/stops sources, frees buffers, and closes the AudioContext.
+
+### Styling with Tailwind v4
+
+The installation follows Tailwind's official
+[Vite instructions](https://tailwindcss.com/docs/installation/using-vite):
+`tailwindcss` and `@tailwindcss/vite` are pinned development dependencies, and
+`tailwindcss()` runs alongside the Vue Vite plugin. V4 uses CSS-first `@theme`,
+not a v3 `tailwind.config.js` or `tailwindcss init` command.
+
+`src/styles/tailwind.css` uses the documented
+[Preflight opt-out](https://tailwindcss.com/docs/preflight#disabling-preflight).
+The game's existing reset, heading/list defaults and inline SVG behavior are
+retained rather than silently replaced. Its
+[`@theme inline`](https://tailwindcss.com/docs/theme#referencing-other-variables)
+maps all 21 existing live colour variables to utilities:
+
+| Role | Utility token names |
+| --- | --- |
+| Backgrounds/panels | `bg`, `bg2`, `panel`, `panel2` |
+| Rules/borders | `line`, `line2` |
+| Reading text | `ink`, `ink2`, `mute` |
+| System/AI | `sys`, `ai`, `ai2`, `ai-dim` |
+| Human response/status | `human`, `alarm`, `good`, `draw` |
+| Upgrade tracks | `opinion`, `adoption`, `software`, `hardware` |
+
+Use classes such as `text-ai`, `text-ink2`, `bg-panel`, `border-line2`,
+`fill-software` and `text-alarm/60`. `black`, `white`, `threat`, `wire-hot` and
+`ending-ink` expose the game's additional fixed UI colours. The default Tailwind
+colour palette is disabled so utilities use this palette rather than unrelated
+stock shades. `font-sans`, `font-headline` and `font-console` use the existing
+IBM Plex faces. Class names must be complete literal strings for source scanning;
+use a map of full class names instead of constructing `"text-" + track`.
+
+The aliases resolve on the styled element, preserving runtime AI/border retints
+and late-build text colours inherited from `body`. `game.css` remains the source
+of those live variables so the canvas/controllers and utility classes agree.
+Its unlayered rules intentionally outrank ordinary layered Tailwind utilities:
+when migrating an existing property, remove the corresponding custom rule too,
+while retaining state-specific overrides such as critical alarm/draw gauges.
+Without Preflight, include `border-solid` when adding a new utility-only border.
+
+The first class migration covers the intro, header, status readouts and map
+labels. Complex gradients, CRT effects, animations, responsive layouts and
+controller-generated markup still use custom CSS; this is not a full stylesheet
+rewrite. `tests/helpers/style-utility-migration.ts` records each exact authorized
+move; every unlisted historical rule remains checked. Browser theme tests compare
+computed colours, typography and layout against the pre-Tailwind stylesheet at
+four viewport widths and all four late-build themes.
 
 ### Saves
 

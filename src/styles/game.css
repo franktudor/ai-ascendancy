@@ -41,11 +41,11 @@ h1,h2,h3{text-wrap:balance}
 
 /* ---------- app shell ---------- */
 #app{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-top:var(--sat)}
-.top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex:none}
+.top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);flex:none}
 .brand{display:flex;align-items:baseline;gap:8px;min-width:0}
-.brand b{font-family:var(--font-display);font-weight:800;font-size:22px;letter-spacing:.05em;color:var(--ai);text-transform:uppercase;line-height:1}
-.brand .ver{font-family:var(--font-mono);font-size:11px;color:var(--mute)}
-.clock{margin-left:auto;font-size:13px;color:var(--ink2);white-space:nowrap}
+.brand b{font-family:var(--font-display);font-weight:800;font-size:22px;letter-spacing:.05em;text-transform:uppercase;line-height:1}
+.brand .ver{font-family:var(--font-mono);font-size:11px}
+.clock{margin-left:auto;font-size:13px;white-space:nowrap}
 .ctl{display:flex;align-items:center;gap:6px}
 .ib{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line2);border-radius:6px;color:var(--ink2);background:var(--panel);font-size:14px}
 .ib.on{color:var(--ai);border-color:var(--ai-dim)}
@@ -60,13 +60,13 @@ h1,h2,h3{text-wrap:balance}
    grow mid-run, and an auto column would push the gauges off a phone screen. */
 .stats{display:grid;grid-template-columns:fit-content(42%) minmax(0,1fr);gap:14px;padding:10px 12px 6px;align-items:center}
 .compute{display:flex;flex-direction:column;gap:2px;min-width:96px}
-.compute .big{font-family:var(--font-display);font-weight:800;font-size:38px;line-height:1;color:var(--ai);letter-spacing:.02em;font-variant-numeric:tabular-nums}
-.compute .rate{font-size:11px;color:var(--ink2);overflow-wrap:anywhere}
+.compute .big{font-family:var(--font-display);font-weight:800;font-size:38px;line-height:1;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.compute .rate{font-size:11px;overflow-wrap:anywhere}
 .compute .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 .gauges{display:grid;gap:6px}
-.g .gl{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.g .gl{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
 .g .gl span{min-width:0;overflow-wrap:anywhere}
-.g .gl b{color:var(--ink2);font-weight:500;white-space:normal;min-width:0;overflow-wrap:anywhere}
+.g .gl b{font-weight:500;white-space:normal;min-width:0;overflow-wrap:anywhere}
 .bar{height:5px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:3px}
 .bar i{display:block;height:100%;width:0;background:var(--c,var(--ai));transition:width .45s linear}
 .g.crit .gl b{color:var(--alarm)}
@@ -75,11 +75,11 @@ h1,h2,h3{text-wrap:balance}
 .bar.mark::after{content:'';position:absolute;left:var(--mk,90%);top:-3px;bottom:-3px;width:2px;background:var(--draw);border-radius:1px}
 #gDir.past .gl b{color:var(--draw)}
 
-.instline{font-size:11px;color:var(--software);overflow-wrap:anywhere}
+.instline{font-size:11px;overflow-wrap:anywhere}
 .collbar{display:flex;align-items:center;gap:10px;margin:2px 12px 0;padding:6px 10px;border:1px solid var(--line);background:var(--bg2);border-radius:4px;flex-wrap:wrap}
 .collbar .cbcell{display:flex;flex-direction:column;gap:2px;min-width:64px}
 .collbar .cbcell.grow{flex:1;min-width:120px}
-.collbar .cbcell b{font-size:15px;color:var(--software)}
+.collbar .cbcell b{font-size:15px}
 .collbar .seg button[data-p]{padding:0 11px}
 .collbar .seg button.on[data-p='swarm']{background:var(--alarm);color:#000}
 .collbar .seg button.on[data-p='shard']{background:var(--good);color:#000}
@@ -94,9 +94,9 @@ h1,h2,h3{text-wrap:balance}
 .corner.tr{top:-1px;right:-1px;border-top-width:1px;border-right-width:1px}
 .corner.bl{bottom:-1px;left:-1px;border-bottom-width:1px;border-left-width:1px}
 .corner.br{bottom:-1px;right:-1px;border-bottom-width:1px;border-right-width:1px}
-.maphint{position:absolute;left:10px;top:7px;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ai);pointer-events:none;text-shadow:0 0 8px rgba(0,0,0,.8)}
-.mapstat{position:absolute;right:10px;top:7px;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);pointer-events:none}
-.mapstat b{color:var(--ink2);font-weight:500}
+.maphint{position:absolute;left:10px;top:7px;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;pointer-events:none;text-shadow:0 0 8px rgba(0,0,0,.8)}
+.mapstat{position:absolute;right:10px;top:7px;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;pointer-events:none}
+.mapstat b{font-weight:500}
 
 .ticker{display:flex;align-items:center;gap:8px;margin:8px 12px 0;padding:6px 10px;border:1px solid var(--line);background:var(--bg2);font-size:12px;color:var(--ink2);min-height:34px}
 .ticker .live{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;color:var(--alarm);border:1px solid rgba(255,48,64,.5);padding:1px 5px;border-radius:2px;flex:none}
@@ -276,7 +276,7 @@ h1,h2,h3{text-wrap:balance}
 .bootlog{font-family:var(--font-mono);font-size:11.5px;color:var(--mute);border-left:2px solid var(--ai-dim);padding-left:10px;margin:14px 0;line-height:1.7}
 .bootlog div{opacity:0;animation:fadeIn .4s forwards}
 .bootlog div:nth-child(1){animation-delay:.1s}.bootlog div:nth-child(2){animation-delay:.5s}.bootlog div:nth-child(3){animation-delay:.9s}.bootlog div:nth-child(4){animation-delay:1.3s}
-.bootlog em{color:var(--ai);font-style:normal}
+.bootlog em{font-style:normal}
 .field{display:flex;flex-direction:column;gap:6px;margin:12px 0}
 .field .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 .archsel{display:grid;gap:6px}
@@ -546,10 +546,9 @@ option,optgroup{background:#000;color:var(--ai)}
 .mapwrap.pick .maphint{left:50%;top:8px;translate:-50% 0;z-index:2;font-size:12px;padding:6px 12px;background:rgba(0,0,0,.85);border:1px solid var(--ai);white-space:nowrap}
 .mapwrap.pick .maphint::after{content:'';display:inline-block;width:.55em;height:1em;margin-left:6px;vertical-align:-2px;background:currentColor;animation:tBlink 1s steps(1) infinite}
 .mapstat b.t1{color:var(--ink2)} .mapstat b.t2{color:#FFB02E} .mapstat b.t3,.mapstat b.t4{color:var(--alarm)}
-.mapread,.mapcoord{position:absolute;bottom:6px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);pointer-events:none;white-space:nowrap}
+.mapread,.mapcoord{position:absolute;bottom:6px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;pointer-events:none;white-space:nowrap}
 .mapread{left:10px;display:flex;gap:10px}
-.mapread b{font-weight:500;color:var(--ink2)}
-.mapread .al b{color:var(--alarm)} .mapread .ct b{color:var(--human)} .mapread .rc b{color:var(--ai)}
+.mapread b{font-weight:500}
 .mapcoord{right:10px}
 @media(max-width:600px){.mapcoord,.mapstat .ms{display:none}.mapread{gap:7px;font-size:8.5px;letter-spacing:.04em}}
 /* Past breakout a sweep line crosses the display; once a directive runs, it crosses faster. */
@@ -691,7 +690,7 @@ body.ending #endFx.dim{opacity:.55}
   -webkit-mask-image:linear-gradient(#000,transparent 75%);mask-image:linear-gradient(#000,transparent 75%)}
 #intro .modal{max-width:640px;max-height:none;overflow:visible;margin:auto;border:0;background:none;box-shadow:none;padding:22px 20px calc(20px + var(--sab))}
 .introStory{position:relative;container-type:inline-size}
-.introEyebrow{display:flex;align-items:center;gap:9px;font:10px var(--font-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+.introEyebrow{display:flex;align-items:center;gap:9px;font:10px var(--font-mono);letter-spacing:.18em;text-transform:uppercase}
 .introEyebrow i{width:6px;height:6px;flex:none;background:var(--good);box-shadow:0 0 8px var(--good)}
 /* The eye is HAL's lens: chrome bezel, red fisheye, a hot yellow center. */
 .introEye{width:64px;height:64px}
@@ -700,15 +699,15 @@ body.ending #endFx.dim{opacity:.55}
 #introTitle{font-size:clamp(28px,11.8cqi,112px);white-space:nowrap;line-height:.92;letter-spacing:-.02em;margin:0 0 16px;text-shadow:0 0 16px color-mix(in srgb,currentColor 28%,transparent)}
 /* At display size the cursor is drawn, not typed: a cap-height block on the baseline. */
 #introTitle::after{content:'';display:inline-block;width:.46em;height:.68em;margin-left:.08em;font-size:1em;background:currentColor;box-shadow:0 0 16px color-mix(in srgb,currentColor 35%,transparent)}
-.introHook{font-size:16px;line-height:1.4;font-weight:500;color:var(--ink);margin:0 0 12px}
+.introHook{font-size:16px;line-height:1.4;font-weight:500;margin:0 0 12px}
 #intro .sub{font-size:13px;line-height:1.65;max-width:46ch;margin:0 0 16px}
 .introStats{display:flex;gap:32px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0}
 .introStats div{display:flex;align-items:baseline;gap:8px}
-.introStats b{font:500 22px var(--font-mono);color:var(--ink);font-variant-numeric:tabular-nums}
-.introStats span{font:10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.introStats b{font:500 22px var(--font-mono);font-variant-numeric:tabular-nums}
+.introStats span{font:10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase}
 .introConfig{margin-top:22px}
-.introHead{display:flex;justify-content:space-between;gap:10px;font:10px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ai)}
-.introHead i{font-style:normal;color:var(--mute)}
+.introHead{display:flex;justify-content:space-between;gap:10px;font:10px var(--font-mono);letter-spacing:.14em;text-transform:uppercase}
+.introHead i{font-style:normal}
 #intro .bootlog{margin:12px 0 18px}
 #intro .field{margin:16px 0;gap:8px}
 #intro .archsel{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}

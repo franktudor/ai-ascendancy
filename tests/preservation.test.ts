@@ -16,6 +16,7 @@ import type {
   EndingId,
 } from "../src/game/types";
 import { createGame } from "../src/game/createGame";
+import { applyStyleUtilityMoves } from "./helpers/style-utility-migration";
 
 const original = cp
   .execFileSync("git", ["show", "72c1ba9:index.html"], {
@@ -338,9 +339,10 @@ test("all seven extracted binaries retain byte-for-byte original hashes", () => 
   assert.equal(compact(originalCSS).split(compact(originalGauges)).length, 2);
   assert.equal(
     compact(css),
-    compact(originalCSS).replace(
-      compact(originalGauges),
-      compact(accessibleGauges),
+    compact(
+      applyStyleUtilityMoves(
+        originalCSS.replace(originalGauges, accessibleGauges),
+      ),
     ),
   );
 });
