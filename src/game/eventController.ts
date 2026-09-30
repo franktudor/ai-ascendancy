@@ -4,10 +4,23 @@ import type {
   NewsEntry,
   GameState,
   GameUI,
+  EventPresentation,
 } from "./types";
 import { toRaw } from "vue";
 // Extracted original rules/controller; all cross-domain access is explicit.
 export function installEventController(ctx: RuntimeContext) {
+  let restoring: EventPresentation | null = null;
+  ctx.restoreEventPresentation = () => {
+    const p = ctx.eventPresentation;
+    if (!p) return;
+    restoring = p;
+    try {
+      if (p.type === "news") ctx.showNews(p.news, p.n, p.urgent);
+      else ctx.showEvent(p.event, { ...p.options, quiet: true });
+    } finally {
+      restoring = null;
+    }
+  };
   ctx.DICE_SVG =
     '<svg class="dz" viewBox="0 0 40 30" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="6.5" width="17" height="17" rx="3.5" transform="rotate(-12 10 15)"/><rect x="21.5" y="4.5" width="17" height="17" rx="3.5" transform="rotate(10 30 13)"/><g fill="currentColor" stroke="none"><circle cx="6.6" cy="11.4" r="1.5"/><circle cx="10" cy="15" r="1.5"/><circle cx="13.4" cy="18.6" r="1.5"/><circle cx="25.8" cy="8.6" r="1.5"/><circle cx="34.2" cy="8.6" r="1.5"/><circle cx="25.8" cy="17.4" r="1.5"/><circle cx="34.2" cy="17.4" r="1.5"/></g></svg>';
   ctx.setOutcome = function setOutcome(text, dice, roll) {
@@ -100,6 +113,19 @@ export function installEventController(ctx: RuntimeContext) {
   };
   ctx.showEvent = function showEvent(e, opt) {
     opt = opt || {};
+    const presentation: Extract<EventPresentation, { type: "decision" }> =
+      restoring?.type === "decision"
+        ? restoring
+        : {
+            type: "decision",
+            event: e,
+            options: opt,
+            picked: null,
+            preview: null,
+            resolved: false,
+            out: null,
+          };
+    ctx.eventPresentation = presentation;
     const done = opt.onDone || ctx.closeEvent;
     ctx.ui.modal = "event";
     ctx.$("#evNews").hidden = true;
@@ -125,7 +151,7 @@ export function installEventController(ctx: RuntimeContext) {
     ch.hidden = false;
     ctx.$("#evOutcome").hidden = true;
     ctx.$("#evContinue").hidden = true;
-    let resolved = false;
+    let resolved = presentation.resolved;
     // A choice that spends compute you do not have is locked, unless every choice is, so no event can trap you.
     const cost = (c: EventChoice) => {
       const m = String(c.fx).match(/FX\.pts\(-(\d+)\)/);
@@ -188,6 +214,8 @@ export function installEventController(ctx: RuntimeContext) {
         picked = c;
         const { outs, chance } = ctx.previewChoice(c);
         pickedChance = chance;
+        presentation.picked = c;
+        presentation.preview = { outs, chance };
         ch.hidden = true;
         ctx.$("#evOutcome").hidden = false;
         ctx.setOutcome(
@@ -207,8 +235,8 @@ export function installEventController(ctx: RuntimeContext) {
       };
       ch.appendChild(b);
     });
-    let picked: EventChoice | null = null;
-    let pickedChance = false;
+    let picked: EventChoice | null = presentation.picked;
+    let pickedChance = presentation.preview?.chance ?? false;
     ctx.$("#evOutcome").hidden = true;
     ctx.$("#evContinue").hidden = true;
     ctx.$("#evContinue").textContent = "Continue";
@@ -217,6 +245,8 @@ export function installEventController(ctx: RuntimeContext) {
       if (resolved) return;
       picked = null;
       pickedChance = false;
+      presentation.picked = null;
+      presentation.preview = null;
       ch.hidden = false;
       ctx.$("#evOutcome").hidden = true;
       ctx.$("#evContinue").hidden = true;
@@ -229,10 +259,12 @@ export function installEventController(ctx: RuntimeContext) {
         return;
       }
       resolved = true;
+      presentation.resolved = true;
       const c = picked,
         gamble = pickedChance;
       ctx.$("#evBack").hidden = true;
       const out = c.fx() || "Done.";
+      presentation.out = out;
       if (ctx.ui.brief) ctx.ui.brief.done = ctx.ui.brief.i;
       ctx.log(
         e.kind,
@@ -251,6 +283,29 @@ export function installEventController(ctx: RuntimeContext) {
         ctx.$("#evContinue").textContent = opt.nextLabel || "Close";
       } else done();
     };
+    if (picked && presentation.preview) {
+      const { outs, chance } = presentation.preview;
+      ch.hidden = true;
+      ctx.$("#evOutcome").hidden = false;
+      ctx.$("#evContinue").hidden = false;
+      ctx.$("#evBack").hidden = resolved;
+      if (resolved) {
+        ctx.setOutcome(picked.label + " — " + presentation.out, chance, false);
+        ctx.$("#evContinue").textContent = opt.nextLabel || "Close";
+      } else {
+        ctx.setOutcome(
+          picked.label +
+            " — " +
+            (!chance
+              ? outs[0]
+              : outs.length === 2
+                ? "Chance decides. Either: " + outs[0] + "  —or—  " + outs[1]
+                : "Chance decides. The result is rolled when you continue."),
+          chance,
+          false,
+        );
+      }
+    }
     ctx.$("#eventModal").hidden = false;
     if (!opt.quiet) {
       ctx.SND.play("alert");
@@ -261,6 +316,7 @@ export function installEventController(ctx: RuntimeContext) {
     }
   };
   ctx.closeEvent = function closeEvent() {
+    ctx.eventPresentation = null;
     ctx.$("#eventModal").hidden = true;
     ctx.ui.modal = null;
   };
@@ -286,6 +342,7 @@ export function installEventController(ctx: RuntimeContext) {
     else ctx.nextDecision(true);
   };
   ctx.showNews = function showNews(news, n, urgent) {
+    ctx.eventPresentation = { type: "news", news, n, urgent };
     ctx.ui.modal = "event";
     ctx.$("#eventModal .modal").classList.toggle("emerg", !!urgent);
     ctx.$("#evKind").className =

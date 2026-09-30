@@ -19,6 +19,23 @@ import { installRunActions } from "./runActions";
 export function mountRuntime(game: CompleteGameContext): () => void {
   // Synchronous browser installation completes the runtime phase before returning.
   const ctx = game as RuntimeContext;
+  // Preserve data, not old DOM nodes, timers or handlers. Rebuild those below.
+  const previous =
+    ctx.life && !ctx.life.disposed
+      ? {
+          event: ctx.eventPresentation,
+          tree: ctx.TREE.open
+            ? {
+                a: ctx.TREE.a,
+                list: ctx.TREE.list,
+                track: ctx.TREE.listTrack,
+                card: ctx.TREE.card,
+              }
+            : null,
+          revealed: ctx.ENDFX.revealed,
+          more: !ctx.$("#endMore").hidden,
+        }
+      : null;
   ctx.disposeRuntime?.();
   const life = (ctx.life = createLifecycle()),
     $ = (ctx.$ = <E extends HTMLElement = HTMLElement>(s: string): E => {
@@ -426,7 +443,7 @@ export function mountRuntime(game: CompleteGameContext): () => void {
   if (ctx.MUSIC.on) ctx.MUSIC.init();
   life.raf(frame);
   // on* properties belong only to imperative host descendants; Vue never binds them.
-  ctx.disposeRuntime = () => {
+  const dispose = (ctx.disposeRuntime = () => {
     if (life.disposed) return;
     ctx.save();
     ctx.endReset();
@@ -448,6 +465,7 @@ export function mountRuntime(game: CompleteGameContext): () => void {
     ctx.TREE.nodes = [];
     ctx.TREE.edges = [];
     ctx.TREE.open = false;
+    ctx.eventPresentation = null;
     ctx.pulses = [];
     ctx.drones.length = 0;
     ctx.cv = ctx.cx = null;
@@ -459,6 +477,24 @@ export function mountRuntime(game: CompleteGameContext): () => void {
       document.documentElement.style.removeProperty(n);
     delete document.body.dataset.phase;
     delete document.body.dataset.build;
-  };
-  return () => ctx.disposeRuntime?.();
+  });
+  ctx.eventPresentation = previous?.event ?? null;
+  if (ctx.state.ended) {
+    ctx.showEnd(false);
+    if (previous?.revealed) ctx.endReveal();
+    if (previous?.more) {
+      $("#endNextRow").hidden = true;
+      $("#endMore").hidden = false;
+    }
+  } else {
+    if (previous?.tree) {
+      ctx.TREE.a = previous.tree.a;
+      ctx.TREE.list = previous.tree.list;
+      ctx.TREE.listTrack = previous.tree.track;
+      ctx.openTree(previous.tree.track);
+      if (previous.tree.card) ctx.openTreeCard(previous.tree.card);
+    }
+    ctx.restoreEventPresentation();
+  }
+  return dispose;
 }

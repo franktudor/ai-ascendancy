@@ -491,6 +491,17 @@ export interface DecisionEvent {
   id?: EventId | "eval";
   choices: EventChoice[];
 }
+export interface EventOptions {
+  onDone?: () => void;
+  step?: string;
+  nextLabel?: string;
+  quiet?: boolean;
+}
+export type EventPresentation =
+  | { type: "decision"; event: DecisionEvent; options: EventOptions;
+      picked: EventChoice | null; preview: { outs: string[]; chance: boolean } | null;
+      resolved: boolean; out: string | null }
+  | { type: "news"; news: NewsEntry[]; n: number; urgent: boolean };
 interface EventBase {
   id: EventId;
   kind: BulletinKind;
@@ -931,14 +942,11 @@ export interface BrowserAPI {
   DICE_SVG: string;
   setOutcome(text: string, dice: boolean, roll: boolean): void;
   previewChoice(c: EventChoice): { outs: string[]; chance: boolean };
+  eventPresentation: EventPresentation | null;
+  restoreEventPresentation(): void;
   showEvent(
     e: DecisionEvent,
-    opt?: {
-      onDone?: () => void;
-      step?: string;
-      nextLabel?: string;
-      quiet?: boolean;
-    },
+    opt?: EventOptions,
   ): void;
   closeEvent(): void;
   BRIEF_EVERY: number;

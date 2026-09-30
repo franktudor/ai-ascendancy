@@ -26,11 +26,10 @@ const game = createGame({ storage });
 defineExpose({ game });
 // Controllers attach before user interaction in onMounted; all components share this same object.
 provide(gameKey, game as RuntimeContext);
-let dispose: (() => void) | undefined;
 onMounted(() => {
-  dispose = mountRuntime(game);
+  mountRuntime(game);
 });
-onBeforeUnmount(() => dispose?.());
+onBeforeUnmount(() => (game as RuntimeContext).disposeRuntime?.());
 </script>
 <template>
   <GameHeader />
