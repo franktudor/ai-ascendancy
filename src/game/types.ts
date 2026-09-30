@@ -662,6 +662,7 @@ export interface RulesAPI {
     softCount: number,
   ): DecisionEvent;
   endGame(kind: EndingKind): void;
+  resolveTerminal(): boolean;
   CODEX_KEY: string;
   codexGet(): Partial<Record<EndingId, number>>;
   codexAdd(key: EndingId): boolean;

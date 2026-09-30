@@ -254,6 +254,10 @@ export function installEventController(ctx: RuntimeContext) {
       ctx.SND.play("tap");
     };
     ctx.$("#evContinue").onclick = () => {
+      if (ctx.state.ended) {
+        ctx.closeBriefing();
+        return;
+      }
       if (resolved || !picked) {
         done();
         return;
@@ -276,6 +280,10 @@ export function installEventController(ctx: RuntimeContext) {
       ctx.pushTicker(e.title);
       ctx.SND.play("buy");
       ctx.ui.dirty = true;
+      if (ctx.resolveTerminal()) {
+        ctx.closeBriefing();
+        return;
+      }
       ctx.save();
       // A gamble's result is news, so show it before closing; a certain choice already showed its result.
       if (gamble) {
@@ -405,6 +413,10 @@ export function installEventController(ctx: RuntimeContext) {
       } catch (x) {}
   };
   ctx.nextDecision = function nextDecision(loud) {
+    if (ctx.state.ended) {
+      ctx.closeBriefing();
+      return;
+    }
     const B = ctx.ui.brief;
     while (B && B.i < B.decs.length) {
       const d = B.decs[B.i++];

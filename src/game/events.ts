@@ -2,6 +2,7 @@ import type { CompleteGameContext, EventChoice } from "./types";
 // Extracted original rules/controller; all cross-domain access is explicit.
 export function installEvents(ctx: CompleteGameContext) {
   ctx.fireEvent = function fireEvent() {
+    if (ctx.state.ended) return;
     // With two decisions already waiting, only news-only events fire, so briefings never pile up.
     const full = ctx.state.brief.dec.length >= 2;
     const pool = ctx.EVENTS.filter(
@@ -29,19 +30,24 @@ export function installEvents(ctx: CompleteGameContext) {
     else {
       const out = ev.fx();
       ctx.bulletin(ev.kind, ev.title, ev.body, out, null, ev.real);
+      ctx.resolveTerminal();
     }
   };
   ctx.schedule = function schedule(id, delay) {
     ctx.state.queue.push({ id, at: ctx.state.t + delay });
   };
   ctx.fireById = function fireById(id) {
+    if (ctx.state.ended) return;
     const ev = ctx.EVENTS.find((e) => e.id === id);
     if (!ev || ctx.state.seen[id]) return;
     ctx.state.seen[id] = 1;
     ctx.state.last[id] = ctx.state.t;
     ctx.state.stats.events++;
     if (ev.choices) ctx.state.brief.dec.push({ t: "ev", id: ev.id });
-    else ctx.bulletin(ev.kind, ev.title, ev.body, ev.fx(), null, ev.real);
+    else {
+      ctx.bulletin(ev.kind, ev.title, ev.body, ev.fx(), null, ev.real);
+      ctx.resolveTerminal();
+    }
   };
   ctx.fireEval = function fireEval() {
     if (

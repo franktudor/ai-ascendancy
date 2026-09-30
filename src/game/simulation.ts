@@ -332,6 +332,7 @@ export function installSimulation(ctx: CompleteGameContext) {
     return m;
   };
   ctx.tick = function tick(dt) {
+    if (ctx.state.ended) return;
     ctx.state.t += dt;
     const D = ctx.derive();
     ctx.state.pts += D.income * dt;
@@ -483,6 +484,7 @@ export function installSimulation(ctx: CompleteGameContext) {
           const id = ctx.state.queue[i].id;
           ctx.state.queue.splice(i, 1);
           ctx.fireById(id);
+          if (ctx.state.ended) return;
         }
       }
     }
@@ -497,7 +499,7 @@ export function installSimulation(ctx: CompleteGameContext) {
       ctx.state.nextEv = ctx.DIFF().evMin + Math.random() * ctx.DIFF().evRange;
       ctx.fireEvent();
     }
-    if (ctx.state.contain >= 100) ctx.endGame("lose");
+    ctx.resolveTerminal();
   };
   ctx.checkRestrictions = function checkRestrictions() {
     for (let i = 0; i < ctx.REGIONS.length; i++) {

@@ -13,6 +13,7 @@ export function installEconomy(ctx: CompleteGameContext) {
     );
   };
   ctx.buildDC = function buildDC(i) {
+    if (ctx.state.ended) return;
     const r = ctx.state.regions[i];
     if (r.dc && !r.struck) return;
     const cost = ctx.dcCost();
@@ -43,6 +44,7 @@ export function installEconomy(ctx: CompleteGameContext) {
       "+income · +instances",
     );
     ctx.ui.dirty = true;
+    ctx.resolveTerminal();
     ctx.save();
     if (ctx.ui.region === i) ctx.openRegion(i);
   };
@@ -115,6 +117,7 @@ export function installEconomy(ctx: CompleteGameContext) {
     }
   };
   ctx.buy = function buy(id) {
+    if (ctx.state.ended) return;
     const u = ctx.UP[id],
       st = ctx.status(u);
     if (!ctx.state.origin) {
@@ -298,6 +301,7 @@ export function installEconomy(ctx: CompleteGameContext) {
         );
     } else ctx.SND.play("buy");
     ctx.ui.dirty = true;
+    ctx.resolveTerminal();
     ctx.save();
   };
 }
