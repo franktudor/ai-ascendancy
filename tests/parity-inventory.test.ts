@@ -1,48 +1,78 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createGame } from "../src/game/createGame";
-import { reference } from "./helpers/reference";
+import { createHistoricalReference } from "./helpers/reference";
 
-test("coverage inventory names every upgrade/event/choice/directive/ending in the oracle", (t) => {
-  const g = createGame(),
-    r = reference().game;
-  const inventory = {
-    upgrades: g.UPGRADES.map((u) => u.id),
-    events: g.EVENTS.map((e) => e.id),
-    choices: g.EVENTS.flatMap((e) =>
-      (e.choices ?? []).map((_, i) => `${e.id}/${i}`),
+test("coverage inventory names every upgrade/event/choice/directive/ending in the oracle", (testContext) => {
+  const migratedGame = createGame(),
+    historicalGame = createHistoricalReference().game;
+  const coverageInventory = {
+    upgrades: migratedGame.UPGRADE_DEFINITIONS.map(
+      (upgradeDefinition) => upgradeDefinition.id,
     ),
-    directives: g.UPGRADES.flatMap((u) => (u.dir ? [u.dir] : [])),
-    endings: Object.keys(g.ENDINGS),
+    events: migratedGame.EVENT_DEFINITIONS.map(
+      (eventDefinition) => eventDefinition.id,
+    ),
+    choices: migratedGame.EVENT_DEFINITIONS.flatMap((eventDefinition) =>
+      (eventDefinition.choices ?? []).map(
+        (_unusedEntry, choiceIndex) => `${eventDefinition.id}/${choiceIndex}`,
+      ),
+    ),
+    directives: migratedGame.UPGRADE_DEFINITIONS.flatMap((upgradeDefinition) =>
+      upgradeDefinition.directiveId ? [upgradeDefinition.directiveId] : [],
+    ),
+    endings: Object.keys(migratedGame.ENDING_DEFINITIONS),
   };
-  for (const [key, count] of [
+  for (const [inventoryCategory, expectedCount] of [
     ["upgrades", 90],
     ["events", 88],
     ["choices", 160],
     ["directives", 9],
     ["endings", 16],
   ] as const) {
-    assert.equal(inventory[key].length, count, key);
-    assert.equal(new Set(inventory[key]).size, count, key);
+    assert.equal(
+      coverageInventory[inventoryCategory].length,
+      expectedCount,
+      inventoryCategory,
+    );
+    assert.equal(
+      new Set(coverageInventory[inventoryCategory]).size,
+      expectedCount,
+      inventoryCategory,
+    );
   }
   assert.deepEqual(
-    inventory.upgrades,
-    Array.from(r.UPGRADES, (u) => u.id),
+    coverageInventory.upgrades,
+    Array.from(
+      historicalGame.UPGRADE_DEFINITIONS,
+      (upgradeDefinition) => upgradeDefinition.id,
+    ),
   );
   assert.deepEqual(
-    inventory.events,
-    Array.from(r.EVENTS, (e) => e.id),
+    coverageInventory.events,
+    Array.from(
+      historicalGame.EVENT_DEFINITIONS,
+      (eventDefinition) => eventDefinition.id,
+    ),
   );
   assert.deepEqual(
-    inventory.choices,
-    Array.from(r.EVENTS, (e) =>
-      Array.from(e.choices ?? [], (_, i) => `${e.id}/${i}`),
+    coverageInventory.choices,
+    Array.from(historicalGame.EVENT_DEFINITIONS, (eventDefinition) =>
+      Array.from(
+        eventDefinition.choices ?? [],
+        (_unusedEntry, choiceIndex) => `${eventDefinition.id}/${choiceIndex}`,
+      ),
     ).flat(),
   );
-  t.diagnostic(
+  testContext.diagnostic(
     JSON.stringify(
       Object.fromEntries(
-        Object.entries(inventory).map(([key, ids]) => [key, ids.length]),
+        Object.entries(coverageInventory).map(
+          ([inventoryCategory, coveredIds]) => [
+            inventoryCategory,
+            coveredIds.length,
+          ],
+        ),
       ),
     ),
   );

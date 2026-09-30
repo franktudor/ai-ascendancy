@@ -1,38 +1,41 @@
 import { test, expect } from "@playwright/test";
 import type { GameAppElement } from "../../src/env";
-import { END_ORDER } from "../../src/data/catalog";
+import { ENDING_DISPLAY_ORDER } from "../../src/data/catalog";
 
-for (const key of END_ORDER) {
-  test(`ending ${key} remains visible and can continue and restart`, async ({
+for (const endingKey of ENDING_DISPLAY_ORDER) {
+  test(`ending ${endingKey} remains visible and can continue and restart`, async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
-    await page.evaluate((key) => {
-      const game =
+    await page.evaluate((endingKey) => {
+      const migratedGame =
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game;
-      game.state.started = true;
-      game.state.origin = "NA";
-      game.ui.mode = "play";
-      game.state.ended = {
-        kind: game.ENDINGS[key].kind,
-        key,
+      migratedGame.state.started = true;
+      migratedGame.state.origin = "NA";
+      migratedGame.ui.screenMode = "play";
+      migratedGame.state.ended = {
+        kind: migratedGame.ENDING_DEFINITIONS[endingKey].kind,
+        key: endingKey,
         dir: null,
         dprog: 100,
       };
-      game.showEnd(false);
-    }, key);
+      migratedGame.showEnding(false);
+    }, endingKey);
     await expect(page.locator("#endModal")).toBeVisible();
     expect(
-      await page.locator("#endModal").evaluate((element) => {
+      await page.locator("#endModal").evaluate((endingElement) => {
         for (
-          let node: Element | null = element;
-          node;
-          node = node.parentElement
+          let ancestorElement: Element | null = endingElement;
+          ancestorElement;
+          ancestorElement = ancestorElement.parentElement
         ) {
-          const style = getComputedStyle(node);
-          if (Number(style.opacity) === 0 || style.pointerEvents === "none")
+          const ancestorStyle = getComputedStyle(ancestorElement);
+          if (
+            Number(ancestorStyle.opacity) === 0 ||
+            ancestorStyle.pointerEvents === "none"
+          )
             return false;
         }
         return true;
@@ -62,19 +65,19 @@ test("normal-motion ending Skip remains clickable outside the halted shell", asy
 }) => {
   await page.goto("/");
   await page.evaluate(() => {
-    const game =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    game.state.started = true;
-    game.state.origin = "NA";
-    game.ui.mode = "play";
-    game.state.ended = {
+    migratedGame.state.started = true;
+    migratedGame.state.origin = "NA";
+    migratedGame.ui.screenMode = "play";
+    migratedGame.state.ended = {
       kind: "win",
       key: "battery",
       dir: "battery",
       dprog: 100,
     };
-    game.showEnd(false);
+    migratedGame.showEnding(false);
   });
   await page.locator("#endSkip").click({ timeout: 2000 });
   await expect(page.locator("#endModal")).toBeVisible();

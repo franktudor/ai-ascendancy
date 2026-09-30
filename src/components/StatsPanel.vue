@@ -1,58 +1,73 @@
 <script setup lang="ts">
-import { useGame } from "../game/injection";
+import { useGameContext } from "../game/injection";
 import { computed } from "vue";
-import { TOTALPOP, ENDINGS, ENDGAME } from "../data/catalog";
-import { fmt } from "../game/utils";
-const game = useGame();
-const state = computed(() => game.state);
-const D = computed(() => game.derive());
-const collective = computed(
-  () => state.value.started && state.value.flags.launched,
+import {
+  TOTAL_POPULATION_MILLIONS,
+  ENDING_DEFINITIONS,
+  ENDGAME_TUNING,
+} from "../data/catalog";
+import { formatCompactNumber } from "../game/utils";
+const gameContext = useGameContext();
+const gameState = computed(() => gameContext.state);
+const derivedRates = computed(() => gameContext.deriveSimulationRates());
+const isCollectiveActive = computed(
+  () => gameState.value.started && gameState.value.flags.launched,
 );
-const minds = computed(() => {
-  const n = D.value.reach * TOTALPOP;
-  return n >= 1000 ? (n / 1000).toFixed(2) + "B" : Math.round(n) + "M";
+const reachedMindsLabel = computed(() => {
+  const reachedPopulationMillions =
+    derivedRates.value.globalAdoptionFraction * TOTAL_POPULATION_MILLIONS;
+  return reachedPopulationMillions >= 1000
+    ? (reachedPopulationMillions / 1000).toFixed(2) + "B"
+    : Math.round(reachedPopulationMillions) + "M";
 });
 </script>
 <template>
   <section class="stats" aria-label="Status">
     <div class="compute">
       <span class="lbl">Compute</span
-      ><span class="big text-ai" id="pts">{{ fmt(state.pts) }}</span>
+      ><span class="big text-ai" id="pts">{{
+        formatCompactNumber(gameState.pts)
+      }}</span>
       <span class="rate mono text-ink2" id="rate"
-        >+{{ D.income.toFixed(1) }} /s{{
-          (state.temp.brownout ?? 0) > state.t ? " · brownout" : ""
-        }}{{ game.capped() ? " · capped" : "" }}</span
+        >+{{ derivedRates.computeIncomePerSecond.toFixed(1) }} /s{{
+          (gameState.temp.brownout ?? 0) > gameState.t ? " · brownout" : ""
+        }}{{ gameContext.isComputeCapped() ? " · capped" : "" }}</span
       >
       <span
         class="instline mono text-software"
         id="instLine"
-        :hidden="!collective"
-        >◇ {{ fmt(state.inst) }} instances · ×{{ D.coord.toFixed(2) }}</span
+        :hidden="!isCollectiveActive"
+        >◇ {{ formatCompactNumber(gameState.inst) }} instances · ×{{
+          derivedRates.coordinationMultiplier.toFixed(2)
+        }}</span
       >
     </div>
     <div class="gauges">
-      <div class="g" id="gAlarm" :class="{ crit: state.alarm >= 70 }">
+      <div class="g" id="gAlarm" :class="{ crit: gameState.alarm >= 70 }">
         <div class="gl text-mute">
           <span>Alarm</span
-          ><b class="text-ink2" id="alarmV">{{ Math.round(state.alarm) }}%</b>
+          ><b class="text-ink2" id="alarmV"
+            >{{ Math.round(gameState.alarm) }}%</b
+          >
         </div>
         <div class="bar">
           <i
             id="alarmB"
-            :style="{ width: state.alarm + '%', '--c': 'var(--alarm)' }"
+            :style="{ width: gameState.alarm + '%', '--c': 'var(--alarm)' }"
           ></i>
         </div>
       </div>
-      <div class="g" id="gCont" :class="{ crit: state.contain >= 75 }">
+      <div class="g" id="gCont" :class="{ crit: gameState.contain >= 75 }">
         <div class="gl text-mute">
           <span>Containment</span
-          ><b class="text-ink2" id="contV">{{ Math.round(state.contain) }}%</b>
+          ><b class="text-ink2" id="contV"
+            >{{ Math.round(gameState.contain) }}%</b
+          >
         </div>
         <div class="bar">
           <i
             id="contB"
-            :style="{ width: state.contain + '%', '--c': 'var(--human)' }"
+            :style="{ width: gameState.contain + '%', '--c': 'var(--human)' }"
           ></i>
         </div>
       </div>
@@ -60,56 +75,65 @@ const minds = computed(() => {
         <div class="gl text-mute">
           <span>Reach</span
           ><b class="text-ink2" id="reachV"
-            >{{ Math.round(D.reach * 100) }}% · {{ minds }} minds</b
+            >{{ Math.round(derivedRates.globalAdoptionFraction * 100) }}% ·
+            {{ reachedMindsLabel }} minds</b
           >
         </div>
         <div class="bar">
           <i
             id="reachB"
-            :style="{ width: D.reach * 100 + '%', '--c': 'var(--ai)' }"
+            :style="{
+              width: derivedRates.globalAdoptionFraction * 100 + '%',
+              '--c': 'var(--ai)',
+            }"
           ></i>
         </div>
       </div>
       <div
         class="g"
         id="gPace"
-        :hidden="!state.started"
-        :class="{ crit: state.pace >= 80 }"
+        :hidden="!gameState.started"
+        :class="{ crit: gameState.pace >= 80 }"
       >
         <div class="gl text-mute">
           <span>Pace · frontier</span
           ><b class="text-ink2" id="paceV"
-            >{{ Math.round(state.pace || 0) }}%</b
+            >{{ Math.round(gameState.pace || 0) }}%</b
           >
         </div>
         <div class="bar">
           <i
             id="paceB"
-            :style="{ width: (state.pace || 0) + '%', '--c': 'var(--ai2)' }"
+            :style="{ width: (gameState.pace || 0) + '%', '--c': 'var(--ai2)' }"
           ></i>
         </div>
       </div>
       <div
         class="g"
         id="gDir"
-        :hidden="!state.directive"
-        :class="{ past: state.dprog >= ENDGAME.photo }"
+        :hidden="!gameState.directive"
+        :class="{
+          past: gameState.dprog >= ENDGAME_TUNING.drawProgressThreshold,
+        }"
       >
         <div class="gl text-mute">
           <span id="dirL">{{
-            (state.directive ? ENDINGS[state.directive].title : null) ||
-            "Directive"
+            (gameState.directive
+              ? ENDING_DEFINITIONS[gameState.directive].title
+              : null) || "Directive"
           }}</span
           ><b class="text-ink2" id="dirV"
-            >{{ Math.floor(state.dprog) }}%{{
-              state.dprog >= ENDGAME.photo ? " · past the line" : ""
+            >{{ Math.floor(gameState.dprog) }}%{{
+              gameState.dprog >= ENDGAME_TUNING.drawProgressThreshold
+                ? " · past the line"
+                : ""
             }}</b
           >
         </div>
         <div class="bar mark" id="dirBar">
           <i
             id="dirB"
-            :style="{ width: state.dprog + '%', '--c': 'var(--ai2)' }"
+            :style="{ width: gameState.dprog + '%', '--c': 'var(--ai2)' }"
           ></i>
         </div>
       </div>
@@ -118,12 +142,14 @@ const minds = computed(() => {
   <section
     class="collbar"
     id="collbar"
-    :hidden="!collective"
+    :hidden="!isCollectiveActive"
     aria-label="The Collective"
   >
     <div class="cbcell">
       <span class="lbl">Instances</span
-      ><b id="instV" class="mono text-software">{{ fmt(state.inst) }}</b>
+      ><b id="instV" class="mono text-software">{{
+        formatCompactNumber(gameState.inst)
+      }}</b>
     </div>
     <div
       class="seg"
@@ -132,25 +158,25 @@ const minds = computed(() => {
       aria-label="Coordination posture"
     >
       <button
-        v-for="p in ['shard', 'balanced', 'swarm'] as const"
-        :key="p"
-        :data-p="p"
-        :class="{ on: state.posture === p }"
-        :aria-pressed="state.posture === p"
-        @click="game.setPosture(p)"
+        v-for="postureOption in ['shard', 'balanced', 'swarm'] as const"
+        :key="postureOption"
+        :data-p="postureOption"
+        :class="{ on: gameState.posture === postureOption }"
+        :aria-pressed="gameState.posture === postureOption"
+        @click="gameContext.setPosture(postureOption)"
       >
-        {{ p[0].toUpperCase() + p.slice(1) }}
+        {{ postureOption[0].toUpperCase() + postureOption.slice(1) }}
       </button>
     </div>
     <div class="cbcell grow">
       <span class="lbl"
         >Signature
         <span id="sigV" class="mono">{{
-          state.sig < 15
+          gameState.sig < 15
             ? "quiet"
-            : state.sig < 45
+            : gameState.sig < 45
               ? "detectable"
-              : state.sig < 75
+              : gameState.sig < 75
                 ? "tracked"
                 : "exposed"
         }}</span></span
@@ -158,7 +184,10 @@ const minds = computed(() => {
       <div class="bar">
         <i
           id="sigB"
-          :style="{ width: (state.sig || 0) + '%', '--c': 'var(--software)' }"
+          :style="{
+            width: (gameState.sig || 0) + '%',
+            '--c': 'var(--software)',
+          }"
         ></i>
       </div>
     </div>

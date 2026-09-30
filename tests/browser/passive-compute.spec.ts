@@ -5,57 +5,67 @@ test("F19 passive compute label reflects tick income, not rewards, funding or of
   page,
 }) => {
   await page.goto("/");
-  const result = await page.evaluate(() => {
-    const g =
+  const passiveComputeObservations = await page.evaluate(() => {
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.state = g.freshState();
-    g.state.paused = true;
-    const introIncome = g.derive().income;
-    g.tick(2); // Intro passive ticks are counted until a new run resets stats.
-    const intro = g.state.earned;
-    g.newRun();
-    const reset = g.state.earned;
-    g.startRun(4); // Middle East initial funding is balance-only.
-    g.closeTree();
-    g.state.paused = true;
-    const funding = g.state.earned;
-    const income = g.derive().income;
-    g.tick(2);
-    const passive = g.state.earned;
-    g.FX.pts(150);
-    g.state.flags.fearsells = true;
-    g.FX.alarm(10);
-    g.makeEval().choices[1].fx();
-    const rewards = g.state.earned;
-    const saved = g.freshState();
-    Object.assign(saved, {
+    migratedGame.state = migratedGame.createInitialState();
+    migratedGame.state.paused = true;
+    const introIncomePerSecond =
+      migratedGame.deriveSimulationRates().computeIncomePerSecond;
+    migratedGame.advanceSimulation(2); // Intro passive ticks are counted until a new run resets stats.
+    const introPassiveCompute = migratedGame.state.earned;
+    migratedGame.newRun();
+    const earnedComputeAfterNewRun = migratedGame.state.earned;
+    migratedGame.startRunInRegion(4); // Middle East initial funding is balance-only.
+    migratedGame.closeTree();
+    migratedGame.state.paused = true;
+    const earnedComputeAfterOriginFunding = migratedGame.state.earned;
+    const incomePerSecond =
+      migratedGame.deriveSimulationRates().computeIncomePerSecond;
+    migratedGame.advanceSimulation(2);
+    const earnedPassiveCompute = migratedGame.state.earned;
+    migratedGame.effects.adjustCompute(150);
+    migratedGame.state.flags.fearsells = true;
+    migratedGame.effects.adjustAlarm(10);
+    migratedGame.createCapabilityAudit().choices[1].applyEffects();
+    const earnedComputeAfterRewards = migratedGame.state.earned;
+    const offlineSaveState = migratedGame.createInitialState();
+    Object.assign(offlineSaveState, {
       started: true,
       origin: "NA",
       savedAt: Date.now() - 60000,
-      earned: passive,
+      earned: earnedPassiveCompute,
     });
-    g.resumeRun(saved);
-    g.state.paused = true;
-    const offline = g.state.earned;
-    g.endGame("lose");
+    migratedGame.resumeRun(offlineSaveState);
+    migratedGame.state.paused = true;
+    const earnedComputeAfterOfflineRecovery = migratedGame.state.earned;
+    migratedGame.endGame("lose");
     return {
-      intro,
-      introExpected: introIncome * 2,
-      reset,
-      funding,
-      passive,
-      expected: income * 2,
-      rewards,
-      offline,
+      intro: introPassiveCompute,
+      introExpected: introIncomePerSecond * 2,
+      reset: earnedComputeAfterNewRun,
+      funding: earnedComputeAfterOriginFunding,
+      passive: earnedPassiveCompute,
+      expected: incomePerSecond * 2,
+      rewards: earnedComputeAfterRewards,
+      offline: earnedComputeAfterOfflineRecovery,
       label: document.querySelector("#endStats")!.textContent,
     };
   });
-  expect(result.intro).toBe(result.introExpected);
-  expect(result.reset).toBe(0);
-  expect(result.funding).toBe(0);
-  expect(result.passive).toBe(result.expected);
-  expect(result.rewards).toBe(result.passive);
-  expect(result.offline).toBe(result.passive);
-  expect(result.label).toContain("Passive compute earned");
+  expect(passiveComputeObservations.intro).toBe(
+    passiveComputeObservations.introExpected,
+  );
+  expect(passiveComputeObservations.reset).toBe(0);
+  expect(passiveComputeObservations.funding).toBe(0);
+  expect(passiveComputeObservations.passive).toBe(
+    passiveComputeObservations.expected,
+  );
+  expect(passiveComputeObservations.rewards).toBe(
+    passiveComputeObservations.passive,
+  );
+  expect(passiveComputeObservations.offline).toBe(
+    passiveComputeObservations.passive,
+  );
+  expect(passiveComputeObservations.label).toContain("Passive compute earned");
 });

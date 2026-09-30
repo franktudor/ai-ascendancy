@@ -1,43 +1,55 @@
 <script setup lang="ts">
-import { useGame } from "../game/injection";
+import { useGameContext } from "../game/injection";
 import { computed } from "vue";
-import { REGIONS } from "../data/catalog";
-import { regionLabel } from "../game/accessibility";
-const game = useGame();
-const tiles = computed(() =>
-  REGIONS.map((R, i) => {
-    const r = game.state.regions[i],
-      k = !r.dc ? "none" : !r.struck ? "on" : r.rebuildAt ? "rebuild" : "off";
+import { REGION_DEFINITIONS } from "../data/catalog";
+import { getRegionAccessibleLabel } from "../game/accessibility";
+const gameContext = useGameContext();
+const regionTiles = computed(() =>
+  REGION_DEFINITIONS.map((regionDefinition, regionIndex) => {
+    const regionState = gameContext.state.regions[regionIndex],
+      clusterStatusClassName = !regionState.dc
+        ? "none"
+        : !regionState.struck
+          ? "on"
+          : regionState.rebuildAt
+            ? "rebuild"
+            : "off";
     return {
-      R,
-      r,
-      i,
-      k,
-      label:
-        k === "none"
+      regionDefinition,
+      regionState,
+      regionIndex,
+      clusterStatusClassName,
+      clusterStatusLabel:
+        clusterStatusClassName === "none"
           ? "No cluster"
-          : k === "on"
+          : clusterStatusClassName === "on"
             ? "Online"
-            : k === "rebuild"
+            : clusterStatusClassName === "rebuild"
               ? "Rebuild " +
-                Math.max(0, Math.ceil(r.rebuildAt - game.state.t)) +
+                Math.max(
+                  0,
+                  Math.ceil(regionState.rebuildAt - gameContext.state.t),
+                ) +
                 "s"
               : "Offline",
-      status: r.restricted
+      regionStatusLabel: regionState.restricted
         ? "Banned"
-        : r.allied
+        : regionState.allied
           ? "Ally"
-          : game.state.origin === R.id
+          : gameContext.state.origin === regionDefinition.id
             ? "Origin"
             : "",
-      classes: {
-        restricted: r.restricted,
-        allied: r.allied && !r.restricted,
-        origin: game.state.origin === R.id && !r.allied && !r.restricted,
-        live: r.a > 0.005,
-        dcOn: k === "on",
-        dcOff: k === "off",
-        dcRebuild: k === "rebuild",
+      tileClasses: {
+        restricted: regionState.restricted,
+        allied: regionState.allied && !regionState.restricted,
+        origin:
+          gameContext.state.origin === regionDefinition.id &&
+          !regionState.allied &&
+          !regionState.restricted,
+        live: regionState.a > 0.005,
+        dcOn: clusterStatusClassName === "on",
+        dcOff: clusterStatusClassName === "off",
+        dcRebuild: clusterStatusClassName === "rebuild",
       },
     };
   }),
@@ -46,19 +58,23 @@ const tiles = computed(() =>
 <template>
   <section class="regions" id="regions" aria-label="Regions">
     <button
-      v-for="tile in tiles"
-      :key="tile.R.id"
+      v-for="regionTile in regionTiles"
+      :key="regionTile.regionDefinition.id"
       class="rt"
-      :class="tile.classes"
-      :data-i="tile.i"
-      :aria-label="regionLabel(game, tile.i)"
-      @click="game.openRegion(tile.i)"
+      :class="regionTile.tileClasses"
+      :data-i="regionTile.regionIndex"
+      :aria-label="
+        getRegionAccessibleLabel(gameContext, regionTile.regionIndex)
+      "
+      @click="gameContext.openRegionDialog(regionTile.regionIndex)"
     >
-      <span class="st">{{ tile.status }}</span>
-      <div class="nm">{{ tile.R.short }}</div>
-      <div class="pc">{{ Math.round(tile.r.a * 100) }}%</div>
-      <div class="bar"><i :style="{ width: tile.r.a * 100 + '%' }"></i></div>
-      <div class="dcs" :class="tile.k">
+      <span class="st">{{ regionTile.regionStatusLabel }}</span>
+      <div class="nm">{{ regionTile.regionDefinition.shortName }}</div>
+      <div class="pc">{{ Math.round(regionTile.regionState.a * 100) }}%</div>
+      <div class="bar">
+        <i :style="{ width: regionTile.regionState.a * 100 + '%' }"></i>
+      </div>
+      <div class="dcs" :class="regionTile.clusterStatusClassName">
         <svg
           viewBox="0 0 12 12"
           aria-hidden="true"
@@ -70,7 +86,7 @@ const tiles = computed(() =>
           <rect x="1.5" y="6.5" width="9" height="4" rx="1" />
           <circle class="led" cx="8.3" cy="3.5" r=".9" stroke="none" />
           <circle class="led" cx="8.3" cy="8.5" r=".9" stroke="none" /></svg
-        ><span>{{ tile.label }}</span>
+        ><span>{{ regionTile.clusterStatusLabel }}</span>
       </div>
     </button>
   </section>

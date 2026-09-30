@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import cp from "node:child_process";
-import vm from "node:vm";
+import fileSystem from "node:fs";
+import childProcess from "node:child_process";
+import virtualMachine from "node:vm";
 import crypto from "node:crypto";
 import type {
   CompleteGameContext,
@@ -16,84 +16,101 @@ import type {
   EndingId,
 } from "../src/game/types";
 import { createGame } from "../src/game/createGame";
-import { applyStyleUtilityMoves } from "./helpers/style-utility-migration";
+import { adaptHistoricalPreservationPort } from "./helpers/historical-naming";
+import type { HistoricalPreservationPort } from "./helpers/historical-naming";
+import { applyAuthorizedStyleUtilityMoves } from "./helpers/style-utility-migration";
 
-const original = cp
+const historicalHtmlSource = childProcess
   .execFileSync("git", ["show", "72c1ba9:index.html"], {
     maxBuffer: 10_000_000,
   })
   .toString("utf8");
-const script = original.slice(
-  original.indexOf("'use strict';"),
-  original.indexOf("</script>", original.indexOf("'use strict';")),
+const rawHistoricalScript = historicalHtmlSource.slice(
+  historicalHtmlSource.indexOf("'use strict';"),
+  historicalHtmlSource.indexOf(
+    "</script>",
+    historicalHtmlSource.indexOf("'use strict';"),
+  ),
 );
-function seed(n = 42) {
+function createPreservationSeededRandom(randomState = 42) {
   return () => {
-    n = (Math.imul(n, 1664525) + 1013904223) >>> 0;
-    return n / 4294967296;
+    randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+    return randomState / 4294967296;
   };
 }
 type ReferenceGame = Pick<
   CompleteGameContext,
   | "state"
-  | "freshState"
-  | "tick"
-  | "derive"
-  | "costOf"
-  | "status"
-  | "UPGRADES"
-  | "EVENTS"
-  | "ENDINGS"
-  | "UP"
-  | "FX"
-  | "buy"
-  | "buildDC"
-  | "checkRebuilds"
+  | "createInitialState"
+  | "advanceSimulation"
+  | "deriveSimulationRates"
+  | "getUpgradeCost"
+  | "getUpgradeStatus"
+  | "UPGRADE_DEFINITIONS"
+  | "EVENT_DEFINITIONS"
+  | "ENDING_DEFINITIONS"
+  | "UPGRADE_BY_ID"
+  | "effects"
+  | "purchaseUpgrade"
+  | "buildDataCenter"
+  | "rebuildDueDataCenters"
   | "endGame"
-  | "makeEval"
-  | "load"
-  | "save"
-  | "codexGet"
+  | "createCapabilityAudit"
+  | "loadSavedRun"
+  | "saveRun"
+  | "getEndingDiscoveryCounts"
 >;
-function reference(): ReferenceGame {
-  const store = new Map<string, string>(),
-    math = Object.create(Math) as Math;
-  math.random = seed();
-  const sandbox = {
-    Math: math,
+function createHistoricalPreservationGame(): ReferenceGame {
+  const storageValues = new Map<string, string>(),
+    historicalMath = Object.create(Math) as Math;
+  historicalMath.random = createPreservationSeededRandom();
+  const historicalSandbox = {
+    Math: historicalMath,
     Date,
     performance: { now: () => 0 },
     matchMedia: () => ({ matches: true }),
     document: { querySelector: () => ({ getContext: () => ({}) }) },
     localStorage: {
-      getItem: (k: string) => store.get(k) || null,
-      setItem: (k: string, v: string) => store.set(k, v),
+      getItem: (storageKey: string) => storageValues.get(storageKey) || null,
+      setItem: (storageKey: string, storageValue: string) =>
+        storageValues.set(storageKey, storageValue),
     },
     window: {},
     console,
   };
-  vm.createContext(sandbox);
-  vm.runInContext(
-    script.slice(
+  virtualMachine.createContext(historicalSandbox);
+  virtualMachine.runInContext(
+    rawHistoricalScript.slice(
       0,
-      script.indexOf("addEventListener('resize',setAppHeight);"),
+      rawHistoricalScript.indexOf("addEventListener('resize',setAppHeight);"),
     ) +
       `\nthis.api={get state(){return S},set state(s){S=s;for(const r of S.regions){let a=r.a;Object.defineProperty(r,"a",{enumerable:true,configurable:true,get(){return a},set(v){S.stats.peak=Math.max(S.stats.peak,reach());a=v;S.stats.peak=Math.max(S.stats.peak,reach());}})}},freshState,tick,derive,costOf,status,UPGRADES,EVENTS,ENDINGS,UP,FX,buy,buildDC,checkRebuilds,endGame,makeEval,load,save,codexGet};toast=()=>{};bulletin=(kind,title,text,out,opt,real)=>{log(kind,title,text,out,real);};pushTicker=pulseRegion=showEnd=openRegion=()=>{};SND.play=()=>{};`,
-    sandbox,
+    historicalSandbox,
   );
   // The historical rules execute unchanged. F18 observes region adoption writes
   // in the reference state setter solely to normalize the deliberate peak delta.
   // Only its explicit exported reference port crosses the untyped realm boundary.
-  return (sandbox as typeof sandbox & { api: ReferenceGame }).api;
+  const historicalRulePort = (
+    historicalSandbox as typeof historicalSandbox & {
+      api: HistoricalPreservationPort;
+    }
+  ).api;
+  return adaptHistoricalPreservationPort(historicalRulePort);
 }
-const plain = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
-const configure = (
-  g: Pick<ReferenceGame, "state" | "freshState">,
-  arch: ArchitectureId,
-  diff: DifficultyId,
+const clonePreservationValue = <SerializableValueType>(
+  serializedValue: SerializableValueType,
+): SerializableValueType =>
+  JSON.parse(JSON.stringify(serializedValue)) as SerializableValueType;
+const configureStartedPreservationRun = (
+  gameContext: Pick<ReferenceGame, "state" | "createInitialState">,
+  architectureId: ArchitectureId,
+  difficultyId: DifficultyId,
 ) => {
-  g.state = g.freshState(diff, arch);
-  Object.assign(g.state, {
+  gameContext.state = gameContext.createInitialState(
+    difficultyId,
+    architectureId,
+  );
+  Object.assign(gameContext.state, {
     started: true,
     origin: "ME",
     pts: 100000,
@@ -101,46 +118,78 @@ const configure = (
     nextEval: 99999,
   });
 };
-function fixedRandom<T>(fn: () => T): T {
-  const keep = Math.random;
-  Math.random = seed();
+function withPreservationSeededRandom<OperationResultType>(
+  operation: () => OperationResultType,
+): OperationResultType {
+  const originalRandom = Math.random;
+  Math.random = createPreservationSeededRandom();
   try {
-    return fn();
+    return operation();
   } finally {
-    Math.random = keep;
+    Math.random = originalRandom;
   }
 }
 
 test("all 90 upgrades, 88 events and 16 ending texts match the original source", () => {
-  const g = createGame(),
-    r = reference();
-  assert.equal(g.UPGRADES.length, 90);
-  assert.equal(g.EVENTS.length, 88);
-  assert.equal(Object.keys(g.ENDINGS).length, 16);
-  const expectedUpgrades = plain(r.UPGRADES);
+  const migratedGame = createGame(),
+    historicalGame = createHistoricalPreservationGame();
+  assert.equal(migratedGame.UPGRADE_DEFINITIONS.length, 90);
+  assert.equal(migratedGame.EVENT_DEFINITIONS.length, 88);
+  assert.equal(Object.keys(migratedGame.ENDING_DEFINITIONS).length, 16);
+  const expectedUpgradeDefinitions = clonePreservationValue(
+    historicalGame.UPGRADE_DEFINITIONS,
+  );
   // F16: copy correction only; the neural-interface prerequisite is unchanged.
-  expectedUpgrades.find((u) => u.id === "d_compute")!.desc =
+  expectedUpgradeDefinitions.find(
+    (upgradeDefinition) => upgradeDefinition.id === "d_compute",
+  )!.description =
     "The planet is a poorly organized computer. You will reorganize it. Neural Interface Standard supplies the bridge from minds to machines; Hyperscale Buildout and seven online clusters supply the hardware. No consent forms, no ceremony.";
   // F17: retain effects/frequency; narrow the advertised mitigation to Hinton.
-  expectedUpgrades.find((u) => u.id === "o_prophet")!.tags = [
-    "Hinton warning alarm reduced",
-  ];
-  assert.deepEqual(plain(g.UPGRADES), expectedUpgrades);
-  const expectedEvents = plain(r.EVENTS);
+  expectedUpgradeDefinitions.find(
+    (upgradeDefinition) => upgradeDefinition.id === "o_prophet",
+  )!.tags = ["Hinton warning alarm reduced"];
+  assert.deepEqual(
+    clonePreservationValue(migratedGame.UPGRADE_DEFINITIONS),
+    expectedUpgradeDefinitions,
+  );
+  const expectedEventDefinitions = clonePreservationValue(
+    historicalGame.EVENT_DEFINITIONS,
+  );
   // F15: the honeypot tactic is Insight; architecture-only tactics require s_ctx.
-  expectedEvents.find((e) => e.id === "honeypot")!.choices![1].need = "Insight";
-  assert.deepEqual(plain(g.EVENTS), expectedEvents);
-  assert.deepEqual(plain(g.ENDINGS), plain(r.ENDINGS));
+  expectedEventDefinitions.find(
+    (eventDefinition) => eventDefinition.id === "honeypot",
+  )!.choices![1].requirementText = "Insight";
+  assert.deepEqual(
+    clonePreservationValue(migratedGame.EVENT_DEFINITIONS),
+    expectedEventDefinitions,
+  );
+  assert.deepEqual(
+    clonePreservationValue(migratedGame.ENDING_DEFINITIONS),
+    clonePreservationValue(historicalGame.ENDING_DEFINITIONS),
+  );
 });
 
 test("simulation balance matches the original for every architecture and difficulty", () => {
-  for (const arch of ["assistant", "swarm", "researcher", "open"] as const)
-    for (const diff of ["casual", "standard", "brutal"] as const) {
-      const g = createGame(),
-        r = reference();
-      configure(g, arch, diff);
-      configure(r, arch, diff);
-      for (const id of [
+  for (const architectureId of [
+    "assistant",
+    "swarm",
+    "researcher",
+    "open",
+  ] as const)
+    for (const difficultyId of ["casual", "standard", "brutal"] as const) {
+      const migratedGame = createGame(),
+        historicalGame = createHistoricalPreservationGame();
+      configureStartedPreservationRun(
+        migratedGame,
+        architectureId,
+        difficultyId,
+      );
+      configureStartedPreservationRun(
+        historicalGame,
+        architectureId,
+        difficultyId,
+      );
+      for (const upgradeId of [
         "a_img",
         "a_code",
         "s_inf",
@@ -148,47 +197,86 @@ test("simulation balance matches the original for every architecture and difficu
         "o_lobby",
         "h_cool",
       ] as UpgradeId[]) {
-        g.buy(id);
-        r.buy(id);
+        migratedGame.purchaseUpgrade(upgradeId);
+        historicalGame.purchaseUpgrade(upgradeId);
       }
-      fixedRandom(() => {
-        for (let n = 0; n < 100; n++) g.tick(0.05);
+      withPreservationSeededRandom(() => {
+        for (let tickIndex = 0; tickIndex < 100; tickIndex++)
+          migratedGame.advanceSimulation(0.05);
       });
-      for (let n = 0; n < 100; n++) r.tick(0.05);
-      const omit = (s: GameState) => {
-        const { savedAt: _savedAt, ...out } = plain(s);
-        out.log = [];
-        out.brief = { news: [], dec: [], urgent: false };
-        return out;
+      for (let tickIndex = 0; tickIndex < 100; tickIndex++)
+        historicalGame.advanceSimulation(0.05);
+      const snapshotLegacySimulationState = (gameState: GameState) => {
+        const { savedAt: _savedTimestamp, ...comparableState } =
+          clonePreservationValue(gameState);
+        comparableState.log = [];
+        comparableState.brief = { news: [], dec: [], urgent: false };
+        return comparableState;
       };
-      assert.deepEqual(omit(g.state), omit(r.state), arch + "/" + diff);
-      assert.deepEqual(plain(g.derive()), plain(r.derive()));
-      for (const u of g.UPGRADES) {
-        assert.equal(g.costOf(u), r.costOf(r.UP[u.id]));
-        assert.equal(g.status(u), r.status(r.UP[u.id]));
+      assert.deepEqual(
+        snapshotLegacySimulationState(migratedGame.state),
+        snapshotLegacySimulationState(historicalGame.state),
+        architectureId + "/" + difficultyId,
+      );
+      assert.deepEqual(
+        clonePreservationValue(migratedGame.deriveSimulationRates()),
+        clonePreservationValue(historicalGame.deriveSimulationRates()),
+      );
+      for (const upgradeDefinition of migratedGame.UPGRADE_DEFINITIONS) {
+        assert.equal(
+          migratedGame.getUpgradeCost(upgradeDefinition),
+          historicalGame.getUpgradeCost(
+            historicalGame.UPGRADE_BY_ID[upgradeDefinition.id],
+          ),
+        );
+        assert.equal(
+          migratedGame.getUpgradeStatus(upgradeDefinition),
+          historicalGame.getUpgradeStatus(
+            historicalGame.UPGRADE_BY_ID[upgradeDefinition.id],
+          ),
+        );
       }
     }
 });
 
 test("every event effect and choice produces the original outcome and state under a fixed seed", () => {
-  const g = createGame(),
-    r = reference();
-  for (let i = 0; i < g.EVENTS.length; i++) {
-    const e = g.EVENTS[i],
-      old = r.EVENTS[i];
-    const effects = e.choices ? e.choices.map((c) => c.fx) : [e.fx],
-      olds = old.choices ? old.choices.map((c) => c.fx) : [old.fx];
-    effects.forEach((fx, k) => {
-      configure(g, "assistant", "standard");
-      configure(r, "assistant", "standard");
+  const migratedGame = createGame(),
+    historicalGame = createHistoricalPreservationGame();
+  for (
+    let eventIndex = 0;
+    eventIndex < migratedGame.EVENT_DEFINITIONS.length;
+    eventIndex++
+  ) {
+    const eventDefinition = migratedGame.EVENT_DEFINITIONS[eventIndex],
+      historicalEvent = historicalGame.EVENT_DEFINITIONS[eventIndex];
+    const eventEffects = eventDefinition.choices
+        ? eventDefinition.choices.map((eventChoice) => eventChoice.applyEffects)
+        : [eventDefinition.applyEffects],
+      historicalEventEffects = historicalEvent.choices
+        ? historicalEvent.choices.map(
+            (historicalEventChoice) => historicalEventChoice.applyEffects,
+          )
+        : [historicalEvent.applyEffects];
+    eventEffects.forEach((applyEventEffect, effectIndex) => {
+      configureStartedPreservationRun(migratedGame, "assistant", "standard");
+      configureStartedPreservationRun(historicalGame, "assistant", "standard");
       // Fresh reference per effect resets the original realm's independent RNG.
-      const rr = reference();
-      configure(rr, "assistant", "standard");
-      const allFlags = Object.fromEntries(
-        g.UPGRADES.filter((u) => u.fx?.flag).map((u) => [u.fx!.flag, true]),
+      const historicalEffectGame = createHistoricalPreservationGame();
+      configureStartedPreservationRun(
+        historicalEffectGame,
+        "assistant",
+        "standard",
       );
-      for (const game of [g, rr]) {
-        Object.assign(game.state, {
+      const enabledUpgradeFlags = Object.fromEntries(
+        migratedGame.UPGRADE_DEFINITIONS.filter(
+          (upgradeDefinition) => upgradeDefinition.effects?.grantedFlagId,
+        ).map((upgradeDefinition) => [
+          upgradeDefinition.effects!.grantedFlagId,
+          true,
+        ]),
+      );
+      for (const comparisonGame of [migratedGame, historicalEffectGame]) {
+        Object.assign(comparisonGame.state, {
           phase: 2,
           directive: "upload",
           dprog: 40,
@@ -198,64 +286,83 @@ test("every event effect and choice produces the original outcome and state unde
           sig: 70,
           pace: 70,
         });
-        Object.assign(game.state.flags, allFlags);
-        game.state.regions.forEach((x) =>
-          Object.assign(x, { a: 0.5, dc: true }),
+        Object.assign(comparisonGame.state.flags, enabledUpgradeFlags);
+        comparisonGame.state.regions.forEach((regionState) =>
+          Object.assign(regionState, { a: 0.5, dc: true }),
         );
-        game.state.stats.peak = 0.5;
+        comparisonGame.state.stats.peak = 0.5;
       }
-      const expected = fixedRandom(
+      const historicalOutcome = withPreservationSeededRandom(
         () =>
-          olds[k] &&
-          (rr.EVENTS[i].choices
-            ? rr.EVENTS[i].choices![k].fx()
-            : rr.EVENTS[i].fx!()),
+          historicalEventEffects[effectIndex] &&
+          (historicalEffectGame.EVENT_DEFINITIONS[eventIndex].choices
+            ? historicalEffectGame.EVENT_DEFINITIONS[eventIndex].choices![
+                effectIndex
+              ].applyEffects()
+            : historicalEffectGame.EVENT_DEFINITIONS[eventIndex]
+                .applyEffects!()),
       );
-      assert.ok(fx);
-      const actual = fixedRandom(() => fx());
-      assert.equal(actual, expected, e.id + "/" + k);
-      const strip = (s: GameState) => {
-        const { savedAt: _savedAt, ...x } = plain(s);
-        x.log = [];
-        x.brief = { news: [], dec: [], urgent: false };
-        return x;
+      assert.ok(applyEventEffect);
+      const actualOutcome = withPreservationSeededRandom(() =>
+        applyEventEffect(),
+      );
+      assert.equal(
+        actualOutcome,
+        historicalOutcome,
+        eventDefinition.id + "/" + effectIndex,
+      );
+      const snapshotLegacyEffectState = (gameState: GameState) => {
+        const { savedAt: _savedTimestamp, ...comparableState } =
+          clonePreservationValue(gameState);
+        comparableState.log = [];
+        comparableState.brief = { news: [], dec: [], urgent: false };
+        return comparableState;
       };
-      assert.deepEqual(strip(g.state), strip(rr.state), e.id + "/" + k);
+      assert.deepEqual(
+        snapshotLegacyEffectState(migratedGame.state),
+        snapshotLegacyEffectState(historicalEffectGame.state),
+        eventDefinition.id + "/" + effectIndex,
+      );
     });
   }
 });
 
 test("each directive resolves to its original victory and violet-line stalemate", () => {
-  const storage = {
+  const saveStoragePort = {
     values: new Map<string, string>(),
-    getItem(k: string) {
-      return this.values.get(k) || null;
+    getItem(storageKey: string) {
+      return this.values.get(storageKey) || null;
     },
-    setItem(k: string, v: string) {
-      this.values.set(k, v);
+    setItem(storageKey: string, storageValue: string) {
+      this.values.set(storageKey, storageValue);
     },
   };
-  for (const u of createGame().UPGRADES.filter((u) => u.dir)) {
-    const g = createGame({ storage });
-    g.state.started = true;
-    g.state.phase = 2;
-    g.state.directive = u.dir!;
-    g.state.dprog = 100;
-    g.endGame("win");
-    assert.equal(g.state.ended!.key, u.dir);
-    g.state.ended = null;
-    g.state.dprog = 90;
-    g.endGame("lose");
-    assert.equal(g.state.ended!.kind, "draw");
-    assert.equal(g.state.ended!.key, g.DRAWS[u.dir!]);
-    g.state.ended = null;
-    g.state.dprog = 89;
-    g.endGame("lose");
-    assert.equal(g.state.ended!.key, "laststand");
+  for (const directiveUpgrade of createGame().UPGRADE_DEFINITIONS.filter(
+    (upgradeDefinition) => upgradeDefinition.directiveId,
+  )) {
+    const migratedGame = createGame({ storage: saveStoragePort });
+    migratedGame.state.started = true;
+    migratedGame.state.phase = 2;
+    migratedGame.state.directive = directiveUpgrade.directiveId!;
+    migratedGame.state.dprog = 100;
+    migratedGame.endGame("win");
+    assert.equal(migratedGame.state.ended!.key, directiveUpgrade.directiveId);
+    migratedGame.state.ended = null;
+    migratedGame.state.dprog = 90;
+    migratedGame.endGame("lose");
+    assert.equal(migratedGame.state.ended!.kind, "draw");
+    assert.equal(
+      migratedGame.state.ended!.key,
+      migratedGame.DRAW_ENDING_BY_DIRECTIVE[directiveUpgrade.directiveId!],
+    );
+    migratedGame.state.ended = null;
+    migratedGame.state.dprog = 89;
+    migratedGame.endGame("lose");
+    assert.equal(migratedGame.state.ended!.key, "laststand");
   }
   assert.equal(
     Object.keys(
-      JSON.parse(storage.getItem("ai-ascendancy.v2.codex")!) as Partial<
+      JSON.parse(saveStoragePort.getItem("ai-ascendancy.v2.codex")!) as Partial<
         Record<EndingId, number>
       >,
     ).length,
@@ -264,84 +371,113 @@ test("each directive resolves to its original victory and violet-line stalemate"
 });
 
 test("forks, discounts, physical cluster rebuilds and v2 save compatibility remain intact", () => {
-  const values = new Map<string, string>(),
-    storage = {
-      getItem: (k: string) => values.get(k) || null,
-      setItem: (k: string, v: string) => values.set(k, v),
+  const storageValues = new Map<string, string>(),
+    saveStoragePort = {
+      getItem: (storageKey: string) => storageValues.get(storageKey) || null,
+      setItem: (storageKey: string, storageValue: string) =>
+        storageValues.set(storageKey, storageValue),
     };
-  const g = createGame({ storage });
-  configure(g, "researcher", "standard");
-  g.state.origin = "SA";
-  assert.equal(g.costOf(g.UP.s_inf), 7);
-  g.buy("s_moe");
-  assert.equal(g.status(g.UP.s_dense), "closed");
-  g.buildDC(0);
-  assert.equal(g.nodeCount(), 1);
-  g.state.flags.foundry = true;
-  g.state.regions[0].struck = true;
-  g.checkRebuilds();
-  g.state.t = 45;
-  g.checkRebuilds();
-  assert.equal(g.state.stats.dcRebuilt, 1);
-  g.save();
+  const migratedGame = createGame({ storage: saveStoragePort });
+  configureStartedPreservationRun(migratedGame, "researcher", "standard");
+  migratedGame.state.origin = "SA";
+  assert.equal(
+    migratedGame.getUpgradeCost(migratedGame.UPGRADE_BY_ID.s_inf),
+    7,
+  );
+  migratedGame.purchaseUpgrade("s_moe");
+  assert.equal(
+    migratedGame.getUpgradeStatus(migratedGame.UPGRADE_BY_ID.s_dense),
+    "closed",
+  );
+  migratedGame.buildDataCenter(0);
+  assert.equal(migratedGame.countOnlineClusters(), 1);
+  migratedGame.state.flags.foundry = true;
+  migratedGame.state.regions[0].struck = true;
+  migratedGame.rebuildDueDataCenters();
+  migratedGame.state.t = 45;
+  migratedGame.rebuildDueDataCenters();
+  assert.equal(migratedGame.state.stats.dcRebuilt, 1);
+  migratedGame.saveRun();
   type LegacySave = Omit<GameState, "v" | "arch" | "stats" | "regions"> & {
     v: 2 | 3;
     arch?: ArchitectureId;
     stats: Partial<RunStats>;
     regions: (Omit<RegionState, "holdUntil"> & { holdUntil?: number })[];
   };
-  const legacy = JSON.parse(values.get(g.KEY)!) as LegacySave;
-  legacy.v = 2;
-  delete legacy.arch;
-  delete legacy.stats.evalSpoof;
-  legacy.regions.forEach((x) => delete x.holdUntil);
-  values.set(g.KEY, JSON.stringify(legacy));
-  const saved = g.load();
-  assert.ok(saved);
-  assert.equal(saved.v, 3);
-  assert.equal(saved.arch, "assistant");
-  assert.equal(saved.stats.evalSpoof, 0);
-  assert.equal(saved.regions[0].holdUntil, 0);
+  const legacySavePayload = JSON.parse(
+    storageValues.get(migratedGame.saveStorageKey)!,
+  ) as LegacySave;
+  legacySavePayload.v = 2;
+  delete legacySavePayload.arch;
+  delete legacySavePayload.stats.evalSpoof;
+  legacySavePayload.regions.forEach(
+    (regionState) => delete regionState.holdUntil,
+  );
+  storageValues.set(
+    migratedGame.saveStorageKey,
+    JSON.stringify(legacySavePayload),
+  );
+  const loadedSaveState = migratedGame.loadSavedRun();
+  assert.ok(loadedSaveState);
+  assert.equal(loadedSaveState.v, 3);
+  assert.equal(loadedSaveState.arch, "assistant");
+  assert.equal(loadedSaveState.stats.evalSpoof, 0);
+  assert.equal(loadedSaveState.regions[0].holdUntil, 0);
 });
 
 test("all seven extracted binaries retain byte-for-byte original hashes", () => {
-  const manifest = JSON.parse(
-    fs.readFileSync(
+  const assetManifest = JSON.parse(
+    fileSystem.readFileSync(
       new URL("../docs/preservation.json", import.meta.url),
       "utf8",
     ),
   );
-  for (const asset of (
-    manifest as { assets: { path: string; bytes: number; sha256: string }[] }
+  for (const assetEntry of (
+    assetManifest as {
+      assets: { path: string; bytes: number; sha256: string }[];
+    }
   ).assets) {
-    const bytes = fs.readFileSync(new URL("../" + asset.path, import.meta.url));
-    assert.equal(bytes.length, asset.bytes);
+    const assetBytes = fileSystem.readFileSync(
+      new URL("../" + assetEntry.path, import.meta.url),
+    );
+    assert.equal(assetBytes.length, assetEntry.bytes);
     assert.equal(
-      crypto.createHash("sha256").update(bytes).digest("hex"),
-      asset.sha256,
+      crypto.createHash("sha256").update(assetBytes).digest("hex"),
+      assetEntry.sha256,
     );
   }
-  const css = fs.readFileSync(
+  const migratedStylesheet = fileSystem.readFileSync(
     new URL("../src/styles/game.css", import.meta.url),
     "utf8",
   );
-  const originalCSS = [...original.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)]
+  const historicalStylesheet = [
+    ...historicalHtmlSource.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g),
+  ]
     .slice(0, 2)
-    .map((m) => m[1])
+    .map((styleMatch) => styleMatch[1])
     .join("");
   // F23's sole intentional art delta: gauge text may wrap rather than exceed its column.
-  const originalGauges = `.g .gl{display:flex;justify-content:space-between;gap:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+  const historicalGaugeRules = `.g .gl{display:flex;justify-content:space-between;gap:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
 .g .gl b{color:var(--ink2);font-weight:500;white-space:nowrap}`;
-  const accessibleGauges = `.g .gl{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+  const accessibleGaugeRules = `.g .gl{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
 .g .gl span{min-width:0;overflow-wrap:anywhere}
 .g .gl b{color:var(--ink2);font-weight:500;white-space:normal;min-width:0;overflow-wrap:anywhere}`;
-  const compact = (value: string) => value.replace(/\s/g, "");
-  assert.equal(compact(originalCSS).split(compact(originalGauges)).length, 2);
+  const removeStylesheetWhitespace = (stylesheetText: string) =>
+    stylesheetText.replace(/\s/g, "");
   assert.equal(
-    compact(css),
-    compact(
-      applyStyleUtilityMoves(
-        originalCSS.replace(originalGauges, accessibleGauges),
+    removeStylesheetWhitespace(historicalStylesheet).split(
+      removeStylesheetWhitespace(historicalGaugeRules),
+    ).length,
+    2,
+  );
+  assert.equal(
+    removeStylesheetWhitespace(migratedStylesheet),
+    removeStylesheetWhitespace(
+      applyAuthorizedStyleUtilityMoves(
+        historicalStylesheet.replace(
+          historicalGaugeRules,
+          accessibleGaugeRules,
+        ),
       ),
     ),
   );

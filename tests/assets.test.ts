@@ -2,30 +2,42 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { verifyAssets } from "./helpers/assets";
+import { assertHistoricalAssetsPreserved } from "./helpers/assets";
 import type { AssetManifest } from "./helpers/assets";
-const manifest = JSON.parse(
+const assetManifest = JSON.parse(
   readFileSync(new URL("../docs/preservation.json", import.meta.url), "utf8"),
 ) as AssetManifest;
-const source = execFileSync("git", ["show", "72c1ba9:index.html"], {
-  maxBuffer: 10_000_000,
-});
-const read = (path: string) =>
-  readFileSync(new URL("../" + path, import.meta.url));
+const historicalHtmlBytes = execFileSync(
+  "git",
+  ["show", "72c1ba9:index.html"],
+  {
+    maxBuffer: 10_000_000,
+  },
+);
+const readAssetBytes = (assetPath: string) =>
+  readFileSync(new URL("../" + assetPath, import.meta.url));
 
 test("asset verifier rejects an empty inventory", () => {
   assert.throws(
-    () => verifyAssets({ ...manifest, assets: [] }, source, read),
+    () =>
+      assertHistoricalAssetsPreserved(
+        { ...assetManifest, assets: [] },
+        historicalHtmlBytes,
+        readAssetBytes,
+      ),
     /seven/,
   );
 });
 test("asset verifier rejects duplicate inventory entries", () => {
   assert.throws(
     () =>
-      verifyAssets(
-        { ...manifest, assets: manifest.assets.map(() => manifest.assets[0]) },
-        source,
-        read,
+      assertHistoricalAssetsPreserved(
+        {
+          ...assetManifest,
+          assets: assetManifest.assets.map(() => assetManifest.assets[0]),
+        },
+        historicalHtmlBytes,
+        readAssetBytes,
       ),
     /unique/,
   );
@@ -33,22 +45,41 @@ test("asset verifier rejects duplicate inventory entries", () => {
 test("asset verifier rejects altered historical source identity", () => {
   assert.throws(
     () =>
-      verifyAssets({ ...manifest, sourceSha256: "0".repeat(64) }, source, read),
+      assertHistoricalAssetsPreserved(
+        { ...assetManifest, sourceSha256: "0".repeat(64) },
+        historicalHtmlBytes,
+        readAssetBytes,
+      ),
     /source/,
   );
   assert.throws(
-    () => verifyAssets({ ...manifest, sourceCommit: "other" }, source, read),
+    () =>
+      assertHistoricalAssetsPreserved(
+        { ...assetManifest, sourceCommit: "other" },
+        historicalHtmlBytes,
+        readAssetBytes,
+      ),
     /source/,
   );
 });
 test("asset verifier independently rejects tampered manifest and binary pairs", () => {
-  const tampered = {
-    ...manifest,
-    assets: manifest.assets.map((asset) => ({ ...asset })),
+  const tamperedAssetManifest = {
+    ...assetManifest,
+    assets: assetManifest.assets.map((assetEntry) => ({ ...assetEntry })),
   };
-  tampered.assets[0].sha256 = "0".repeat(64);
-  assert.throws(() => verifyAssets(tampered, source, read));
+  tamperedAssetManifest.assets[0].sha256 = "0".repeat(64);
+  assert.throws(() =>
+    assertHistoricalAssetsPreserved(
+      tamperedAssetManifest,
+      historicalHtmlBytes,
+      readAssetBytes,
+    ),
+  );
 });
 test("seven binaries match independently decoded historical assets", () => {
-  verifyAssets(manifest, source, read);
+  assertHistoricalAssetsPreserved(
+    assetManifest,
+    historicalHtmlBytes,
+    readAssetBytes,
+  );
 });

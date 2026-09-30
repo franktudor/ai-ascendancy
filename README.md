@@ -77,7 +77,7 @@ compiler to 6.0.3. Neither checker is bypassed to make the build pass.
 - `src/game/types.ts` declares the complete state, finite domain IDs, upgrade
   and discriminated event definitions, effect APIs, and lifecycle/DOM/canvas/audio
   controller interfaces. `src/game/injection.ts` provides the typed Vue injection
-  key and `useGame()` (missing providers throw rather than return undefined).
+  key and `useGameContext()` (missing providers throw rather than return undefined).
 - `src/App.vue` creates and provides one game instance and owns mount/unmount.
   Every component script uses `lang="ts"`; templates are checked by `vue-tsc`.
 - `src/components/IntroScreen.vue`, `GameHeader.vue`, `StatsPanel.vue`,

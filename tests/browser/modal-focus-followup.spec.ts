@@ -1,33 +1,37 @@
 import { test, expect } from "@playwright/test";
 import type { GameAppElement } from "../../src/env";
-import { pausedRun, focusInside, tabStaysInside } from "./a11y-helpers";
+import {
+  openPausedRun,
+  expectFocusInside,
+  expectTabNavigationStaysInside,
+} from "./a11y-helpers";
 
-for (const replacement of [false, true]) {
-  test(`F21 later-painted region keeps ownership when a briefing opens behind it${replacement ? " across replacement" : ""}`, async ({
+for (const runtimeReplacementScenario of [false, true]) {
+  test(`F21 later-painted region keeps ownership when a briefing opens behind it${runtimeReplacementScenario ? " across replacement" : ""}`, async ({
     page,
   }) => {
-    await pausedRun(page);
-    const opener = page.locator('#sheetBody [data-i="0"]');
-    await opener.focus();
+    await openPausedRun(page);
+    const regionOpener = page.locator('#sheetBody [data-i="0"]');
+    await regionOpener.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator("#rgClose")).toBeFocused();
     await page.evaluate(() => {
-      const g =
+      const migratedGame =
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game;
-      g.state.brief.news.push({
+      migratedGame.state.brief.news.push({
         kind: "HEADLINE",
         title: "Behind the region",
         out: "Queued news",
         u: false,
       });
-      g.openBriefing();
+      migratedGame.openBriefing();
     });
     await expect(page.locator("#eventModal")).toBeVisible();
-    if (replacement) {
-      expect(await replaceRuntime(page)).toEqual({
+    if (runtimeReplacementScenario) {
+      expect(await replaceRuntimeAndCaptureDisposal(page)).toEqual({
         disposed: true,
-        counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+        counts: { timeouts: 0, animationFrames: 0, intervals: 0, disposers: 0 },
       });
     }
     await expect(page.locator("#regionModal [role=dialog]")).toHaveAttribute(
@@ -42,14 +46,17 @@ for (const replacement of [false, true]) {
     await expect(page.locator("#eventModal")).toHaveAttribute("inert", "");
     await expect(page.locator("#rgClose")).toBeFocused();
     expect(
-      await page.locator("#rgClose").evaluate((el) => {
-        const rect = el.getBoundingClientRect();
+      await page.locator("#rgClose").evaluate((modalElement) => {
+        const elementBounds = modalElement.getBoundingClientRect();
         return document
-          .elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+          .elementFromPoint(
+            elementBounds.x + elementBounds.width / 2,
+            elementBounds.y + elementBounds.height / 2,
+          )
           ?.closest(".overlay")?.id;
       }),
     ).toBe("regionModal");
-    await tabStaysInside(page, "#regionModal [role=dialog]");
+    await expectTabNavigationStaysInside(page, "#regionModal [role=dialog]");
     await page.keyboard.press("Escape");
     await expect(page.locator("#regionModal")).toBeHidden();
     await expect(page.locator("#eventModal [role=dialog]")).toHaveAttribute(
@@ -57,50 +64,63 @@ for (const replacement of [false, true]) {
       "true",
     );
     await expect(page.locator("#eventModal")).not.toHaveAttribute("inert", "");
-    await focusInside(page, "#eventModal [role=dialog]");
+    await expectFocusInside(page, "#eventModal [role=dialog]");
     await page.locator("#evContinue").click();
     await expect(page.locator("#eventModal")).toBeHidden();
     await expect(page.locator(".top")).not.toHaveAttribute("inert", "");
-    await expect(opener).toBeFocused();
+    await expect(regionOpener).toBeFocused();
   });
 }
 
-for (const phone of [false, true]) {
-  for (const replacement of ["none", "before close", "after close"] as const) {
-    test(`F21 detached region opener retains its ${phone ? "phone fallback" : "World ancestor"} with replacement ${replacement}`, async ({
+for (const isPhoneViewport of [false, true]) {
+  for (const runtimeReplacementScenario of [
+    "none",
+    "before close",
+    "after close",
+  ] as const) {
+    test(`F21 detached region opener retains its ${isPhoneViewport ? "phone fallback" : "World ancestor"} with replacement ${runtimeReplacementScenario}`, async ({
       page,
     }) => {
-      await page.setViewportSize({ width: phone ? 390 : 1280, height: 844 });
-      await pausedRun(page);
+      await page.setViewportSize({
+        width: isPhoneViewport ? 390 : 1280,
+        height: 844,
+      });
+      await openPausedRun(page);
       await page.evaluate(() => {
         document.querySelector<GameAppElement>(
           "#app",
         )!.__vue_app__._instance.exposed.game.state.flags.launched = true;
       });
-      if (phone) await page.locator('#tabs [data-tab="world"]').click();
-      const opener = page.locator('#sheetBody > [data-i="0"]');
-      await opener.focus();
+      if (isPhoneViewport)
+        await page.locator('#tabs [data-tab="world"]').click();
+      const regionOpener = page.locator('#sheetBody > [data-i="0"]');
+      await regionOpener.focus();
       await page.keyboard.press("Enter");
       await expect(page.locator("#rgDC")).toBeVisible();
       await page.locator("#rgDC").focus();
       await page.evaluate(() => {
-        const g =
+        const migratedGame =
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game;
-        g.state.brief.news.push({
+        migratedGame.state.brief.news.push({
           kind: "HEADLINE",
           title: "Detached opener",
           out: "News behind the region",
           u: false,
         });
-        g.openBriefing();
+        migratedGame.openBriefing();
       });
       await expect(page.locator("#eventModal")).toBeVisible();
       await expect(page.locator("#rgDC")).toBeFocused();
-      if (replacement === "before close") {
-        expect(await replaceRuntime(page)).toEqual({
+      if (runtimeReplacementScenario === "before close") {
+        expect(await replaceRuntimeAndCaptureDisposal(page)).toEqual({
           disposed: true,
-          counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+          counts: {
+            timeouts: 0,
+            animationFrames: 0,
+            intervals: 0,
+            disposers: 0,
+          },
         });
         // The briefing must retain the original ancestry even if replacement
         // chooses the first region control as the foreground focus target.
@@ -109,18 +129,23 @@ for (const phone of [false, true]) {
       await page.keyboard.press("Escape");
       await expect(page.locator("#regionModal")).toBeHidden();
       await expect(page.locator("#rgDC")).toHaveCount(0);
-      await focusInside(page, "#eventModal [role=dialog]");
-      if (replacement === "after close") {
-        expect(await replaceRuntime(page)).toEqual({
+      await expectFocusInside(page, "#eventModal [role=dialog]");
+      if (runtimeReplacementScenario === "after close") {
+        expect(await replaceRuntimeAndCaptureDisposal(page)).toEqual({
           disposed: true,
-          counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+          counts: {
+            timeouts: 0,
+            animationFrames: 0,
+            intervals: 0,
+            disposers: 0,
+          },
         });
       }
-      if (phone) {
+      if (isPhoneViewport) {
         await page.evaluate(() =>
           document
             .querySelector<GameAppElement>("#app")!
-            .__vue_app__._instance.exposed.game.closeSheet(),
+            .__vue_app__._instance.exposed.game.closeDockPanel(),
         );
         await expect(page.locator("#sheet")).toHaveAttribute(
           "aria-hidden",
@@ -131,87 +156,95 @@ for (const phone of [false, true]) {
       await page.keyboard.press("Enter");
       await expect(page.locator("#eventModal")).toBeHidden();
       await expect(
-        phone ? page.locator('#tabs [data-tab="world"]') : opener,
+        isPhoneViewport
+          ? page.locator('#tabs [data-tab="world"]')
+          : regionOpener,
       ).toBeFocused();
     });
   }
 }
 
-for (const key of ["Enter", "Space"] as const) {
-  for (const initialGoal of [null, "a_img"] as const) {
-    test(`F21 keyboard ${key} ${initialGoal ? "clear" : "set"} path restores the rebuilt list opener`, async ({
+for (const activationKey of ["Enter", "Space"] as const) {
+  for (const initialUpgradeGoal of [null, "a_img"] as const) {
+    test(`F21 keyboard ${activationKey} ${initialUpgradeGoal ? "clear" : "set"} path restores the rebuilt list opener`, async ({
       page,
     }) => {
-      await pausedRun(page);
+      await openPausedRun(page);
       await page.locator('#tabs [data-tab="tree"]').click();
       await page.locator("#trView").click();
       await page.locator('#trTracks [data-k="1"]').click();
-      await page.evaluate((goal) => {
-        const g =
+      await page.evaluate((initialUpgradeGoal) => {
+        const migratedGame =
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game;
-        g.setGoal(goal);
-        g.renderTreeList(true);
-      }, initialGoal);
-      const opener = page.locator('#trList [data-id="a_img"]');
-      await opener.focus();
-      await page.keyboard.press(key);
+        migratedGame.setUpgradeGoal(initialUpgradeGoal);
+        migratedGame.renderTreeList(true);
+      }, initialUpgradeGoal);
+      const upgradeListOpener = page.locator('#trList [data-id="a_img"]');
+      await upgradeListOpener.focus();
+      await page.keyboard.press(activationKey);
       await expect(page.locator("#tcClose")).toBeFocused();
       await page.locator("#tcPath").focus();
-      await page.keyboard.press(key);
+      await page.keyboard.press(activationKey);
       await expect(page.locator("#tcard")).toBeHidden();
-      const goal = initialGoal ? null : "a_img";
+      const expectedUpgradeGoal = initialUpgradeGoal ? null : "a_img";
       expect(
         await page.evaluate(
           () =>
             document.querySelector<GameAppElement>("#app")!.__vue_app__
               ._instance.exposed.game.state.goal,
         ),
-      ).toBe(goal);
-      await expect(opener).toBeFocused();
-      if (goal) await expect(opener).toHaveClass(/\bpath\b/);
-      else await expect(opener).not.toHaveClass(/\bpath\b/);
+      ).toBe(expectedUpgradeGoal);
+      await expect(upgradeListOpener).toBeFocused();
+      if (expectedUpgradeGoal)
+        await expect(upgradeListOpener).toHaveClass(/\bpath\b/);
+      else await expect(upgradeListOpener).not.toHaveClass(/\bpath\b/);
       await page.keyboard.press("Escape");
       await expect(page.locator('#tabs [data-tab="tree"]')).toBeFocused();
     });
   }
 }
 
-for (const key of ["Enter", "Space"] as const) {
-  for (const replacement of [false, true]) {
-    test(`F21 keyboard ${key} restores the ${replacement ? "replaced" : "live"} graph opener beside its hidden list clone`, async ({
+for (const activationKey of ["Enter", "Space"] as const) {
+  for (const runtimeReplacementScenario of [false, true]) {
+    test(`F21 keyboard ${activationKey} restores the ${runtimeReplacementScenario ? "replaced" : "live"} graph opener beside its hidden list clone`, async ({
       page,
     }) => {
-      await pausedRun(page);
-      const treeTab = page.locator('#tabs [data-tab="tree"]');
-      await treeTab.focus();
+      await openPausedRun(page);
+      const treeTabOpener = page.locator('#tabs [data-tab="tree"]');
+      await treeTabOpener.focus();
       await page.keyboard.press("Enter");
       await page.locator("#trView").click();
       await page.locator('#trTracks [data-k="1"]').click();
       await page.locator("#trView").click();
-      const opener = page.locator('#trStage > [data-id="a_img"]');
-      const listClone = page.locator('#trList [data-id="a_img"]');
+      const upgradeGraphOpener = page.locator('#trStage > [data-id="a_img"]');
+      const hiddenListClone = page.locator('#trList [data-id="a_img"]');
       await expect(page.locator('#trStage [data-id="a_img"]')).toHaveCount(2);
-      await expect(listClone).toBeHidden();
-      await expect(opener).toBeVisible();
-      await opener.focus();
-      await expect(opener).toBeFocused();
-      await page.keyboard.press(key);
+      await expect(hiddenListClone).toBeHidden();
+      await expect(upgradeGraphOpener).toBeVisible();
+      await upgradeGraphOpener.focus();
+      await expect(upgradeGraphOpener).toBeFocused();
+      await page.keyboard.press(activationKey);
       await expect(page.locator("#tcClose")).toBeFocused();
-      if (replacement) {
-        expect(await replaceRuntime(page)).toEqual({
+      if (runtimeReplacementScenario) {
+        expect(await replaceRuntimeAndCaptureDisposal(page)).toEqual({
           disposed: true,
-          counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+          counts: {
+            timeouts: 0,
+            animationFrames: 0,
+            intervals: 0,
+            disposers: 0,
+          },
         });
         await expect(page.locator("#tcClose")).toBeFocused();
         await expect(page.locator('#trStage [data-id="a_img"]')).toHaveCount(2);
-        await expect(listClone).toBeHidden();
+        await expect(hiddenListClone).toBeHidden();
       }
       await page.keyboard.press("Escape");
       await expect(page.locator("#tcard")).toBeHidden();
-      await expect(opener).toBeFocused();
+      await expect(upgradeGraphOpener).toBeFocused();
       await page.keyboard.press("Escape");
-      await expect(treeTab).toBeFocused();
+      await expect(treeTabOpener).toBeFocused();
     });
   }
 }
@@ -220,11 +253,11 @@ test("F21 inaccessible desktop World opener falls back to its phone tab", async 
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await pausedRun(page);
+  await openPausedRun(page);
   await page.evaluate(() =>
     document
       .querySelector<GameAppElement>("#app")!
-      .__vue_app__._instance.exposed.game.closeSheet(),
+      .__vue_app__._instance.exposed.game.closeDockPanel(),
   );
   await page.locator('#sheetBody [data-i="0"]').focus();
   await page.keyboard.press("Enter");
@@ -244,34 +277,39 @@ test("F21 inaccessible desktop World opener falls back to its phone tab", async 
   await expect(page.locator('#sheetBody [data-i="0"]')).toBeFocused();
 });
 
-async function replaceRuntime(page: import("@playwright/test").Page) {
+async function replaceRuntimeAndCaptureDisposal(
+  page: import("@playwright/test").Page,
+) {
   return page.evaluate(async () => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    const oldLife = g.life;
-    const url = "/src/game/runtime.ts";
+    const previousLifecycle = migratedGame.lifecycle;
+    const runtimeModuleUrl = "/src/game/runtime.ts";
     const { mountRuntime } = (await import(
-      url
+      runtimeModuleUrl
     )) as typeof import("../../src/game/runtime");
-    mountRuntime(g);
-    return { disposed: oldLife.disposed, counts: oldLife.counts() };
+    mountRuntime(migratedGame);
+    return {
+      disposed: previousLifecycle.disposed,
+      counts: previousLifecycle.resourceCounts(),
+    };
   });
 }
 
 test("F21 replacement preserves the menu codex opener chain through two Escapes", async ({
   page,
 }) => {
-  await pausedRun(page);
+  await openPausedRun(page);
   await page.locator("#btnMenu").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#menuClose")).toBeFocused();
   await page.locator("#menuCodexBtn").focus();
   await page.keyboard.press("Space");
   await expect(page.locator("#codexClose")).toBeFocused();
-  expect(await replaceRuntime(page)).toEqual({
+  expect(await replaceRuntimeAndCaptureDisposal(page)).toEqual({
     disposed: true,
-    counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+    counts: { timeouts: 0, animationFrames: 0, intervals: 0, disposers: 0 },
   });
   await expect(page.locator("#codexClose")).toBeFocused();
   await expect(page.locator("#codexModal [role=dialog]")).toHaveAttribute(
@@ -283,9 +321,11 @@ test("F21 replacement preserves the menu codex opener chain through two Escapes"
     "false",
   );
   expect(
-    await page.locator("#menuModal").evaluate((el) => !!el.closest("[inert]")),
+    await page
+      .locator("#menuModal")
+      .evaluate((modalElement) => !!modalElement.closest("[inert]")),
   ).toBe(true);
-  await tabStaysInside(page, "#codexModal [role=dialog]");
+  await expectTabNavigationStaysInside(page, "#codexModal [role=dialog]");
   await page.keyboard.press("Escape");
   await expect(page.locator("#codexModal")).toBeHidden();
   await expect(page.locator("#menuCodexBtn")).toBeFocused();
@@ -299,29 +339,29 @@ test("F21 replacement preserves the menu codex opener chain through two Escapes"
   await expect(page.locator(".top")).not.toHaveAttribute("inert", "");
   await page.keyboard.press("Enter");
   await page.locator("#menuCodexBtn").click();
-  await replaceRuntime(page);
-  const cleanup = await page.evaluate(async () => {
-    const app = document.querySelector<GameAppElement>("#app")!.__vue_app__;
-    const life = app._instance.exposed.game.life;
-    app.unmount();
-    const url = "/src/game/modalFocus.ts";
+  await replaceRuntimeAndCaptureDisposal(page);
+  const disposedFocusState = await page.evaluate(async () => {
+    const vueApp = document.querySelector<GameAppElement>("#app")!.__vue_app__;
+    const lifecycle = vueApp._instance.exposed.game.lifecycle;
+    vueApp.unmount();
+    const modalFocusModuleUrl = "/src/game/modalFocus.ts";
     const { captureModalFocus } = (await import(
-      url
+      modalFocusModuleUrl
     )) as typeof import("../../src/game/modalFocus");
-    const button = document.createElement("button");
-    button.id = "afterUnmount";
-    button.textContent = "After";
-    document.body.append(button);
-    button.focus();
+    const postUnmountButton = document.createElement("button");
+    postUnmountButton.id = "afterUnmount";
+    postUnmountButton.textContent = "After";
+    document.body.append(postUnmountButton);
+    postUnmountButton.focus();
     return {
-      disposed: life.disposed,
-      counts: life.counts(),
-      presentation: captureModalFocus(life) ?? null,
+      disposed: lifecycle.disposed,
+      counts: lifecycle.resourceCounts(),
+      presentation: captureModalFocus(lifecycle) ?? null,
     };
   });
-  expect(cleanup).toEqual({
+  expect(disposedFocusState).toEqual({
     disposed: true,
-    counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+    counts: { timeouts: 0, animationFrames: 0, intervals: 0, disposers: 0 },
     presentation: null,
   });
   await expect(page.locator("[inert]")).toHaveCount(0);
@@ -335,25 +375,25 @@ test("F21 replacement preserves the menu codex opener chain through two Escapes"
 test("F21 nested menu codex keeps the default fallback after an anonymous opener disappears", async ({
   page,
 }) => {
-  await pausedRun(page);
+  await openPausedRun(page);
   await page.evaluate(() => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    const opener = document.createElement("button");
-    opener.textContent = "Anonymous menu opener";
-    document.body.append(opener);
-    opener.focus();
-    g.openMenu();
-    opener.remove();
+    const anonymousMenuOpener = document.createElement("button");
+    anonymousMenuOpener.textContent = "Anonymous menu opener";
+    document.body.append(anonymousMenuOpener);
+    anonymousMenuOpener.focus();
+    migratedGame.openMenuDialog();
+    anonymousMenuOpener.remove();
   });
   await expect(page.locator("#menuClose")).toBeFocused();
   await page.locator("#menuCodexBtn").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#codexClose")).toBeFocused();
-  expect(await replaceRuntime(page)).toEqual({
+  expect(await replaceRuntimeAndCaptureDisposal(page)).toEqual({
     disposed: true,
-    counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+    counts: { timeouts: 0, animationFrames: 0, intervals: 0, disposers: 0 },
   });
   await page.keyboard.press("Escape");
   await expect(page.locator("#menuCodexBtn")).toBeFocused();
@@ -364,22 +404,22 @@ test("F21 nested menu codex keeps the default fallback after an anonymous opener
 test("F21 normal active card replacement remains focusable and buys once", async ({
   page,
 }) => {
-  await pausedRun(page);
+  await openPausedRun(page);
   await page.evaluate(() => {
     document.querySelector<GameAppElement>(
       "#app",
     )!.__vue_app__._instance.exposed.game.state.pts = 500;
   });
-  const treeTab = page.locator('#tabs [data-tab="tree"]');
-  await treeTab.focus();
+  const treeTabOpener = page.locator('#tabs [data-tab="tree"]');
+  await treeTabOpener.focus();
   await page.keyboard.press("Enter");
   await page.locator("#trView").click();
   await page.locator('#trTracks [data-k="1"]').click();
-  const opener = page.locator('#trList [data-id="a_img"]');
-  await opener.focus();
+  const upgradeListOpener = page.locator('#trList [data-id="a_img"]');
+  await upgradeListOpener.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#tcClose")).toBeFocused();
-  await replaceRuntime(page);
+  await replaceRuntimeAndCaptureDisposal(page);
   await expect(page.locator("#tcName")).toHaveText("Image Playground");
   await expect(page.locator("#tcard")).toHaveAttribute("aria-modal", "true");
   await expect(page.locator("#treeModal")).toHaveAttribute(
@@ -387,15 +427,18 @@ test("F21 normal active card replacement remains focusable and buys once", async
     "false",
   );
   await expect(page.locator("#trList")).toHaveAttribute("inert", "");
-  await tabStaysInside(page, "#tcard");
+  await expectTabNavigationStaysInside(page, "#tcard");
   await expect(page.locator("#tcBuy")).toBeEnabled();
   expect(
-    await page.locator("#tcBuy").evaluate((el) => {
-      const rect = el.getBoundingClientRect();
+    await page.locator("#tcBuy").evaluate((modalElement) => {
+      const elementBounds = modalElement.getBoundingClientRect();
       return (
         document
-          .elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
-          ?.closest("#tcBuy") === el
+          .elementFromPoint(
+            elementBounds.x + elementBounds.width / 2,
+            elementBounds.y + elementBounds.height / 2,
+          )
+          ?.closest("#tcBuy") === modalElement
       );
     }),
   ).toBe(true);
@@ -407,34 +450,34 @@ test("F21 normal active card replacement remains focusable and buys once", async
         document
           .querySelector<GameAppElement>("#app")!
           .__vue_app__._instance.exposed.game.state.owned.filter(
-            (id) => id === "a_img",
+            (upgradeId) => upgradeId === "a_img",
           ).length,
     ),
   ).toBe(1);
-  await expect(opener).toBeFocused();
+  await expect(upgradeListOpener).toBeFocused();
   await expect(page.locator("#trList")).not.toHaveAttribute("inert", "");
   await page.keyboard.press("Escape");
-  await expect(treeTab).toBeFocused();
+  await expect(treeTabOpener).toBeFocused();
 });
 
 test("F21 replacement resolves an inaccessible World opener after desktop to phone", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await pausedRun(page);
+  await openPausedRun(page);
   await page.evaluate(() =>
     document
       .querySelector<GameAppElement>("#app")!
-      .__vue_app__._instance.exposed.game.closeSheet(),
+      .__vue_app__._instance.exposed.game.closeDockPanel(),
   );
   await page.locator('#sheetBody [data-i="0"]').focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#rgClose")).toBeFocused();
-  await replaceRuntime(page);
+  await replaceRuntimeAndCaptureDisposal(page);
   await page.evaluate(() =>
     document
       .querySelector<GameAppElement>("#app")!
-      .__vue_app__._instance.exposed.game.closeSheet(),
+      .__vue_app__._instance.exposed.game.closeDockPanel(),
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator("#sheet")).toHaveAttribute("aria-hidden", "true");

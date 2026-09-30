@@ -1,46 +1,53 @@
 import { test, expect } from "@playwright/test";
 import type { GameAppElement } from "../../src/env";
 
-async function replace(page: import("@playwright/test").Page) {
+async function replaceRuntimeAndCaptureDisposal(
+  page: import("@playwright/test").Page,
+) {
   return page.evaluate(async () => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    const oldLife = g.life;
-    const runtimeUrl = "/src/game/runtime.ts";
+    const previousLifecycle = migratedGame.lifecycle;
+    const runtimeModuleUrl = "/src/game/runtime.ts";
     const { mountRuntime } = (await import(
-      runtimeUrl
+      runtimeModuleUrl
     )) as typeof import("../../src/game/runtime");
-    mountRuntime(g);
-    return { disposed: oldLife.disposed, counts: oldLife.counts() };
+    mountRuntime(migratedGame);
+    return {
+      disposed: previousLifecycle.disposed,
+      counts: previousLifecycle.resourceCounts(),
+    };
   });
 }
 
-async function setup(page: import("@playwright/test").Page) {
+async function openPausedReplacementFixture(
+  page: import("@playwright/test").Page,
+) {
   await page.goto("/");
   await page.evaluate(() => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    Object.assign(g.state, {
+    Object.assign(migratedGame.state, {
       started: true,
       origin: "NA",
       paused: true,
       pts: 500,
     });
-    g.ui.mode = "play";
+    migratedGame.ui.screenMode = "play";
   });
 }
 
 test("replacement restores a cached preview and never recommits a resolved gamble", async ({
   page,
 }) => {
-  await setup(page);
+  await openPausedReplacementFixture(page);
   await page.evaluate(() => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.showEvent({
+    migratedGame.showEvent({
       kind: "INCIDENT",
       title: "Replacement decision",
       body: "Keep the selected choice.",
@@ -48,35 +55,36 @@ test("replacement restores a cached preview and never recommits a resolved gambl
         {
           label: "Earn five",
           hint: "Compute +5",
-          fx: () => {
+          applyEffects: () => {
             Math.random();
-            return g.FX.pts(5);
+            return migratedGame.effects.adjustCompute(5);
           },
         },
       ],
     });
   });
   await page.locator("#evChoices button").click();
-  const preview = await page.locator("#evOutcome").textContent();
-  expect(await replace(page)).toEqual({
+  const cachedPreviewText = await page.locator("#evOutcome").textContent();
+  expect(await replaceRuntimeAndCaptureDisposal(page)).toEqual({
     disposed: true,
-    counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+    counts: { timeouts: 0, animationFrames: 0, intervals: 0, disposers: 0 },
   });
-  await expect(page.locator("#evOutcome")).toHaveText(preview!);
+  await expect(page.locator("#evOutcome")).toHaveText(cachedPreviewText!);
   await expect(page.locator("#evContinue")).toBeVisible();
   await page.locator("#evContinue").click();
-  const after = await page.evaluate(() => {
-    const g =
+  const committedChoiceState = await page.evaluate(() => {
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
     return {
-      pts: g.state.pts,
-      entries: g.state.log.filter((e) => e.title === "Replacement decision")
-        .length,
+      pts: migratedGame.state.pts,
+      entries: migratedGame.state.log.filter(
+        (logEntry) => logEntry.title === "Replacement decision",
+      ).length,
     };
   });
-  expect(after).toEqual({ pts: 505, entries: 1 });
-  await replace(page);
+  expect(committedChoiceState).toEqual({ pts: 505, entries: 1 });
+  await replaceRuntimeAndCaptureDisposal(page);
   await expect(page.locator("#evBack")).toBeHidden();
   await page.locator("#evContinue").click();
   await expect(page.locator("#eventModal")).toBeHidden();
@@ -92,64 +100,74 @@ test("replacement restores a cached preview and never recommits a resolved gambl
 test("replacement retains news and every unanswered briefing decision once", async ({
   page,
 }) => {
-  await setup(page);
+  await openPausedReplacementFixture(page);
   await page.evaluate(() => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.state.brief.news.push({
+    migratedGame.state.brief.news.push({
       kind: "HEADLINE",
       title: "Briefing news",
       out: "Preserve me",
       u: false,
     });
-    g.state.brief.dec.push(
+    migratedGame.state.brief.dec.push(
       { t: "ev", id: "copyright" },
       { t: "ev", id: "fridge" },
     );
-    g.openBriefing();
+    migratedGame.openBriefing();
   });
-  await replace(page);
+  await replaceRuntimeAndCaptureDisposal(page);
   await expect(page.locator("#evNews")).toContainText("Briefing news");
   await page.locator("#evContinue").click();
-  await replace(page);
+  await replaceRuntimeAndCaptureDisposal(page);
   await page.locator("#evChoices button:not(:disabled)").first().click();
   await page.locator("#evContinue").click();
-  await replace(page);
+  await replaceRuntimeAndCaptureDisposal(page);
   await page.locator("#evChoices button:not(:disabled)").first().click();
   await page.locator("#evContinue").click();
   await expect(page.locator("#eventModal")).toBeHidden();
-  const state = await page.evaluate(() => {
-    const g =
+  const completedBriefingState = await page.evaluate(() => {
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.save();
+    migratedGame.saveRun();
     return {
-      live: g.state.brief.dec,
-      brief: g.ui.brief,
-      saved: (JSON.parse(localStorage.getItem(g.KEY)!) as typeof g.state).brief
-        .dec,
-      logs: g.state.log.filter((e) => e.text.includes("You chose:")).length,
+      live: migratedGame.state.brief.dec,
+      brief: migratedGame.ui.activeBriefing,
+      saved: (
+        JSON.parse(
+          localStorage.getItem(migratedGame.saveStorageKey)!,
+        ) as typeof migratedGame.state
+      ).brief.dec,
+      logs: migratedGame.state.log.filter((logEntry) =>
+        logEntry.text.includes("You chose:"),
+      ).length,
     };
   });
-  expect(state).toEqual({ live: [], brief: null, saved: [], logs: 2 });
+  expect(completedBriefingState).toEqual({
+    live: [],
+    brief: null,
+    saved: [],
+    logs: 2,
+  });
 });
 
 test("replacement rebuilds open tree nodes, list view and card handlers", async ({
   page,
 }) => {
-  await setup(page);
+  await openPausedReplacementFixture(page);
   await page.evaluate(() => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.openTree("adoption");
-    g.setTreeView(true);
-    g.TREE.listTrack = "adoption";
-    g.renderTreeList(true);
-    g.openTreeCard("a_img");
+    migratedGame.openTechTree("adoption");
+    migratedGame.setTreeListView(true);
+    migratedGame.treeState.listTrackId = "adoption";
+    migratedGame.renderTreeList(true);
+    migratedGame.openTreeCard("a_img");
   });
-  await replace(page);
+  await replaceRuntimeAndCaptureDisposal(page);
   await expect(page.locator("#treeModal")).toBeVisible();
   expect(await page.locator("#trStage .tn").count()).toBe(90);
   await expect(page.locator("#tcName")).toHaveText("Image Playground");
@@ -160,7 +178,7 @@ test("replacement rebuilds open tree nodes, list view and card handlers", async 
         document
           .querySelector<GameAppElement>("#app")!
           .__vue_app__._instance.exposed.game.state.owned.filter(
-            (id) => id === "a_img",
+            (ownedUpgradeId) => ownedUpgradeId === "a_img",
           ).length,
     ),
   ).toBe(1);
@@ -171,23 +189,23 @@ test("replacement rebuilds open tree nodes, list view and card handlers", async 
 test("replacement during card dismissal finishes hiding its pointer-blocking scrim", async ({
   page,
 }) => {
-  await setup(page);
+  await openPausedReplacementFixture(page);
   await page.evaluate(async () => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    const runtimeUrl = "/src/game/runtime.ts";
+    const runtimeModuleUrl = "/src/game/runtime.ts";
     const { mountRuntime } = (await import(
-      runtimeUrl
+      runtimeModuleUrl
     )) as typeof import("../../src/game/runtime");
-    g.openTree("adoption");
-    g.setTreeView(true);
-    g.TREE.listTrack = "adoption";
-    g.renderTreeList(true);
-    g.openTreeCard("a_img");
-    g.closeTreeCard();
+    migratedGame.openTechTree("adoption");
+    migratedGame.setTreeListView(true);
+    migratedGame.treeState.listTrackId = "adoption";
+    migratedGame.renderTreeList(true);
+    migratedGame.openTreeCard("a_img");
+    migratedGame.closeTreeCard();
     // Replacement cancels the pending 200ms dismissal callback.
-    mountRuntime(g);
+    mountRuntime(migratedGame);
   });
   await expect(page.locator("#tcard")).toBeHidden();
   await expect(page.locator("#tscrim")).toBeHidden();
@@ -198,7 +216,7 @@ test("replacement during card dismissal finishes hiding its pointer-blocking scr
     await page.evaluate(() =>
       document
         .querySelector<GameAppElement>("#app")!
-        .__vue_app__._instance.exposed.game.has("a_img"),
+        .__vue_app__._instance.exposed.game.ownsUpgrade("a_img"),
     ),
   ).toBe(true);
 });
@@ -206,38 +224,54 @@ test("replacement during card dismissal finishes hiding its pointer-blocking scr
 test("replacement restores cinematic and revealed endings without duplicate codex writes", async ({
   page,
 }) => {
-  await setup(page);
-  const key = await page.evaluate(() => {
-    const g =
+  await openPausedReplacementFixture(page);
+  const endingKey = await page.evaluate(() => {
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.endGame("lose");
-    return g.state.ended!.key;
+    migratedGame.endGame("lose");
+    return migratedGame.state.ended!.key;
   });
-  await replace(page);
+  await replaceRuntimeAndCaptureDisposal(page);
   expect(
-    await page.locator("#endFx").evaluate((e) => !(e as HTMLElement).hidden),
+    await page
+      .locator("#endFx")
+      .evaluate(
+        (endingCanvasElement) => !(endingCanvasElement as HTMLElement).hidden,
+      ),
   ).toBe(true);
   // F01 owns ancestor visibility; this finding tests controller reconstruction only.
   await page.locator("#endSkip").dispatchEvent("click");
   expect(
-    await page.locator("#endModal").evaluate((e) => !(e as HTMLElement).hidden),
+    await page
+      .locator("#endModal")
+      .evaluate(
+        (endingModalElement) => !(endingModalElement as HTMLElement).hidden,
+      ),
   ).toBe(true);
-  await replace(page);
+  await replaceRuntimeAndCaptureDisposal(page);
   expect(
-    await page.locator("#endModal").evaluate((e) => !(e as HTMLElement).hidden),
+    await page
+      .locator("#endModal")
+      .evaluate(
+        (endingModalElement) => !(endingModalElement as HTMLElement).hidden,
+      ),
   ).toBe(true);
   await page.locator("#btnEndNext").dispatchEvent("click");
   expect(
-    await page.locator("#endMore").evaluate((e) => !(e as HTMLElement).hidden),
+    await page
+      .locator("#endMore")
+      .evaluate(
+        (endingDetailsElement) => !(endingDetailsElement as HTMLElement).hidden,
+      ),
   ).toBe(true);
   expect(
-    await page.evaluate((key) => {
-      const g =
+    await page.evaluate((endingKey) => {
+      const migratedGame =
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game;
-      return g.codexGet()[key];
-    }, key),
+      return migratedGame.getEndingDiscoveryCounts()[endingKey];
+    }, endingKey),
   ).toBe(1);
   await page.locator("#btnAgain").dispatchEvent("click");
   expect(
@@ -252,32 +286,32 @@ test("replacement restores cinematic and revealed endings without duplicate code
 test("a stale disposer cannot dispose a replacement and final unmount owns no resources", async ({
   page,
 }) => {
-  await setup(page);
-  const observed = await page.evaluate(async () => {
-    const app = document.querySelector<GameAppElement>("#app")!.__vue_app__,
-      g = app._instance.exposed.game;
-    const runtimeUrl = "/src/game/runtime.ts";
+  await openPausedReplacementFixture(page);
+  const disposedResourceState = await page.evaluate(async () => {
+    const vueApp = document.querySelector<GameAppElement>("#app")!.__vue_app__,
+      migratedGame = vueApp._instance.exposed.game;
+    const runtimeModuleUrl = "/src/game/runtime.ts";
     const { mountRuntime } = (await import(
-      runtimeUrl
+      runtimeModuleUrl
     )) as typeof import("../../src/game/runtime");
-    const disposeFirst = mountRuntime(g);
-    mountRuntime(g);
-    const current = g.life;
-    disposeFirst();
-    const prematurelyDisposed = current.disposed;
-    app.unmount();
+    const disposePreviousRuntime = mountRuntime(migratedGame);
+    mountRuntime(migratedGame);
+    const currentLifecycle = migratedGame.lifecycle;
+    disposePreviousRuntime();
+    const wasCurrentLifecycleDisposedEarly = currentLifecycle.disposed;
+    vueApp.unmount();
     return {
-      prematurelyDisposed,
-      disposed: current.disposed,
-      counts: current.counts(),
-      nodes: g.TREE.nodes.length,
-      audio: g.SND.ctx,
+      prematurelyDisposed: wasCurrentLifecycleDisposedEarly,
+      disposed: currentLifecycle.disposed,
+      counts: currentLifecycle.resourceCounts(),
+      nodes: migratedGame.treeState.nodes.length,
+      audio: migratedGame.soundController.audioContext,
     };
   });
-  expect(observed).toEqual({
+  expect(disposedResourceState).toEqual({
     prematurelyDisposed: false,
     disposed: true,
-    counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+    counts: { timeouts: 0, animationFrames: 0, intervals: 0, disposers: 0 },
     nodes: 0,
     audio: null,
   });

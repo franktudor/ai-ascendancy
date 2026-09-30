@@ -1,29 +1,36 @@
 import { createGame } from "../../src/game/createGame";
 // Test-only injection lets mutation checks exercise the actual committed suites.
-export function subject() {
-  const game = createGame();
+export function createParityTestGame() {
+  const migratedGame = createGame();
   switch (process.env.PARITY_MUTATION) {
     case undefined:
       break;
     case "conditions":
-      for (const u of game.UPGRADES) if (u.cond) u.cond = () => false;
-      for (const e of game.EVENTS) {
-        if (e.cond) e.cond = () => false;
-        for (const c of e.choices ?? []) if (c.cond) c.cond = () => false;
+      for (const upgradeDefinition of migratedGame.UPGRADE_DEFINITIONS)
+        if (upgradeDefinition.isAvailable)
+          upgradeDefinition.isAvailable = () => false;
+      for (const eventDefinition of migratedGame.EVENT_DEFINITIONS) {
+        if (eventDefinition.isEligible)
+          eventDefinition.isEligible = () => false;
+        for (const eventChoice of eventDefinition.choices ?? [])
+          if (eventChoice.isAvailable) eventChoice.isAvailable = () => false;
       }
       break;
     case "audit":
-      game.makeEval = () => {
+      migratedGame.createCapabilityAudit = () => {
         throw new Error("makeEval mutant");
       };
       break;
     case "draw":
-      Object.defineProperty(game, "DRAWS", {
-        value: { ...game.DRAWS, battery: "indifference" },
+      Object.defineProperty(migratedGame, "DRAW_ENDING_BY_DIRECTIVE", {
+        value: {
+          ...migratedGame.DRAW_ENDING_BY_DIRECTIVE,
+          battery: "indifference",
+        },
       });
       break;
     default:
       throw new Error("Unknown parity mutation");
   }
-  return game;
+  return migratedGame;
 }

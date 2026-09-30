@@ -5,40 +5,49 @@ test("F18 preview never leaks peak; each committed adoption gain records it", as
   page,
 }) => {
   await page.goto("/");
-  const result = await page.evaluate(() => {
-    const g =
+  const previewWasIsolated = await page.evaluate(() => {
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    Object.assign(g.state, {
+    Object.assign(migratedGame.state, {
       started: true,
       origin: "NA",
       pts: 1000,
       paused: true,
     });
-    g.ui.mode = "play";
-    g.state.regions.forEach((r) => {
-      r.a = 0.5;
+    migratedGame.ui.screenMode = "play";
+    migratedGame.state.regions.forEach((regionState) => {
+      regionState.a = 0.5;
     });
-    const e = g.EVENTS.find((e) => e.id === "h_pinned")!;
-    const c = e.choices![0];
-    const state = g.state,
-      before = JSON.stringify(state);
-    g.previewChoice(c);
-    const isolated = state === g.state && before === JSON.stringify(g.state);
-    g.showEvent({ ...e, choices: [c] });
-    return isolated;
+    const adoptionEvent = migratedGame.EVENT_DEFINITIONS.find(
+      (adoptionEvent) => adoptionEvent.id === "h_pinned",
+    )!;
+    const adoptionChoice = adoptionEvent.choices![0];
+    const liveState = migratedGame.state,
+      serializedStateBeforePreview = JSON.stringify(liveState);
+    migratedGame.previewEventChoice(adoptionChoice);
+    const previewIsolated =
+      liveState === migratedGame.state &&
+      serializedStateBeforePreview === JSON.stringify(migratedGame.state);
+    migratedGame.showEvent({ ...adoptionEvent, choices: [adoptionChoice] });
+    return previewIsolated;
   });
-  expect(result).toBe(true);
+  expect(previewWasIsolated).toBe(true);
   await page.locator("#evChoices button").click();
   await page.locator("#evContinue").click();
   expect(
     await page.evaluate(() => {
-      const g =
+      const migratedGame =
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game;
-      const peak = g.reach();
-      g.EVENTS.find((e) => e.id === "sw_price")!.choices![3].fx();
-      return g.state.stats.peak === peak && g.reach() < peak;
+      const maximumObservedReach = migratedGame.getGlobalAdoptionFraction();
+      migratedGame.EVENT_DEFINITIONS.find(
+        (eventDefinition) => eventDefinition.id === "sw_price",
+      )!.choices![3].applyEffects();
+      return (
+        migratedGame.state.stats.peak === maximumObservedReach &&
+        migratedGame.getGlobalAdoptionFraction() < maximumObservedReach
+      );
     }),
   ).toBe(true);
 });

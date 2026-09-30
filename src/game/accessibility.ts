@@ -1,8 +1,11 @@
 import type { CompleteGameContext } from "./types";
 
 /** Shared accessible name for the map tiles and the World panel. */
-export function regionLabel(game: CompleteGameContext, index: number): string {
-  const region = game.REGIONS[index],
+export function getRegionAccessibleLabel(
+  game: CompleteGameContext,
+  index: number,
+): string {
+  const region = game.REGION_DEFINITIONS[index],
     state = game.state.regions[index];
   const status = state.restricted
     ? "Restricted"

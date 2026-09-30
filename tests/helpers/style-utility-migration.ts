@@ -92,11 +92,11 @@ export const styleUtilityMoves: readonly (readonly [string, string])[] = [
   ],
 ];
 
-export function applyStyleUtilityMoves(css: string): string {
-  for (const [before, after] of styleUtilityMoves) {
-    if (css.split(before).length !== 2)
-      throw new Error("CSS migration target is not unique: " + before);
-    css = css.replace(before, after);
+export function applyAuthorizedStyleUtilityMoves(stylesheet: string): string {
+  for (const [historicalRule, utilityMigratedRule] of styleUtilityMoves) {
+    if (stylesheet.split(historicalRule).length !== 2)
+      throw new Error("CSS migration target is not unique: " + historicalRule);
+    stylesheet = stylesheet.replace(historicalRule, utilityMigratedRule);
   }
-  return css;
+  return stylesheet;
 }

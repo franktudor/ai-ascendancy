@@ -3,32 +3,42 @@ import assert from "node:assert/strict";
 import { createGame } from "../src/game/createGame";
 import type { GameState } from "../src/game/types";
 
-function fixture() {
-  const values = new Map<string, string>();
-  const game = createGame({
+function createSaveValidationFixture() {
+  const storageValues = new Map<string, string>();
+  const migratedGame = createGame({
     storage: {
-      getItem: (k) => values.get(k) ?? null,
-      setItem: (k, v) => {
-        values.set(k, v);
+      getItem: (storageKey) => storageValues.get(storageKey) ?? null,
+      setItem: (storageKey, storageValue) => {
+        storageValues.set(storageKey, storageValue);
       },
     },
   });
-  game.state.started = true;
-  game.state.origin = "NA";
-  const raw = (): Record<string, unknown> =>
-    JSON.parse(JSON.stringify(game.state));
-  const load = (save: Record<string, unknown>) => {
-    values.set(game.KEY, JSON.stringify(save));
-    return game.load();
+  migratedGame.state.started = true;
+  migratedGame.state.origin = "NA";
+  const cloneRawSavePayload = (): Record<string, unknown> =>
+    JSON.parse(JSON.stringify(migratedGame.state));
+  const loadSavePayload = (savePayload: Record<string, unknown>) => {
+    storageValues.set(migratedGame.saveStorageKey, JSON.stringify(savePayload));
+    return migratedGame.loadSavedRun();
   };
-  return { game, values, raw, load };
+  return {
+    game: migratedGame,
+    values: storageValues,
+    raw: cloneRawSavePayload,
+    load: loadSavePayload,
+  };
 }
 
 test("F12 rejects malformed saves without replacing or mutating live state", () => {
-  const { game, values, raw, load } = fixture();
-  const live = game.state;
-  const before = JSON.stringify(live);
-  const corruptions: [string, unknown][] = [
+  const {
+    game: migratedGame,
+    values: storageValues,
+    raw: cloneRawSavePayload,
+    load: loadSavePayload,
+  } = createSaveValidationFixture();
+  const liveState = migratedGame.state;
+  const serializedLiveState = JSON.stringify(liveState);
+  const malformedSaveFields: [string, unknown][] = [
     ["regions", []],
     ["regions", {}],
     ["regions", Array(11).fill(null)],
@@ -75,71 +85,102 @@ test("F12 rejects malformed saves without replacing or mutating live state", () 
     ["evalRealUsed", { hub: {} }],
     ["absurd", [-1]],
   ];
-  for (const [key, value] of corruptions) {
-    const s = raw();
-    s[key] = value;
-    assert.equal(load(s), null, key + ": " + JSON.stringify(value));
-    assert.equal(game.state, live);
-    assert.equal(JSON.stringify(live), before);
+  for (const [saveFieldKey, malformedFieldValue] of malformedSaveFields) {
+    const savePayload = cloneRawSavePayload();
+    savePayload[saveFieldKey] = malformedFieldValue;
+    assert.equal(
+      loadSavePayload(savePayload),
+      null,
+      saveFieldKey + ": " + JSON.stringify(malformedFieldValue),
+    );
+    assert.equal(migratedGame.state, liveState);
+    assert.equal(JSON.stringify(liveState), serializedLiveState);
   }
-  for (const [key, value] of Object.entries(raw())) {
-    if (typeof value !== "number" || key === "v") continue;
-    const s = raw();
-    s[key] = "not finite";
-    assert.equal(load(s), null, key);
+  for (const [saveFieldKey, fieldValue] of Object.entries(
+    cloneRawSavePayload(),
+  )) {
+    if (typeof fieldValue !== "number" || saveFieldKey === "v") continue;
+    const savePayload = cloneRawSavePayload();
+    savePayload[saveFieldKey] = "not finite";
+    assert.equal(loadSavePayload(savePayload), null, saveFieldKey);
   }
-  const s = raw();
-  values.set(game.KEY, JSON.stringify(s).replace('"pts":0', '"pts":1e999'));
-  assert.equal(game.load(), null, "overflowing JSON number");
-  const regions = raw().regions as Record<string, unknown>[];
-  for (const [key, value] of Object.entries(regions[0])) {
-    const s = raw();
-    (s.regions as Record<string, unknown>[])[0][key] =
-      typeof value === "number" ? "bad" : 1;
-    assert.equal(load(s), null, "region." + key);
+  const savePayload = cloneRawSavePayload();
+  storageValues.set(
+    migratedGame.saveStorageKey,
+    JSON.stringify(savePayload).replace('"pts":0', '"pts":1e999'),
+  );
+  assert.equal(migratedGame.loadSavedRun(), null, "overflowing JSON number");
+  const regionPayloads = cloneRawSavePayload().regions as Record<
+    string,
+    unknown
+  >[];
+  for (const [regionFieldKey, regionFieldValue] of Object.entries(
+    regionPayloads[0],
+  )) {
+    const savePayload = cloneRawSavePayload();
+    (savePayload.regions as Record<string, unknown>[])[0][regionFieldKey] =
+      typeof regionFieldValue === "number" ? "bad" : 1;
+    assert.equal(
+      loadSavePayload(savePayload),
+      null,
+      "region." + regionFieldKey,
+    );
   }
-  const inconsistent = raw();
-  inconsistent.owned = ["s_dense", "s_moe"];
-  inconsistent.forks = { core: "s_dense" };
-  assert.equal(load(inconsistent), null, "exclusive fork ownership");
+  const inconsistentForkPayload = cloneRawSavePayload();
+  inconsistentForkPayload.owned = ["s_dense", "s_moe"];
+  inconsistentForkPayload.forks = { core: "s_dense" };
+  assert.equal(
+    loadSavePayload(inconsistentForkPayload),
+    null,
+    "exclusive fork ownership",
+  );
 });
 
 test("F12 migrates valid v2/v3 saves, missing legacy defaults, and legitimate zeros", () => {
-  const { game, raw, load } = fixture();
-  for (const v of [2, 3]) {
-    const s = raw();
-    s.v = v;
-    delete s.arch;
-    delete s.cboost;
-    delete s.stats;
-    delete s.queue;
-    (s.regions as Record<string, unknown>[]).forEach((r) => {
-      delete r.holdUntil;
-    });
-    const loaded = load(s);
-    assert.ok(loaded);
-    assert.equal(loaded.v, 3);
-    assert.equal(loaded.arch, "assistant");
-    assert.equal(loaded.cboost, 1);
-    assert.equal(loaded.stats.evalSpoof, 0);
-    assert.equal(loaded.regions[0].holdUntil, 0);
+  const {
+    game: migratedGame,
+    raw: cloneRawSavePayload,
+    load: loadSavePayload,
+  } = createSaveValidationFixture();
+  for (const saveVersion of [2, 3]) {
+    const savePayload = cloneRawSavePayload();
+    savePayload.v = saveVersion;
+    delete savePayload.arch;
+    delete savePayload.cboost;
+    delete savePayload.stats;
+    delete savePayload.queue;
+    (savePayload.regions as Record<string, unknown>[]).forEach(
+      (regionPayload) => {
+        delete regionPayload.holdUntil;
+      },
+    );
+    const loadedSaveState = loadSavePayload(savePayload);
+    assert.ok(loadedSaveState);
+    assert.equal(loadedSaveState.v, 3);
+    assert.equal(loadedSaveState.arch, "assistant");
+    assert.equal(loadedSaveState.cboost, 1);
+    assert.equal(loadedSaveState.stats.evalSpoof, 0);
+    assert.equal(loadedSaveState.regions[0].holdUntil, 0);
   }
-  const s = raw();
-  s.flags = { computeCap: true };
+  const savePayload = cloneRawSavePayload();
+  savePayload.flags = { computeCap: true };
   assert.ok(
-    load(s),
+    loadSavePayload(savePayload),
     "a legitimate Global compute cap event flag remains loadable",
   );
-  s.inst = 0;
-  s.savedAt = 0;
-  s.cboost = 0;
-  const loaded = load(s);
-  assert.ok(loaded);
-  assert.equal(loaded.inst, 0);
-  assert.equal(loaded.savedAt, 0);
-  assert.equal(loaded.cboost, game.TUNING.cboostMin);
-  const ended: GameState = game.freshState();
-  Object.assign(ended, {
+  savePayload.inst = 0;
+  savePayload.savedAt = 0;
+  savePayload.cboost = 0;
+  const loadedSaveState = loadSavePayload(savePayload);
+  assert.ok(loadedSaveState);
+  assert.equal(loadedSaveState.inst, 0);
+  assert.equal(loadedSaveState.savedAt, 0);
+  assert.equal(
+    loadedSaveState.cboost,
+    migratedGame.SIMULATION_TUNING.containmentResearchMultiplierMinimum,
+  );
+  const completedRunState: GameState = migratedGame.createInitialState();
+  Object.assign(completedRunState, {
     started: true,
     origin: "NA",
     phase: 2,
@@ -149,5 +190,5 @@ test("F12 migrates valid v2/v3 saves, missing legacy defaults, and legitimate ze
     forks: { directive: "d_upload" },
     ended: { kind: "win", key: "upload", dir: "upload", dprog: 100, at: 0 },
   });
-  assert.ok(load(JSON.parse(JSON.stringify(ended))));
+  assert.ok(loadSavePayload(JSON.parse(JSON.stringify(completedRunState))));
 });

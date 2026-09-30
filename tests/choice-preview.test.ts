@@ -1,28 +1,33 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import cp from "node:child_process";
-import vm from "node:vm";
+import childProcess from "node:child_process";
+import virtualMachine from "node:vm";
 import { isReactive, watch } from "vue";
 import { createGame } from "../src/game/createGame";
 import { installEventController } from "../src/game/eventController";
+import { adaptHistoricalPreviewPort } from "./helpers/historical-naming";
+import type { HistoricalPreviewPort } from "./helpers/historical-naming";
 import type { EventChoice, RuntimeContext } from "../src/game/types";
 
-function game() {
+function createPreviewTestGame() {
   // Only previewChoice is invoked headlessly; no uninstalled DOM port is used.
-  const g = createGame() as RuntimeContext;
-  installEventController(g);
-  return g;
+  const migratedGame = createGame() as RuntimeContext;
+  installEventController(migratedGame);
+  return migratedGame;
 }
 
-function reference() {
-  const original = cp
+function createHistoricalPreviewReference() {
+  const historicalHtml = childProcess
     .execFileSync("git", ["show", "72c1ba9:index.html"], {
       maxBuffer: 10_000_000,
     })
     .toString("utf8");
-  const start = original.indexOf("'use strict';");
-  const script = original.slice(start, original.indexOf("</script>", start));
-  const sandbox = {
+  const historicalScriptStartIndex = historicalHtml.indexOf("'use strict';");
+  const historicalScript = historicalHtml.slice(
+    historicalScriptStartIndex,
+    historicalHtml.indexOf("</script>", historicalScriptStartIndex),
+  );
+  const historicalSandbox = {
     Math: Object.create(Math) as Math,
     Date,
     performance: { now: () => 0 },
@@ -32,25 +37,28 @@ function reference() {
     window: {},
     console,
   };
-  vm.createContext(sandbox);
-  vm.runInContext(
-    script.slice(
+  virtualMachine.createContext(historicalSandbox);
+  virtualMachine.runInContext(
+    historicalScript.slice(
       0,
-      script.indexOf("addEventListener('resize',setAppHeight);"),
+      historicalScript.indexOf("addEventListener('resize',setAppHeight);"),
     ) +
       "\nthis.api={get state(){return S},set state(s){S=s},EVENTS,previewChoice};",
-    sandbox,
+    historicalSandbox,
   );
   // The historical VM exports this explicit port; its implementation stays unchanged.
-  return (
-    sandbox as typeof sandbox & {
-      api: Pick<RuntimeContext, "state" | "EVENTS" | "previewChoice">;
+  const historicalPreviewPort = (
+    historicalSandbox as typeof historicalSandbox & {
+      api: HistoricalPreviewPort;
     }
   ).api;
+  return adaptHistoricalPreviewPort(historicalPreviewPort);
 }
 
-function populate(g: Pick<RuntimeContext, "state" | "EVENTS">) {
-  Object.assign(g.state, {
+function populatePreviewFixture(
+  migratedGame: Pick<RuntimeContext, "state" | "EVENT_DEFINITIONS">,
+) {
+  Object.assign(migratedGame.state, {
     started: true,
     origin: "NA",
     pts: 100000,
@@ -63,145 +71,193 @@ function populate(g: Pick<RuntimeContext, "state" | "EVENTS">) {
     sig: 70,
     pace: 70,
   });
-  g.state.regions.forEach((r) => Object.assign(r, { a: 0.5, dc: true }));
-  g.state.log = Array.from({ length: 1000 }, (_, i) => {
-    const e = g.EVENTS[i % g.EVENTS.length];
-    return { t: i, kind: e.kind, title: e.title, text: e.body, real: e.real };
-  });
+  migratedGame.state.regions.forEach((regionState) =>
+    Object.assign(regionState, { a: 0.5, dc: true }),
+  );
+  migratedGame.state.log = Array.from(
+    { length: 1000 },
+    (_unusedEntry, logEntryIndex) => {
+      const eventDefinition =
+        migratedGame.EVENT_DEFINITIONS[
+          logEntryIndex % migratedGame.EVENT_DEFINITIONS.length
+        ];
+      return {
+        t: logEntryIndex,
+        kind: eventDefinition.kind,
+        title: eventDefinition.title,
+        text: eventDefinition.body,
+        real: eventDefinition.historicalContext,
+      };
+    },
+  );
 }
 
 test("gamble samples are nonreactive and never replace the published state", () => {
-  const g = game();
-  populate(g);
-  const state = g.state,
-    ui = g.ui;
-  const before = JSON.stringify(state);
-  let publications = 0,
-    samples = 0,
-    snapshots = 0;
-  let reactiveSample = false;
-  const unwatch = watch(
-    () => g.state,
-    () => publications++,
+  const migratedGame = createPreviewTestGame();
+  populatePreviewFixture(migratedGame);
+  const liveState = migratedGame.state,
+    liveUi = migratedGame.ui;
+  const serializedStateBeforePreview = JSON.stringify(liveState);
+  let statePublicationCount = 0,
+    previewSampleCount = 0,
+    snapshotCount = 0;
+  let sampleWasReactive = false;
+  const stopStateWatcher = watch(
+    () => migratedGame.state,
+    () => statePublicationCount++,
     { flush: "sync" },
   );
-  const stringify = JSON.stringify;
-  JSON.stringify = new Proxy(stringify, {
-    apply(target, receiver: unknown, args: unknown[]) {
-      snapshots++;
-      return Reflect.apply(target, receiver, args) as string;
+  const stringifyOriginalValue = JSON.stringify;
+  JSON.stringify = new Proxy(stringifyOriginalValue, {
+    apply(
+      stringifyTarget,
+      stringifyReceiver: unknown,
+      stringifyArguments: unknown[],
+    ) {
+      snapshotCount++;
+      return Reflect.apply(
+        stringifyTarget,
+        stringifyReceiver,
+        stringifyArguments,
+      ) as string;
     },
   });
   try {
-    const result = g.previewChoice({
+    const gamblePreview = migratedGame.previewEventChoice({
       label: "Gamble",
       hint: "",
-      fx: () => {
-        samples++;
-        reactiveSample ||=
-          isReactive(g.state) ||
-          isReactive(g.ui) ||
-          isReactive(g.state.regions[0]);
-        g.ui.mode = "origin";
-        return g.FX.pts(Math.random() < 0.5 ? 1 : -1);
+      applyEffects: () => {
+        previewSampleCount++;
+        sampleWasReactive ||=
+          isReactive(migratedGame.state) ||
+          isReactive(migratedGame.ui) ||
+          isReactive(migratedGame.state.regions[0]);
+        migratedGame.ui.screenMode = "origin";
+        return migratedGame.effects.adjustCompute(Math.random() < 0.5 ? 1 : -1);
       },
     });
-    assert.equal(result.chance, true);
+    assert.equal(gamblePreview.usesRandomness, true);
     assert.equal(
-      reactiveSample,
+      sampleWasReactive,
       false,
       "sample state and UI must not be reactive",
     );
-    assert.equal(samples, 200);
-    assert.equal(snapshots, 1, "snapshot raw rules state once, not per sample");
-    assert.equal(publications, 0, "Vue must never observe preview states");
+    assert.equal(previewSampleCount, 200);
+    assert.equal(
+      snapshotCount,
+      1,
+      "snapshot raw rules state once, not per sample",
+    );
+    assert.equal(
+      statePublicationCount,
+      0,
+      "Vue must never observe preview states",
+    );
   } finally {
-    JSON.stringify = stringify;
-    unwatch();
+    JSON.stringify = stringifyOriginalValue;
+    stopStateWatcher();
   }
-  assert.equal(g.state, state);
-  assert.equal(g.ui, ui);
-  assert.equal(g.ui.mode, "intro");
-  assert.equal(JSON.stringify(state), before);
+  assert.equal(migratedGame.state, liveState);
+  assert.equal(migratedGame.ui, liveUi);
+  assert.equal(migratedGame.ui.screenMode, "intro");
+  assert.equal(JSON.stringify(liveState), serializedStateBeforePreview);
 });
 
 test("throwing preview effects restore RNG, all UI and effect ports", () => {
-  const g = game(),
-    state = g.state,
-    ui = g.ui;
-  const before = JSON.stringify({ state, ui });
-  const ports = {
-    toast: g.toast,
-    bulletin: g.bulletin,
-    log: g.log,
-    pushTicker: g.pushTicker,
-    pulseRegion: g.pulseRegion,
-    save: g.save,
-    randIds: g.randIds,
-    play: g.SND.play,
+  const migratedGame = createPreviewTestGame(),
+    liveState = migratedGame.state,
+    liveUi = migratedGame.ui;
+  const serializedStateBeforePreview = JSON.stringify({
+    state: liveState,
+    ui: liveUi,
+  });
+  const originalEffectPorts = {
+    toast: migratedGame.showToast,
+    bulletin: migratedGame.publishBulletin,
+    log: migratedGame.appendRunLog,
+    pushTicker: migratedGame.enqueueTickerHeadline,
+    pulseRegion: migratedGame.pulseRegion,
+    save: migratedGame.saveRun,
+    randIds: migratedGame.pickRandomRegionIds,
+    play: migratedGame.soundController.playCue,
     random: Math.random,
   };
-  g.previewChoice({
+  migratedGame.previewEventChoice({
     label: "Throw",
     hint: "",
-    fx: () => {
-      g.state.pts = -10;
-      g.ui.mode = "origin";
-      g.ui.dirty = false;
-      g.ui.tkQ.push("must not leak");
+    applyEffects: () => {
+      migratedGame.state.pts = -10;
+      migratedGame.ui.screenMode = "origin";
+      migratedGame.ui.dirty = false;
+      migratedGame.ui.tickerQueue.push("must not leak");
       Math.random();
-      g.toast("SYSTEM", "ignored");
-      g.save();
+      migratedGame.showToast("SYSTEM", "ignored");
+      migratedGame.saveRun();
       throw new Error("expected preview failure");
     },
   });
-  assert.equal(g.state, state);
-  assert.equal(g.ui, ui);
-  assert.equal(JSON.stringify({ state, ui }), before);
+  assert.equal(migratedGame.state, liveState);
+  assert.equal(migratedGame.ui, liveUi);
+  assert.equal(
+    JSON.stringify({ state: liveState, ui: liveUi }),
+    serializedStateBeforePreview,
+  );
   assert.deepEqual(
     {
-      toast: g.toast,
-      bulletin: g.bulletin,
-      log: g.log,
-      pushTicker: g.pushTicker,
-      pulseRegion: g.pulseRegion,
-      save: g.save,
-      randIds: g.randIds,
-      play: g.SND.play,
+      toast: migratedGame.showToast,
+      bulletin: migratedGame.publishBulletin,
+      log: migratedGame.appendRunLog,
+      pushTicker: migratedGame.enqueueTickerHeadline,
+      pulseRegion: migratedGame.pulseRegion,
+      save: migratedGame.saveRun,
+      randIds: migratedGame.pickRandomRegionIds,
+      play: migratedGame.soundController.playCue,
       random: Math.random,
     },
-    ports,
+    originalEffectPorts,
   );
 });
 
 test("all 160 original choice previews retain outcomes and isolation", () => {
-  const g = game(),
-    r = reference();
-  populate(g);
-  r.state = JSON.parse(JSON.stringify(g.state)) as RuntimeContext["state"];
-  const state = g.state,
-    ui = g.ui;
-  const before = JSON.stringify({ state, ui });
-  let count = 0;
-  for (const [i, e] of g.EVENTS.entries()) {
-    for (const [j, c] of (e.choices ?? []).entries()) {
-      const old: EventChoice = r.EVENTS[i].choices![j];
-      const expected = r.previewChoice(old);
-      const actual = g.previewChoice(c);
+  const migratedGame = createPreviewTestGame(),
+    historicalGame = createHistoricalPreviewReference();
+  populatePreviewFixture(migratedGame);
+  historicalGame.state = JSON.parse(
+    JSON.stringify(migratedGame.state),
+  ) as RuntimeContext["state"];
+  const liveState = migratedGame.state,
+    liveUi = migratedGame.ui;
+  const serializedStateBeforePreview = JSON.stringify({
+    state: liveState,
+    ui: liveUi,
+  });
+  let comparedChoiceCount = 0;
+  for (const [
+    eventIndex,
+    eventDefinition,
+  ] of migratedGame.EVENT_DEFINITIONS.entries()) {
+    for (const [choiceIndex, eventChoice] of (
+      eventDefinition.choices ?? []
+    ).entries()) {
+      const historicalChoice: EventChoice =
+        historicalGame.EVENT_DEFINITIONS[eventIndex].choices![choiceIndex];
+      const historicalPreview =
+        historicalGame.previewEventChoice(historicalChoice);
+      const actualPreview = migratedGame.previewEventChoice(eventChoice);
       assert.deepEqual(
-        actual,
-        JSON.parse(JSON.stringify(expected)),
-        `${e.id}/${j}`,
+        actualPreview,
+        JSON.parse(JSON.stringify(historicalPreview)),
+        `${eventDefinition.id}/${choiceIndex}`,
       );
-      assert.equal(g.state, state);
-      assert.equal(g.ui, ui);
+      assert.equal(migratedGame.state, liveState);
+      assert.equal(migratedGame.ui, liveUi);
       assert.equal(
-        JSON.stringify({ state, ui }),
-        before,
-        `${e.id}/${j} isolation`,
+        JSON.stringify({ state: liveState, ui: liveUi }),
+        serializedStateBeforePreview,
+        `${eventDefinition.id}/${choiceIndex} isolation`,
       );
-      count++;
+      comparedChoiceCount++;
     }
   }
-  assert.equal(count, 160);
+  assert.equal(comparedChoiceCount, 160);
 });

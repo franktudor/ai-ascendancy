@@ -1,14 +1,14 @@
 import { test, expect } from "@playwright/test";
 import type { GameAppElement } from "../../src/env";
-import { pausedRun } from "./a11y-helpers";
+import { openPausedRun } from "./a11y-helpers";
 
 test("F24 architecture and difficulty expose current selections after every actual choice", async ({
   page,
 }) => {
   await page.goto("/");
-  for (const arch of ["swarm", "researcher", "open", "assistant"]) {
-    await page.locator(`[data-a="${arch}"]`).click();
-    await expect(page.locator(`[data-a="${arch}"]`)).toHaveAttribute(
+  for (const architectureId of ["swarm", "researcher", "open", "assistant"]) {
+    await page.locator(`[data-a="${architectureId}"]`).click();
+    await expect(page.locator(`[data-a="${architectureId}"]`)).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -19,11 +19,11 @@ test("F24 architecture and difficulty expose current selections after every actu
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game.state.arch,
       ),
-    ).toBe(arch);
+    ).toBe(architectureId);
   }
-  for (const diff of ["casual", "brutal", "standard"]) {
-    await page.locator(`[data-d="${diff}"]`).click();
-    await expect(page.locator(`[data-d="${diff}"]`)).toHaveAttribute(
+  for (const difficultyId of ["casual", "brutal", "standard"]) {
+    await page.locator(`[data-d="${difficultyId}"]`).click();
+    await expect(page.locator(`[data-d="${difficultyId}"]`)).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -34,14 +34,14 @@ test("F24 architecture and difficulty expose current selections after every actu
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game.state.diff,
       ),
-    ).toBe(diff);
+    ).toBe(difficultyId);
   }
 });
 
 test("F24 speed, pause, posture and both audio surfaces stay synchronized with real state", async ({
   page,
 }) => {
-  await pausedRun(page);
+  await openPausedRun(page);
   await expect(page.locator("#btnPause")).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -58,9 +58,9 @@ test("F24 speed, pause, posture and both audio surfaces stay synchronized with r
           .exposed.game.state.paused,
     ),
   ).toBe(false);
-  for (const speed of [2, 3, 1]) {
-    await page.locator(`[data-s="${speed}"]`).click();
-    await expect(page.locator(`[data-s="${speed}"]`)).toHaveAttribute(
+  for (const simulationSpeed of [2, 3, 1]) {
+    await page.locator(`[data-s="${simulationSpeed}"]`).click();
+    await expect(page.locator(`[data-s="${simulationSpeed}"]`)).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -71,18 +71,18 @@ test("F24 speed, pause, posture and both audio surfaces stay synchronized with r
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game.state.speed,
       ),
-    ).toBe(speed);
+    ).toBe(simulationSpeed);
   }
   await page.evaluate(() => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.state.paused = true;
-    g.state.flags.launched = true;
+    migratedGame.state.paused = true;
+    migratedGame.state.flags.launched = true;
   });
-  for (const posture of ["shard", "swarm", "balanced"]) {
-    await page.locator(`[data-p="${posture}"]`).click();
-    await expect(page.locator(`[data-p="${posture}"]`)).toHaveAttribute(
+  for (const postureId of ["shard", "swarm", "balanced"]) {
+    await page.locator(`[data-p="${postureId}"]`).click();
+    await expect(page.locator(`[data-p="${postureId}"]`)).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -93,38 +93,40 @@ test("F24 speed, pause, posture and both audio surfaces stay synchronized with r
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game.state.posture,
       ),
-    ).toBe(posture);
+    ).toBe(postureId);
   }
-  for (const kind of ["Sound", "Music"]) {
-    await expect(page.locator(`#btn${kind}`)).toHaveAttribute(
+  for (const audioKind of ["Sound", "Music"]) {
+    await expect(page.locator(`#btn${audioKind}`)).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await page.locator(`#btn${kind}`).click();
-    await expect(page.locator(`#btn${kind}`)).toHaveAttribute(
+    await page.locator(`#btn${audioKind}`).click();
+    await expect(page.locator(`#btn${audioKind}`)).toHaveAttribute(
       "aria-pressed",
       "false",
     );
     await page.locator("#btnMenu").click();
-    await expect(page.locator(`#menu${kind}`)).toHaveAttribute(
+    await expect(page.locator(`#menu${audioKind}`)).toHaveAttribute(
       "aria-pressed",
       "false",
     );
-    await page.locator(`#menu${kind}`).click();
-    await expect(page.locator(`#menu${kind}`)).toHaveAttribute(
+    await page.locator(`#menu${audioKind}`).click();
+    await expect(page.locator(`#menu${audioKind}`)).toHaveAttribute(
       "aria-pressed",
       "true",
     );
     expect(
-      await page.evaluate((kind) => {
-        const g =
+      await page.evaluate((audioKind) => {
+        const migratedGame =
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game;
-        return kind === "Sound" ? g.SND.on : g.MUSIC.on;
-      }, kind),
+        return audioKind === "Sound"
+          ? migratedGame.soundController.enabled
+          : migratedGame.musicController.enabled;
+      }, audioKind),
     ).toBe(true);
     await page.locator("#menuClose").click();
-    await expect(page.locator(`#btn${kind}`)).toHaveAttribute(
+    await expect(page.locator(`#btn${audioKind}`)).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -134,7 +136,7 @@ test("F24 speed, pause, posture and both audio surfaces stay synchronized with r
 test("F24 tree view, tracks, goals and panel toggles describe actual selected state", async ({
   page,
 }) => {
-  await pausedRun(page);
+  await openPausedRun(page);
   await page.locator('[data-tab="tree"]').click();
   await expect(page.locator('[data-tab="tree"]')).toHaveAttribute(
     "aria-expanded",
@@ -151,15 +153,14 @@ test("F24 tree view, tracks, goals and panel toggles describe actual selected st
     await page.evaluate(
       () =>
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
-          .exposed.game.TREE.list,
+          .exposed.game.treeState.listViewEnabled,
     ),
   ).toBe(true);
-  for (const k of [0, 1, 2, 3]) {
-    await page.locator(`#trTracks [data-k="${k}"]`).click();
-    await expect(page.locator(`#trTracks [data-k="${k}"]`)).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+  for (const trackIndex of [0, 1, 2, 3]) {
+    await page.locator(`#trTracks [data-k="${trackIndex}"]`).click();
+    await expect(
+      page.locator(`#trTracks [data-k="${trackIndex}"]`),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('#trTracks [aria-pressed="true"]')).toHaveCount(
       1,
     );
@@ -167,9 +168,9 @@ test("F24 tree view, tracks, goals and panel toggles describe actual selected st
       await page.evaluate(
         () =>
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
-            .exposed.game.TREE.listTrack,
+            .exposed.game.treeState.listTrackId,
       ),
-    ).toBe(["opinion", "adoption", "software", "hardware"][k]);
+    ).toBe(["opinion", "adoption", "software", "hardware"][trackIndex]);
   }
   await page.locator('#trTracks [data-k="1"]').click();
   await page.locator('#trList [data-id="a_img"]').click();
@@ -217,24 +218,23 @@ test("F24 tree view, tracks, goals and panel toggles describe actual selected st
     await page.evaluate(
       () =>
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
-          .exposed.game.TREE.list,
+          .exposed.game.treeState.listViewEnabled,
     ),
   ).toBe(false);
-  for (const k of [0, 1, 2, 3]) {
-    await page.locator(`#trTracks [data-k="${k}"]`).click();
-    await expect(page.locator(`#trTracks [data-k="${k}"]`)).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+  for (const trackIndex of [0, 1, 2, 3]) {
+    await page.locator(`#trTracks [data-k="${trackIndex}"]`).click();
+    await expect(
+      page.locator(`#trTracks [data-k="${trackIndex}"]`),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect
       .poll(() =>
         page.evaluate(
           () =>
             document.querySelector<GameAppElement>("#app")!.__vue_app__
-              ._instance.exposed.game.TREE.front,
+              ._instance.exposed.game.treeState.frontTrackIndex,
         ),
       )
-      .toBe(k);
+      .toBe(trackIndex);
   }
   await page.locator("#trClose").click();
   await expect(page.locator('[data-tab="tree"]')).toHaveAttribute(
@@ -247,7 +247,7 @@ test("F24 tree view, tracks, goals and panel toggles describe actual selected st
     await page.evaluate(
       () =>
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
-          .exposed.game.ui.tab,
+          .exposed.game.ui.activeDockTab,
     ),
   ).toBe("log");
   await expect(page.locator('[data-tab="log"]')).toHaveAttribute(
@@ -267,7 +267,7 @@ test("F24 tree view, tracks, goals and panel toggles describe actual selected st
     await page.evaluate(
       () =>
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
-          .exposed.game.ui.sheetOpen,
+          .exposed.game.ui.isDockPanelOpen,
     ),
   ).toBe(false);
 });
@@ -275,49 +275,52 @@ test("F24 tree view, tracks, goals and panel toggles describe actual selected st
 test("F24 region labels announce adoption and changing restriction, alliance and cluster status", async ({
   page,
 }) => {
-  await pausedRun(page);
-  const tile = page.locator('#regions [data-i="0"]');
-  const row = page.locator('#sheetBody [data-i="0"]');
-  await expect(tile).toHaveAccessibleName(
+  await openPausedRun(page);
+  const regionTile = page.locator('#regions [data-i="0"]');
+  const regionRow = page.locator('#sheetBody [data-i="0"]');
+  await expect(regionTile).toHaveAccessibleName(
     /North America.*0% adoption.*Origin.*No cluster/i,
   );
-  await expect(row).toHaveAccessibleName(
+  await expect(regionRow).toHaveAccessibleName(
     /North America.*0% adoption.*Origin.*No cluster/i,
   );
-  for (const state of [
+  for (const regionScenario of [
     "restricted",
     "allied",
     "rebuilding",
     "offline",
     "spreading",
   ] as const) {
-    await page.evaluate((state) => {
-      const g =
+    await page.evaluate((regionScenario) => {
+      const migratedGame =
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game;
-      g.state.origin = "ME";
-      Object.assign(g.state.regions[0], {
+      migratedGame.state.origin = "ME";
+      Object.assign(migratedGame.state.regions[0], {
         a: 0.73,
-        restricted: state === "restricted",
-        allied: state === "allied",
-        dc: state !== "spreading",
-        struck: state === "rebuilding" || state === "offline",
-        rebuildAt: state === "rebuilding" ? g.state.t + 25 : 0,
+        restricted: regionScenario === "restricted",
+        allied: regionScenario === "allied",
+        dc: regionScenario !== "spreading",
+        struck: regionScenario === "rebuilding" || regionScenario === "offline",
+        rebuildAt:
+          regionScenario === "rebuilding" ? migratedGame.state.t + 25 : 0,
       });
-    }, state);
-    const status =
-      state === "restricted"
+    }, regionScenario);
+    const expectedRegionStatus =
+      regionScenario === "restricted"
         ? /Restricted.*Cluster online/i
-        : state === "allied"
+        : regionScenario === "allied"
           ? /Allied.*Cluster online/i
-          : state === "rebuilding"
+          : regionScenario === "rebuilding"
             ? /Spreading.*rebuild.*25s/i
-            : state === "offline"
+            : regionScenario === "offline"
               ? /Spreading.*Cluster offline/i
               : /Spreading.*No cluster/i;
-    for (const region of [tile, row]) {
-      await expect(region).toHaveAccessibleName(/North America.*73% adoption/i);
-      await expect(region).toHaveAccessibleName(status);
+    for (const regionControl of [regionTile, regionRow]) {
+      await expect(regionControl).toHaveAccessibleName(
+        /North America.*73% adoption/i,
+      );
+      await expect(regionControl).toHaveAccessibleName(expectedRegionStatus);
     }
   }
 });

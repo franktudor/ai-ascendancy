@@ -2,17 +2,21 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import type { GameAppElement } from "../../src/env";
 
-const legacyCSS = execFileSync("git", ["show", "affb670:src/styles/game.css"], {
-  maxBuffer: 1_000_000,
-}).toString("utf8");
+const historicalStylesheet = execFileSync(
+  "git",
+  ["show", "affb670:src/styles/game.css"],
+  {
+    maxBuffer: 1_000_000,
+  },
+).toString("utf8");
 
 // Bare elements exercise the generated utilities, not legacy component selectors.
 test("Tailwind game colours resolve from live game tokens", async ({
   page,
 }) => {
   await page.goto("/");
-  const colours = await page.evaluate(() => {
-    const classes = [
+  const utilityColorComparisons = await page.evaluate(() => {
+    const utilityClassNames = [
       "text-bg",
       "text-bg2",
       "text-panel",
@@ -35,42 +39,45 @@ test("Tailwind game colours resolve from live game tokens", async ({
       "text-hardware",
       "text-draw",
     ];
-    return classes.map((className) => {
-      const token = className.slice(5);
-      const utility = document.createElement("span");
-      utility.className = className;
-      const reference = document.createElement("span");
-      reference.style.color = `var(--${token})`;
-      document.body.append(utility, reference);
-      const result = {
-        token,
-        actual: getComputedStyle(utility).color,
-        expected: getComputedStyle(reference).color,
+    return utilityClassNames.map((utilityClassName) => {
+      const colorToken = utilityClassName.slice(5);
+      const utilityColorElement = document.createElement("span");
+      utilityColorElement.className = utilityClassName;
+      const referenceColorElement = document.createElement("span");
+      referenceColorElement.style.color = `var(--${colorToken})`;
+      document.body.append(utilityColorElement, referenceColorElement);
+      const colorComparison = {
+        token: colorToken,
+        actual: getComputedStyle(utilityColorElement).color,
+        expected: getComputedStyle(referenceColorElement).color,
       };
-      utility.remove();
-      reference.remove();
-      return result;
+      utilityColorElement.remove();
+      referenceColorElement.remove();
+      return colorComparison;
     });
   });
-  for (const colour of colours)
-    expect(colour.actual, colour.token).toBe(colour.expected);
-  const live = await page.evaluate(() => {
-    const probe = document.createElement("div");
-    probe.className = "text-ai bg-panel border border-solid border-line2";
-    document.body.append(probe);
+  for (const colorComparison of utilityColorComparisons)
+    expect(colorComparison.actual, colorComparison.token).toBe(
+      colorComparison.expected,
+    );
+  const liveTokenStyles = await page.evaluate(() => {
+    const utilityProbeElement = document.createElement("div");
+    utilityProbeElement.className =
+      "text-ai bg-panel border border-solid border-line2";
+    document.body.append(utilityProbeElement);
     document.documentElement.style.setProperty("--ai", "rgb(123, 45, 67)");
     document.documentElement.style.setProperty("--line2", "rgb(34, 56, 78)");
-    const result = {
-      color: getComputedStyle(probe).color,
-      background: getComputedStyle(probe).backgroundColor,
-      border: getComputedStyle(probe).borderTopColor,
+    const liveTokenStyles = {
+      color: getComputedStyle(utilityProbeElement).color,
+      background: getComputedStyle(utilityProbeElement).backgroundColor,
+      border: getComputedStyle(utilityProbeElement).borderTopColor,
     };
-    probe.remove();
+    utilityProbeElement.remove();
     document.documentElement.style.removeProperty("--ai");
     document.documentElement.style.removeProperty("--line2");
-    return result;
+    return liveTokenStyles;
   });
-  expect(live).toEqual({
+  expect(liveTokenStyles).toEqual({
     color: "rgb(123, 45, 67)",
     background: "rgb(5, 9, 6)",
     border: "rgb(34, 56, 78)",
@@ -81,34 +88,38 @@ test("theme opacity, SVG and font utilities match the game's colours and faces",
   page,
 }) => {
   await page.goto("/");
-  const values = await page.evaluate(() => {
-    const probe = document.createElement("span");
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 1;
-    const ctx = canvas.getContext("2d")!;
-    const pixel = (color: string) => {
-      ctx.clearRect(0, 0, 1, 1);
-      ctx.fillStyle = color;
-      ctx.fillRect(0, 0, 1, 1);
-      return [...ctx.getImageData(0, 0, 1, 1).data];
+  const utilityStyleObservations = await page.evaluate(() => {
+    const utilityProbeElement = document.createElement("span");
+    const colorSampleCanvas = document.createElement("canvas");
+    colorSampleCanvas.width = colorSampleCanvas.height = 1;
+    const canvasContext = colorSampleCanvas.getContext("2d")!;
+    const sampleColorPixel = (colorValue: string) => {
+      canvasContext.clearRect(0, 0, 1, 1);
+      canvasContext.fillStyle = colorValue;
+      canvasContext.fillRect(0, 0, 1, 1);
+      return [...canvasContext.getImageData(0, 0, 1, 1).data];
     };
-    document.body.append(probe);
-    probe.className = "text-alarm/60 fill-software font-console";
-    const style = getComputedStyle(probe);
-    const result = {
-      opacity: pixel(style.color),
-      expectedOpacity: pixel("rgba(255,48,64,.6)"),
-      fill: style.fill,
-      mono: style.fontFamily,
+    document.body.append(utilityProbeElement);
+    utilityProbeElement.className = "text-alarm/60 fill-software font-console";
+    const probeStyle = getComputedStyle(utilityProbeElement);
+    const utilityStyleObservations = {
+      opacity: sampleColorPixel(probeStyle.color),
+      expectedOpacity: sampleColorPixel("rgba(255,48,64,.6)"),
+      fill: probeStyle.fill,
+      mono: probeStyle.fontFamily,
       expectedMono: getComputedStyle(document.querySelector("#pts")!)
         .fontFamily,
     };
-    probe.remove();
-    return result;
+    utilityProbeElement.remove();
+    return utilityStyleObservations;
   });
-  expect(values.opacity).toEqual(values.expectedOpacity);
-  expect(values.fill).toBe("rgb(46, 184, 255)");
-  expect(values.mono).toBe(values.expectedMono);
+  expect(utilityStyleObservations.opacity).toEqual(
+    utilityStyleObservations.expectedOpacity,
+  );
+  expect(utilityStyleObservations.fill).toBe("rgb(46, 184, 255)");
+  expect(utilityStyleObservations.mono).toBe(
+    utilityStyleObservations.expectedMono,
+  );
 });
 
 test("Vue interface uses the game theme classes without changing the historical cascade", async ({
@@ -119,38 +130,43 @@ test("Vue interface uses the game theme classes without changing the historical 
   await expect(page.locator(".top")).toHaveClass(/\bbg-bg2\b/);
   await expect(page.locator("#pts")).toHaveClass(/\btext-ai\b/);
   await expect(page.locator("#instLine")).toHaveClass(/\btext-software\b/);
-  for (const width of [320, 390, 900, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
-    for (const build of [
+  for (const viewportWidth of [320, 390, 900, 1440]) {
+    await page.setViewportSize({ width: viewportWidth, height: 900 });
+    for (const dominantUpgradeTrack of [
       null,
       "opinion",
       "adoption",
       "software",
       "hardware",
     ] as const) {
-      await page.evaluate((build) => {
-        const g =
+      await page.evaluate((dominantUpgradeTrack) => {
+        const migratedGame =
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game;
-        g.state.paused = true;
-        g.state.started = build !== null;
-        g.state.phase = build === null ? 0 : 2;
-        g.state.owned = build
-          ? g.UPGRADES.filter((u) => u.track === build && !u.dir)
+        migratedGame.state.paused = true;
+        migratedGame.state.started = dominantUpgradeTrack !== null;
+        migratedGame.state.phase = dominantUpgradeTrack === null ? 0 : 2;
+        migratedGame.state.owned = dominantUpgradeTrack
+          ? migratedGame.UPGRADE_DEFINITIONS.filter(
+              (upgradeDefinition) =>
+                upgradeDefinition.track === dominantUpgradeTrack &&
+                !upgradeDefinition.directiveId,
+            )
               .slice(0, 4)
-              .map((u) => u.id)
+              .map((upgradeDefinition) => upgradeDefinition.id)
           : [];
-        g.state.alarm = 85;
-        g.state.flags.launched = true;
-        g.state.directive = "upload";
-        g.state.dprog = 92;
-        g.ui.mode = build === null ? "intro" : "play";
-        g.ART.key = "";
-        g.artDirection();
-      }, build);
+        migratedGame.state.alarm = 85;
+        migratedGame.state.flags.launched = true;
+        migratedGame.state.directive = "upload";
+        migratedGame.state.dprog = 92;
+        migratedGame.ui.screenMode =
+          dominantUpgradeTrack === null ? "intro" : "play";
+        migratedGame.artState.paletteSignature = "";
+        migratedGame.updateArtDirection();
+      }, dominantUpgradeTrack);
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
-      const difference = await page.evaluate((legacyCSS) => {
-        const properties = [
+      const cascadeDifferences = await page.evaluate((historicalStylesheet) => {
+        const comparedStyleProperties = [
           "color",
           "background-color",
           "background-image",
@@ -172,57 +188,72 @@ test("Vue interface uses the game theme classes without changing the historical 
           "box-shadow",
           "text-shadow",
         ];
-        const nodes = [...document.querySelectorAll("body *")].filter(
-          (node) => !["SCRIPT", "STYLE"].includes(node.tagName),
+        const comparedElements = [
+          ...document.querySelectorAll("body *"),
+        ].filter(
+          (comparedElement) =>
+            !["SCRIPT", "STYLE"].includes(comparedElement.tagName),
         );
-        const snapshot = () =>
-          nodes.map((node) =>
-            properties.map((property) =>
-              getComputedStyle(node).getPropertyValue(property),
+        const snapshotComputedStyles = () =>
+          comparedElements.map((comparedElement) =>
+            comparedStyleProperties.map((styleProperty) =>
+              getComputedStyle(comparedElement).getPropertyValue(styleProperty),
             ),
           );
-        const actual = snapshot();
-        const sheets = [...document.styleSheets];
-        const disabled = sheets.map((sheet) => sheet.disabled);
-        const legacy = document.createElement("style");
+        const actualComputedStyles = snapshotComputedStyles();
+        const loadedStylesheets = [...document.styleSheets];
+        const originalStylesheetDisabledStates = loadedStylesheets.map(
+          (stylesheet) => stylesheet.disabled,
+        );
+        const historicalStyleElement = document.createElement("style");
         // Keep the loaded font stylesheet enabled. Recreating its @font-face
         // rules starts a font swap and invalidates immediate geometry reads.
-        const fonts = sheets.filter((sheet) =>
-          [...sheet.cssRules].some((rule) => rule instanceof CSSFontFaceRule),
+        const fontStylesheets = loadedStylesheets.filter((stylesheet) =>
+          [...stylesheet.cssRules].some(
+            (cssRule) => cssRule instanceof CSSFontFaceRule,
+          ),
         );
-        legacy.textContent = legacyCSS;
+        historicalStyleElement.textContent = historicalStylesheet;
         try {
-          sheets
-            .filter((sheet) => !fonts.includes(sheet))
-            .forEach((sheet) => {
-              sheet.disabled = true;
+          loadedStylesheets
+            .filter((stylesheet) => !fontStylesheets.includes(stylesheet))
+            .forEach((stylesheet) => {
+              stylesheet.disabled = true;
             });
-          document.head.append(legacy);
-          const expected = snapshot();
-          return nodes.flatMap((node, i) =>
-            properties.flatMap((property, j) =>
-              actual[i][j] === expected[i][j]
+          document.head.append(historicalStyleElement);
+          const historicalComputedStyles = snapshotComputedStyles();
+          return comparedElements.flatMap((comparedElement, elementIndex) =>
+            comparedStyleProperties.flatMap((styleProperty, propertyIndex) =>
+              actualComputedStyles[elementIndex][propertyIndex] ===
+              historicalComputedStyles[elementIndex][propertyIndex]
                 ? []
                 : [
                     {
                       node:
-                        node.id ||
-                        node.tagName + "." + node.getAttribute("class"),
-                      property,
-                      actual: actual[i][j],
-                      expected: expected[i][j],
+                        comparedElement.id ||
+                        comparedElement.tagName +
+                          "." +
+                          comparedElement.getAttribute("class"),
+                      property: styleProperty,
+                      actual: actualComputedStyles[elementIndex][propertyIndex],
+                      expected:
+                        historicalComputedStyles[elementIndex][propertyIndex],
                     },
                   ],
             ),
           );
         } finally {
-          legacy.remove();
-          sheets.forEach((sheet, i) => {
-            sheet.disabled = disabled[i];
+          historicalStyleElement.remove();
+          loadedStylesheets.forEach((stylesheet, stylesheetIndex) => {
+            stylesheet.disabled =
+              originalStylesheetDisabledStates[stylesheetIndex];
           });
         }
-      }, legacyCSS);
-      expect(difference, `${width}px / ${build ?? "intro"}`).toEqual([]);
+      }, historicalStylesheet);
+      expect(
+        cascadeDifferences,
+        `${viewportWidth}px / ${dominantUpgradeTrack ?? "intro"}`,
+      ).toEqual([]);
     }
   }
 });

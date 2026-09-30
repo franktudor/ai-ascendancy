@@ -1,31 +1,33 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { subject as createGame } from "./helpers/subject";
+import { createParityTestGame as createGame } from "./helpers/subject";
 import {
-  reference,
-  configure,
-  clone,
-  fixed,
-  stateEqual,
+  createHistoricalReference,
+  configureStartedRun,
+  cloneSerializableValue,
+  withControlledRandom,
+  assertGameStatesEqual,
 } from "./helpers/reference";
 
-for (const level of [0, 45, 100])
-  for (const flags of [false, true])
-    for (const rng of [0, 0.999999])
-      test(`generated audit callables: scrutiny=${level}, flags=${flags}, RNG=${rng}`, () => {
-        const g = configure(createGame()),
-          rr = reference(),
-          r = configure(rr.game);
-        const s = clone(g.state);
-        Object.assign(s, {
+for (const scrutinyLevel of [0, 45, 100])
+  for (const enableAuditFlags of [false, true])
+    for (const randomValue of [0, 0.999999])
+      test(`generated audit callables: scrutiny=${scrutinyLevel}, flags=${enableAuditFlags}, RNG=${randomValue}`, () => {
+        const migratedGame = configureStartedRun(createGame()),
+          historicalReference = createHistoricalReference(),
+          historicalGame = configureStartedRun(historicalReference.game);
+        const auditFixtureState = cloneSerializableValue(migratedGame.state);
+        Object.assign(auditFixtureState, {
           phase: 1,
-          sig: level,
-          pace: level,
-          alarm: level,
+          sig: scrutinyLevel,
+          pace: scrutinyLevel,
+          alarm: scrutinyLevel,
           sandStreak: 8,
         });
-        s.regions.forEach((x) => (x.a = 0.5));
-        for (const flag of [
+        auditFixtureState.regions.forEach(
+          (regionState) => (regionState.a = 0.5),
+        );
+        for (const auditFlagId of [
           "dense",
           "moe",
           "persist",
@@ -33,74 +35,119 @@ for (const level of [0, 45, 100])
           "latent",
           "sand",
         ] as const)
-          s.flags[flag] = flags;
-        s.owned = g.UPGRADES.filter((u) => u.track === "software").map(
-          (u) => u.id,
-        );
-        g.state = clone(s);
-        r.state = clone(s);
-        rr.random(rng);
-        const generated = fixed(() => g.makeEval(), rng),
-          original = r.makeEval();
+          auditFixtureState.flags[auditFlagId] = enableAuditFlags;
+        auditFixtureState.owned = migratedGame.UPGRADE_DEFINITIONS.filter(
+          (softwareUpgrade) => softwareUpgrade.track === "software",
+        ).map((softwareUpgrade) => softwareUpgrade.id);
+        migratedGame.state = cloneSerializableValue(auditFixtureState);
+        historicalGame.state = cloneSerializableValue(auditFixtureState);
+        historicalReference.random(randomValue);
+        const generatedAudit = withControlledRandom(
+            () => migratedGame.createCapabilityAudit(),
+            randomValue,
+          ),
+          historicalAudit = historicalGame.createCapabilityAudit();
         assert.deepEqual(
           [
-            generated.id,
-            generated.kind,
-            generated.title,
-            generated.body,
-            generated.real,
+            generatedAudit.id,
+            generatedAudit.kind,
+            generatedAudit.title,
+            generatedAudit.body,
+            generatedAudit.historicalContext,
           ],
           [
-            original.id,
-            original.kind,
-            original.title,
-            original.body,
-            original.real,
+            historicalAudit.id,
+            historicalAudit.kind,
+            historicalAudit.title,
+            historicalAudit.body,
+            historicalAudit.historicalContext,
           ],
         );
         assert.deepEqual(
-          clone(generated.choices.map((c) => [c.label, c.hint, c.src])),
-          clone(original.choices.map((c) => [c.label, c.hint, c.src])),
+          cloneSerializableValue(
+            generatedAudit.choices.map((auditChoice) => [
+              auditChoice.label,
+              auditChoice.hint,
+              auditChoice.sourceUpgradeName,
+            ]),
+          ),
+          cloneSerializableValue(
+            historicalAudit.choices.map((auditChoice) => [
+              auditChoice.label,
+              auditChoice.hint,
+              auditChoice.sourceUpgradeName,
+            ]),
+          ),
         );
-        assert.equal(generated.choices.length, flags ? 7 : 3);
-        stateEqual(g.state, r.state, "audit generation grounding side effects");
-        const afterGeneration = clone(g.state);
-        for (const [index, choice] of generated.choices.entries()) {
-          g.state = clone(afterGeneration);
-          r.state = clone(afterGeneration);
-          rr.random(rng);
+        assert.equal(generatedAudit.choices.length, enableAuditFlags ? 7 : 3);
+        assertGameStatesEqual(
+          migratedGame.state,
+          historicalGame.state,
+          "audit generation grounding side effects",
+        );
+        const postGenerationState = cloneSerializableValue(migratedGame.state);
+        for (const [
+          choiceIndex,
+          auditChoice,
+        ] of generatedAudit.choices.entries()) {
+          migratedGame.state = cloneSerializableValue(postGenerationState);
+          historicalGame.state = cloneSerializableValue(postGenerationState);
+          historicalReference.random(randomValue);
           assert.equal(
-            fixed(() => choice.fx(), rng),
-            original.choices[index].fx(),
-            choice.label,
+            withControlledRandom(() => auditChoice.applyEffects(), randomValue),
+            historicalAudit.choices[choiceIndex].applyEffects(),
+            auditChoice.label,
           );
-          stateEqual(g.state, r.state, choice.label);
+          assertGameStatesEqual(
+            migratedGame.state,
+            historicalGame.state,
+            auditChoice.label,
+          );
         }
       });
 
 test("audit scheduling and nonrepeating historical grounding execute the original logic", () => {
-  const g = configure(createGame()),
-    rr = reference(),
-    r = configure(rr.game);
-  for (const launched of [false, true]) {
-    g.state.flags.launched = launched;
-    r.state.flags.launched = launched;
-    g.fireEval();
-    r.fireEval();
-    g.fireEval();
-    r.fireEval();
-    stateEqual(g.state, r.state, `fireEval launched=${launched}`);
+  const migratedGame = configureStartedRun(createGame()),
+    historicalReference = createHistoricalReference(),
+    historicalGame = configureStartedRun(historicalReference.game);
+  for (const isLaunched of [false, true]) {
+    migratedGame.state.flags.launched = isLaunched;
+    historicalGame.state.flags.launched = isLaunched;
+    migratedGame.queueCapabilityAudit();
+    historicalGame.queueCapabilityAudit();
+    migratedGame.queueCapabilityAudit();
+    historicalGame.queueCapabilityAudit();
+    assertGameStatesEqual(
+      migratedGame.state,
+      historicalGame.state,
+      `fireEval launched=${isLaunched}`,
+    );
   }
-  const lines: string[] = [];
-  rr.random(0);
-  for (let i = 0; i < 6; i++) {
-    const actual = fixed(() => g.evalReal(), 0),
-      expected = r.evalReal();
-    assert.equal(actual, expected);
-    if (actual) lines.push(actual);
-    stateEqual(g.state, r.state, "grounding dedupe state");
+  const historicalGroundingTexts: string[] = [];
+  historicalReference.random(0);
+  for (
+    let groundingAttemptIndex = 0;
+    groundingAttemptIndex < 6;
+    groundingAttemptIndex++
+  ) {
+    const actualGroundingText = withControlledRandom(
+        () => migratedGame.consumeAuditHistoricalIncident(),
+        0,
+      ),
+      historicalGroundingText = historicalGame.consumeAuditHistoricalIncident();
+    assert.equal(actualGroundingText, historicalGroundingText);
+    if (actualGroundingText) historicalGroundingTexts.push(actualGroundingText);
+    assertGameStatesEqual(
+      migratedGame.state,
+      historicalGame.state,
+      "grounding dedupe state",
+    );
   }
-  assert.equal(lines.length, 4);
-  assert.equal(new Set(lines).size, 4);
-  assert.ok(lines.every((line) => line.length > 80));
+  assert.equal(historicalGroundingTexts.length, 4);
+  assert.equal(new Set(historicalGroundingTexts).size, 4);
+  assert.ok(
+    historicalGroundingTexts.every(
+      (groundingText) => groundingText.length > 80,
+    ),
+  );
 });

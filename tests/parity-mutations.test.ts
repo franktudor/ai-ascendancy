@@ -3,49 +3,64 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
-  applyVerifiedDeltas,
+  applyVerifiedHistoricalDeltas,
   verifiedDeltas,
 } from "./helpers/reference-deltas";
 
-for (const [mutation, file, pattern] of [
+for (const [mutationId, suiteFilename, testNamePattern] of [
   ["conditions", "conditions.test.ts", "callable conditions"],
   ["audit", "audits.test.ts", "generated audit"],
   ["draw", "progression.test.ts", "nine directive"],
 ] as const)
-  test(`actual preservation suite rejects ${mutation} mutation`, () => {
-    const env: NodeJS.ProcessEnv = {
+  test(`actual preservation suite rejects ${mutationId} mutation`, () => {
+    const testEnvironment: NodeJS.ProcessEnv = {
       ...process.env,
-      PARITY_MUTATION: mutation,
+      PARITY_MUTATION: mutationId,
     };
-    delete env.NODE_TEST_CONTEXT;
-    const result = spawnSync(
+    delete testEnvironment.NODE_TEST_CONTEXT;
+    const mutationTestResult = spawnSync(
       process.execPath,
       [
         "--import",
         "tsx",
         "--test",
-        `--test-name-pattern=${pattern}`,
-        fileURLToPath(new URL(file, import.meta.url)),
+        `--test-name-pattern=${testNamePattern}`,
+        fileURLToPath(new URL(suiteFilename, import.meta.url)),
       ],
-      { encoding: "utf8", env },
+      { encoding: "utf8", env: testEnvironment },
     );
-    if (result.error) throw result.error;
-    assert.notEqual(result.status, 0, "broken rule escaped the actual suite");
+    if (mutationTestResult.error) throw mutationTestResult.error;
+    assert.notEqual(
+      mutationTestResult.status,
+      0,
+      "broken rule escaped the actual suite",
+    );
     assert.match(
-      result.stdout + result.stderr,
-      mutation === "audit" ? /makeEval mutant/ : /AssertionError/,
+      mutationTestResult.stdout + mutationTestResult.stderr,
+      new RegExp(testNamePattern),
+      "the selected target suite actually ran",
+    );
+    assert.doesNotMatch(
+      mutationTestResult.stdout + mutationTestResult.stderr,
+      /tests 0(?:\s|$)/,
+      "a zero-test subprocess is not mutation evidence",
+    );
+    assert.match(
+      mutationTestResult.stdout + mutationTestResult.stderr,
+      mutationId === "audit" ? /makeEval mutant/ : /AssertionError/,
     );
   });
 
 test("historical oracle deltas reject broad or stale targets", () => {
   assert.equal(
-    new Set(verifiedDeltas.map((delta) => delta.before)).size,
+    new Set(verifiedDeltas.map((historicalDelta) => historicalDelta.before))
+      .size,
     verifiedDeltas.length,
     "each independently justified historical location has a distinct exact target",
   );
   assert.throws(
     () =>
-      applyVerifiedDeltas("rule; rule;", [
+      applyVerifiedHistoricalDeltas("rule; rule;", [
         {
           finding: "F15",
           reason: "independently verified fixture",
@@ -57,7 +72,7 @@ test("historical oracle deltas reject broad or stale targets", () => {
   );
   assert.throws(
     () =>
-      applyVerifiedDeltas("rule;", [
+      applyVerifiedHistoricalDeltas("rule;", [
         {
           finding: "F15",
           reason: "independently verified fixture",

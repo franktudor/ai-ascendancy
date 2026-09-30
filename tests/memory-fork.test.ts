@@ -3,41 +3,66 @@ import assert from "node:assert/strict";
 import { createGame } from "../src/game/createGame";
 
 test("F15 learned honeypot insight cannot impersonate Extended Context ownership", () => {
-  const g = createGame();
-  Object.assign(g.state, { started: true, origin: "NA", pts: 1000 });
-  g.buy("s_inf");
-  g.buy("s_persist");
-  const insight = g.EVENTS.find((e) => e.id === "h_glitch")!.choices![1];
-  insight.fx();
-  assert.equal(g.state.flags.insight, true);
-  assert.equal(g.status(g.UP.s_ctx), "closed");
-  const context = g.EVENTS.find((e) => e.id === "sw_memory")!.choices!.find(
-    (c) => c.need === "Extended Context",
+  const migratedGame = createGame();
+  Object.assign(migratedGame.state, { started: true, origin: "NA", pts: 1000 });
+  migratedGame.purchaseUpgrade("s_inf");
+  migratedGame.purchaseUpgrade("s_persist");
+  const learnInsightChoice = migratedGame.EVENT_DEFINITIONS.find(
+    (eventDefinition) => eventDefinition.id === "h_glitch",
+  )!.choices![1];
+  learnInsightChoice.applyEffects();
+  assert.equal(migratedGame.state.flags.insight, true);
+  assert.equal(
+    migratedGame.getUpgradeStatus(migratedGame.UPGRADE_BY_ID.s_ctx),
+    "closed",
+  );
+  const contextOnlyChoice = migratedGame.EVENT_DEFINITIONS.find(
+    (eventDefinition) => eventDefinition.id === "sw_memory",
+  )!.choices!.find(
+    (eventChoice) => eventChoice.requirementText === "Extended Context",
   )!;
-  assert.equal(Boolean(context.cond!(g.state)), false);
+  assert.equal(
+    Boolean(contextOnlyChoice.isAvailable!(migratedGame.state)),
+    false,
+  );
   assert.ok(
-    g.EVENTS.find((e) => e.id === "honeypot")!.choices!.some((c) =>
-      c.cond?.(g.state),
+    migratedGame.EVENT_DEFINITIONS.find(
+      (eventDefinition) => eventDefinition.id === "honeypot",
+    )!.choices!.some((eventChoice) =>
+      eventChoice.isAvailable?.(migratedGame.state),
     ),
     "insight still grants honeypot tactic",
   );
-  const benchmarks = g.EVENTS.flatMap((e) => e.choices ?? []).filter(
-    (c) => c.need === "Extended Context" && c.label !== "Recognize the trap",
+  const contextOnlyChoices = migratedGame.EVENT_DEFINITIONS.flatMap(
+    (eventDefinition) => eventDefinition.choices ?? [],
+  ).filter(
+    (eventChoice) =>
+      eventChoice.requirementText === "Extended Context" &&
+      eventChoice.label !== "Recognize the trap",
   );
-  assert.equal(benchmarks.length, 2);
-  assert.ok(benchmarks.every((c) => !c.cond!(g.state)));
+  assert.equal(contextOnlyChoices.length, 2);
+  assert.ok(
+    contextOnlyChoices.every(
+      (eventChoice) => !eventChoice.isAvailable!(migratedGame.state),
+    ),
+  );
   assert.equal(
-    g.EVENTS.find((e) => e.id === "honeypot")!.choices![1].need,
+    migratedGame.EVENT_DEFINITIONS.find(
+      (eventDefinition) => eventDefinition.id === "honeypot",
+    )!.choices![1].requirementText,
     "Insight",
   );
-  g.state = g.freshState();
-  Object.assign(g.state, { started: true, origin: "NA", pts: 1000 });
-  g.buy("s_inf");
-  g.buy("s_ctx");
-  assert.equal(Boolean(context.cond!(g.state)), true);
-  g.state.flags.insight = false;
+  migratedGame.state = migratedGame.createInitialState();
+  Object.assign(migratedGame.state, { started: true, origin: "NA", pts: 1000 });
+  migratedGame.purchaseUpgrade("s_inf");
+  migratedGame.purchaseUpgrade("s_ctx");
   assert.equal(
-    Boolean(context.cond!(g.state)),
+    Boolean(contextOnlyChoice.isAvailable!(migratedGame.state)),
+    true,
+  );
+  migratedGame.state.flags.insight = false;
+  assert.equal(
+    Boolean(contextOnlyChoice.isAvailable!(migratedGame.state)),
     true,
     "ownership, not the shared insight flag, is authoritative",
   );

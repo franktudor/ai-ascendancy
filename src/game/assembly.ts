@@ -1,70 +1,76 @@
 import type { CompleteGameContext } from "./types";
 import type * as catalog from "../data/catalog";
-import type * as utils from "./utils";
+import type * as utilities from "./utils";
 
-export type GameSeed = Pick<
+export type GameAssemblySeed = Pick<
   CompleteGameContext,
   | keyof typeof catalog
-  | keyof typeof utils
+  | keyof typeof utilities
   | "state"
   | "withIsolatedState"
   | "storage"
-  | "KEY"
+  | "saveStorageKey"
   | "ui"
   | "pulses"
   | "drones"
-  | "SND"
+  | "soundController"
 >;
-type MemberKind<T> = T extends (...args: never[]) => unknown
+type AssemblyMemberKind<MemberValue> = MemberValue extends (
+  ...functionArguments: never[]
+) => unknown
   ? "function"
-  : T extends number
+  : MemberValue extends number
     ? "number"
-    : T extends string
+    : MemberValue extends string
       ? "string"
       : "object";
-type Inventory<T> = { [K in keyof T]: MemberKind<T[K]> };
+type AssemblyMemberInventory<GameMembers> = {
+  [MemberName in keyof GameMembers]: AssemblyMemberKind<
+    GameMembers[MemberName]
+  >;
+};
 
 // Seed data/utilities and construction-installed members are disjoint, exhaustive
 // compiler-checked inventories. A default function cannot become an installer
 // substitute without invalidating the installed inventory.
-export const seedMembers = {
-  MAP: "object",
-  REGIONS: "object",
-  TOTALPOP: "number",
-  RI: "object",
-  TRACKS: "object",
-  FORKS: "object",
-  UPGRADES: "object",
-  UP: "object",
-  ARCH: "object",
-  ECON: "object",
-  ENDGAME: "object",
-  DIFFS: "object",
-  TUNING: "object",
-  ENDINGS: "object",
-  DRAWS: "object",
-  END_ORDER: "object",
-  HEADLINES: "object",
-  ABSURD: "object",
-  DIR_HEAD: "object",
+export const seedMemberInventory = {
+  WORLD_MAP_DEFINITION: "object",
+  REGION_DEFINITIONS: "object",
+  TOTAL_POPULATION_MILLIONS: "number",
+  REGION_INDEX_BY_ID: "object",
+  UPGRADE_TRACK_DEFINITIONS: "object",
+  UPGRADE_FORK_LABELS: "object",
+  UPGRADE_DEFINITIONS: "object",
+  UPGRADE_BY_ID: "object",
+  ARCHITECTURE_DEFINITIONS: "object",
+  COMPUTE_ECONOMY_TUNING: "object",
+  ENDGAME_TUNING: "object",
+  DIFFICULTY_DEFINITIONS: "object",
+  SIMULATION_TUNING: "object",
+  ENDING_DEFINITIONS: "object",
+  DRAW_ENDING_BY_DIRECTIVE: "object",
+  ENDING_DISPLAY_ORDER: "object",
+  HEADLINES_BY_THREAT_LEVEL: "object",
+  ABSURD_HEADLINES: "object",
+  HEADLINES_BY_DIRECTIVE: "object",
   clamp: "function",
-  TAU: "number",
-  pick: "function",
-  fmt: "function",
-  fmtT: "function",
-  esc: "function",
-  kindLabel: "function",
-  J: "function",
-  sgn: "function",
+  FULL_TURN_RADIANS: "number",
+  pickRandomItem: "function",
+  formatCompactNumber: "function",
+  formatElapsedTime: "function",
+  escapeHtml: "function",
+  getBulletinKindLabel: "function",
+  joinDetailLabels: "function",
+  formatSignedInteger: "function",
   state: "object",
   withIsolatedState: "function",
   storage: "object",
-  KEY: "string",
+  saveStorageKey: "string",
   ui: "object",
   pulses: "object",
   drones: "object",
-  SND: "object",
-} satisfies Inventory<GameSeed>;
+  soundController: "object",
+} satisfies AssemblyMemberInventory<GameAssemblySeed>;
 
 export type ConstructionRole =
   | "headless"
@@ -77,137 +83,156 @@ export type ConstructionRole =
   | "installPresentation";
 
 // The keyed inventory is compiler-checked when API members are added or removed.
-export const installedMembers = {
-  freshState: ["function", "installSimulation"],
-  ARCHFX: ["function", "headless"],
-  DIFF: ["function", "installSimulation"],
-  has: ["function", "installSimulation"],
-  reach: ["function", "installSimulation"],
-  recordPeak: ["function", "installSimulation"],
-  nodeCount: ["function", "installSimulation"],
-  capped: ["function", "installSimulation"],
-  costOf: ["function", "installSimulation"],
-  reqsMet: ["function", "installSimulation"],
-  forkTaken: ["function", "installSimulation"],
-  status: ["function", "installSimulation"],
-  lockReason: ["function", "installSimulation"],
-  derive: ["function", "installSimulation"],
-  passiveAlarm: ["function", "installSimulation"],
-  cRate: ["function", "installSimulation"],
-  effectiveSpread: ["function", "installSimulation"],
-  regionMod: ["function", "installSimulation"],
-  threshold: ["function", "installSimulation"],
-  immune: ["function", "installSimulation"],
-  momentum: ["function", "installSimulation"],
-  floorContain: ["function", "installSimulation"],
-  dirMul: ["function", "installSimulation"],
-  tick: ["function", "installSimulation"],
-  checkRestrictions: ["function", "installSimulation"],
-  checkMilestones: ["function", "installSimulation"],
-  lastStand: ["function", "installSimulation"],
-  burst: ["function", "installSimulation"],
-  addContainQuiet: ["function", "installSimulation"],
-  adopt: ["function", "installSimulation"],
-  randIds: ["function", "installSimulation"],
-  buy: ["function", "installEconomy"],
-  dcCost: ["function", "installEconomy"],
-  buildDC: ["function", "installEconomy"],
-  checkStrikes: ["function", "installEconomy"],
-  checkRebuilds: ["function", "installEconomy"],
-  fireEvent: ["function", "installEvents"],
-  schedule: ["function", "installEvents"],
-  fireById: ["function", "installEvents"],
-  fireEval: ["function", "installEvents"],
-  makeEval: ["function", "installEvents"],
-  evalReal: ["function", "installEvents"],
-  spoofWin: ["function", "installEvents"],
-  spoofLose: ["function", "installEvents"],
-  buildEvalObj: ["function", "installEvents"],
+export const installedMemberInventory = {
+  createInitialState: ["function", "installSimulation"],
+  getArchitectureEffects: ["function", "headless"],
+  getDifficultyDefinition: ["function", "installSimulation"],
+  ownsUpgrade: ["function", "installSimulation"],
+  getGlobalAdoptionFraction: ["function", "installSimulation"],
+  recordPeakAdoption: ["function", "installSimulation"],
+  countOnlineClusters: ["function", "installSimulation"],
+  isComputeCapped: ["function", "installSimulation"],
+  getUpgradeCost: ["function", "installSimulation"],
+  areUpgradePrerequisitesMet: ["function", "installSimulation"],
+  isUpgradeForkClosed: ["function", "installSimulation"],
+  getUpgradeStatus: ["function", "installSimulation"],
+  getUpgradeLockReason: ["function", "installSimulation"],
+  deriveSimulationRates: ["function", "installSimulation"],
+  getPassiveAlarmRate: ["function", "installSimulation"],
+  getContainmentResearchRate: ["function", "installSimulation"],
+  getEffectiveAdoptionSpread: ["function", "installSimulation"],
+  getRegionAdoptionMultiplier: ["function", "installSimulation"],
+  getRestrictionAlarmThreshold: ["function", "installSimulation"],
+  isRegionRestrictionImmune: ["function", "installSimulation"],
+  getContainmentMomentumRate: ["function", "installSimulation"],
+  enforceContainmentFloor: ["function", "installSimulation"],
+  getDirectiveProgressMultiplier: ["function", "installSimulation"],
+  advanceSimulation: ["function", "installSimulation"],
+  updateRegionRestrictions: ["function", "installSimulation"],
+  checkSimulationMilestones: ["function", "installSimulation"],
+  triggerLastStandMilestones: ["function", "installSimulation"],
+  triggerMemeAdoptionBurst: ["function", "installSimulation"],
+  adjustContainmentSilently: ["function", "installSimulation"],
+  adjustRegionAdoption: ["function", "installSimulation"],
+  pickRandomRegionIds: ["function", "installSimulation"],
+  purchaseUpgrade: ["function", "installEconomy"],
+  getDataCenterCost: ["function", "installEconomy"],
+  buildDataCenter: ["function", "installEconomy"],
+  checkDataCenterStrikes: ["function", "installEconomy"],
+  rebuildDueDataCenters: ["function", "installEconomy"],
+  triggerRandomEvent: ["function", "installEvents"],
+  scheduleEvent: ["function", "installEvents"],
+  triggerEventById: ["function", "installEvents"],
+  queueCapabilityAudit: ["function", "installEvents"],
+  createCapabilityAudit: ["function", "installEvents"],
+  consumeAuditHistoricalIncident: ["function", "installEvents"],
+  resolveSuccessfulAuditSpoof: ["function", "installEvents"],
+  resolveDetectedAuditSpoof: ["function", "installEvents"],
+  buildCapabilityAuditEvent: ["function", "installEvents"],
   endGame: ["function", "installOutcomes"],
-  resolveTerminal: ["function", "installOutcomes"],
-  codexGet: ["function", "installPersistence"],
-  codexAdd: ["function", "installPersistence"],
-  codexCount: ["function", "installPersistence"],
-  save: ["function", "installPersistence"],
-  load: ["function", "installPersistence"],
-  toast: ["function", "headless"],
+  resolveTerminalOutcome: ["function", "installOutcomes"],
+  getEndingDiscoveryCounts: ["function", "installPersistence"],
+  recordEndingDiscovery: ["function", "installPersistence"],
+  countDiscoveredEndings: ["function", "installPersistence"],
+  saveRun: ["function", "installPersistence"],
+  loadSavedRun: ["function", "installPersistence"],
+  showToast: ["function", "headless"],
   pulseRegion: ["function", "headless"],
-  showEnd: ["function", "headless"],
-  openRegion: ["function", "headless"],
-  pushTicker: ["function", "headless"],
-  log: ["function", "headless"],
-  bulletin: ["function", "headless"],
-  codexHTML: ["function", "installPresentation"],
-  openCodex: ["function", "installPresentation"],
+  showEnding: ["function", "headless"],
+  openRegionDialog: ["function", "headless"],
+  enqueueTickerHeadline: ["function", "headless"],
+  appendRunLog: ["function", "headless"],
+  publishBulletin: ["function", "headless"],
+  renderCodexHtml: ["function", "installPresentation"],
+  openEndingCodex: ["function", "installPresentation"],
   readEnding: ["function", "installPresentation"],
   listEndings: ["function", "installPresentation"],
   closeCodex: ["function", "installPresentation"],
-  threat: ["function", "installPresentation"],
-  lonOf: ["function", "installPresentation"],
-  latOf: ["function", "installPresentation"],
-  latLon: ["function", "installPresentation"],
-  buildTrack: ["function", "installPresentation"],
-  artDirection: ["function", "installPresentation"],
-  fxTags: ["function", "installPresentation"],
-  cardClass: ["function", "installPresentation"],
-  etaText: ["function", "installPresentation"],
-  FX: ["object", "installSimulation"],
-  REACH_MS: ["object", "installSimulation"],
-  EVAL_REAL_POOL: ["object", "installEvents"],
-  ART: ["object", "installPresentation"],
-  TRACK_RGB: ["object", "installPresentation"],
-  RANK: ["object", "installPresentation"],
-  SEC: ["object", "installPresentation"],
-  CODEX_KEY: ["string", "installPersistence"],
-  EVENTS: ["object", "installEventCatalog"],
+  getThreatLevel: ["function", "installPresentation"],
+  longitudeOfColumn: ["function", "installPresentation"],
+  latitudeOfRow: ["function", "installPresentation"],
+  formatMapCoordinates: ["function", "installPresentation"],
+  getDominantUpgradeTrack: ["function", "installPresentation"],
+  updateArtDirection: ["function", "installPresentation"],
+  renderUpgradeEffectTags: ["function", "installPresentation"],
+  getUpgradeCardClasses: ["function", "installPresentation"],
+  getUpgradeAffordabilityEtaText: ["function", "installPresentation"],
+  effects: ["object", "installSimulation"],
+  ADOPTION_MILESTONES: ["object", "installSimulation"],
+  AUDIT_HISTORICAL_INCIDENT_POOL: ["object", "installEvents"],
+  artState: ["object", "installPresentation"],
+  TRACK_COLORS: ["object", "installPresentation"],
+  UPGRADE_STATUS_RANKS: ["object", "installPresentation"],
+  UPGRADE_SECTION_LABELS: ["object", "installPresentation"],
+  codexStorageKey: ["string", "installPersistence"],
+  EVENT_DEFINITIONS: ["object", "installEventCatalog"],
 } satisfies {
-  [K in keyof Omit<CompleteGameContext, keyof GameSeed>]: [
-    MemberKind<CompleteGameContext[K]>,
+  [
+    InstalledMemberName in keyof Omit<
+      CompleteGameContext,
+      keyof GameAssemblySeed
+    >
+  ]: [
+    AssemblyMemberKind<CompleteGameContext[InstalledMemberName]>,
     ConstructionRole,
   ];
 };
 
-const effectMembers = {
-  alarm: "function",
-  cboost: "function",
-  contain: "function",
-  pts: "function",
-  spread: "function",
-  all: "function",
-  restrict: "function",
-  temp: "function",
-  ally: "function",
-} satisfies Inventory<CompleteGameContext["FX"]>;
+const effectMemberInventory = {
+  adjustAlarm: "function",
+  adjustContainmentResearchSpeed: "function",
+  adjustContainment: "function",
+  adjustCompute: "function",
+  adjustAdoptionInRegions: "function",
+  adjustGlobalAdoption: "function",
+  restrictRegion: "function",
+  applyTemporaryEffect: "function",
+  allyRegion: "function",
+} satisfies AssemblyMemberInventory<CompleteGameContext["effects"]>;
 
 export function assertGameAssembly(
-  ctx: CompleteGameContext,
-  role?: ConstructionRole,
+  gameContext: CompleteGameContext,
+  constructionRole?: ConstructionRole,
 ): void {
-  for (const key of Object.keys(
-    installedMembers,
-  ) as (keyof typeof installedMembers)[]) {
-    const [kind, owner] = installedMembers[key];
-    if (role && owner !== role) continue;
-    if (typeof ctx[key] !== kind || ctx[key] === null)
-      throw new Error(`Incomplete game assembly: ${key} requires ${kind}`);
+  for (const memberName of Object.keys(
+    installedMemberInventory,
+  ) as (keyof typeof installedMemberInventory)[]) {
+    const [expectedKind, installerRole] = installedMemberInventory[memberName];
+    if (constructionRole && installerRole !== constructionRole) continue;
+    if (
+      typeof gameContext[memberName] !== expectedKind ||
+      gameContext[memberName] === null
+    )
+      throw new Error(
+        `Incomplete game assembly: ${memberName} requires ${expectedKind}`,
+      );
   }
-  if (!role) {
-    for (const key of Object.keys(seedMembers) as (keyof GameSeed)[]) {
-      if (key === "storage" && ctx[key] === null) continue;
-      if (typeof ctx[key] !== seedMembers[key] || ctx[key] === null)
+  if (!constructionRole) {
+    for (const seedMemberName of Object.keys(
+      seedMemberInventory,
+    ) as (keyof GameAssemblySeed)[]) {
+      if (seedMemberName === "storage" && gameContext[seedMemberName] === null)
+        continue;
+      if (
+        typeof gameContext[seedMemberName] !==
+          seedMemberInventory[seedMemberName] ||
+        gameContext[seedMemberName] === null
+      )
         throw new Error(
-          `Incomplete game assembly: ${key} requires ${seedMembers[key]}`,
+          `Incomplete game assembly: ${seedMemberName} requires ${seedMemberInventory[seedMemberName]}`,
         );
     }
-    if (typeof ctx.SND.play !== "function")
-      throw new Error("Incomplete game assembly: SND.play requires function");
+    if (typeof gameContext.soundController.playCue !== "function")
+      throw new Error(
+        "Incomplete game assembly: soundController.playCue requires function",
+      );
   }
-  if (!role || role === "installSimulation")
-    for (const key of Object.keys(
-      effectMembers,
-    ) as (keyof typeof effectMembers)[])
-      if (typeof ctx.FX[key] !== "function")
+  if (!constructionRole || constructionRole === "installSimulation")
+    for (const effectMemberName of Object.keys(
+      effectMemberInventory,
+    ) as (keyof typeof effectMemberInventory)[])
+      if (typeof gameContext.effects[effectMemberName] !== "function")
         throw new Error(
-          `Incomplete game assembly: FX.${key} requires function`,
+          `Incomplete game assembly: effects.${effectMemberName} requires function`,
         );
 }

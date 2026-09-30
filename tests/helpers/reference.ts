@@ -1,8 +1,13 @@
 import { execFileSync } from "node:child_process";
-import vm from "node:vm";
+import virtualMachine from "node:vm";
 import assert from "node:assert/strict";
-import { applyVerifiedDeltas, verifiedDeltas } from "./reference-deltas";
+import {
+  applyVerifiedHistoricalDeltas,
+  verifiedDeltas,
+} from "./reference-deltas";
 import type { VerifiedDelta } from "./reference-deltas";
+import { adaptHistoricalReferencePort } from "./historical-naming";
+import type { HistoricalReferencePort } from "./historical-naming";
 import type {
   CompleteGameContext,
   GameState,
@@ -14,83 +19,92 @@ import type {
 export const original = execFileSync("git", ["show", "72c1ba9:index.html"], {
   maxBuffer: 10_000_000,
 }).toString("utf8");
-const start = original.indexOf("'use strict';");
-const script = applyVerifiedDeltas(
-  original.slice(start, original.indexOf("</script>", start)),
+const historicalScriptStartIndex = original.indexOf("'use strict';");
+const adjustedHistoricalScript = applyVerifiedHistoricalDeltas(
+  original.slice(
+    historicalScriptStartIndex,
+    original.indexOf("</script>", historicalScriptStartIndex),
+  ),
   verifiedDeltas,
 );
 export type ReferenceGame = Pick<
   CompleteGameContext,
   | "state"
   | "ui"
-  | "freshState"
-  | "tick"
-  | "derive"
-  | "costOf"
-  | "status"
-  | "lockReason"
-  | "UPGRADES"
-  | "UP"
-  | "EVENTS"
-  | "ENDINGS"
-  | "DRAWS"
-  | "REGIONS"
-  | "FX"
-  | "buy"
-  | "buildDC"
-  | "checkStrikes"
-  | "checkRebuilds"
+  | "createInitialState"
+  | "advanceSimulation"
+  | "deriveSimulationRates"
+  | "getUpgradeCost"
+  | "getUpgradeStatus"
+  | "getUpgradeLockReason"
+  | "UPGRADE_DEFINITIONS"
+  | "UPGRADE_BY_ID"
+  | "EVENT_DEFINITIONS"
+  | "ENDING_DEFINITIONS"
+  | "DRAW_ENDING_BY_DIRECTIVE"
+  | "REGION_DEFINITIONS"
+  | "effects"
+  | "purchaseUpgrade"
+  | "buildDataCenter"
+  | "checkDataCenterStrikes"
+  | "rebuildDueDataCenters"
   | "endGame"
-  | "makeEval"
-  | "fireEval"
-  | "fireEvent"
-  | "fireById"
-  | "schedule"
-  | "evalReal"
-  | "buildEvalObj"
-  | "reach"
-  | "log"
-  | "bulletin"
-  | "checkRestrictions"
-  | "checkMilestones"
-  | "burst"
+  | "createCapabilityAudit"
+  | "queueCapabilityAudit"
+  | "triggerRandomEvent"
+  | "triggerEventById"
+  | "scheduleEvent"
+  | "consumeAuditHistoricalIncident"
+  | "buildCapabilityAuditEvent"
+  | "getGlobalAdoptionFraction"
+  | "appendRunLog"
+  | "publishBulletin"
+  | "updateRegionRestrictions"
+  | "checkSimulationMilestones"
+  | "triggerMemeAdoptionBurst"
 > &
   Pick<
     RuntimeContext,
-    "startRun" | "previewChoice" | "showEvent" | "nextDecision"
+    "startRunInRegion" | "previewEventChoice" | "showEvent" | "nextDecision"
   >;
-export function seed(n = 42): () => number {
+export function createSeededRandom(randomState = 42): () => number {
   return () => {
-    n = (Math.imul(n, 1664525) + 1013904223) >>> 0;
-    return n / 4294967296;
+    randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+    return randomState / 4294967296;
   };
 }
-export function fixed<T>(
-  fn: () => T,
-  random: number | (() => number) = 0.999999,
-): T {
-  const keep = Math.random;
-  Math.random = typeof random === "number" ? () => random : random;
+export function withControlledRandom<OperationResultType>(
+  operation: () => OperationResultType,
+  randomSource: number | (() => number) = 0.999999,
+): OperationResultType {
+  const originalRandom = Math.random;
+  Math.random =
+    typeof randomSource === "number" ? () => randomSource : randomSource;
   try {
-    return fn();
+    return operation();
   } finally {
-    Math.random = keep;
+    Math.random = originalRandom;
   }
 }
-export function reference(deltas: readonly VerifiedDelta[] = verifiedDeltas) {
+export function createHistoricalReference(
+  historicalDeltas: readonly VerifiedDelta[] = verifiedDeltas,
+) {
   // Focused policy tests can select an explicit manifest or run the raw source.
   // Normal differential suites always use the complete verified manifest.
-  const activeScript =
-    deltas === verifiedDeltas
-      ? script
-      : applyVerifiedDeltas(
-          original.slice(start, original.indexOf("</script>", start)),
-          deltas,
+  const executableHistoricalScript =
+    historicalDeltas === verifiedDeltas
+      ? adjustedHistoricalScript
+      : applyVerifiedHistoricalDeltas(
+          original.slice(
+            historicalScriptStartIndex,
+            original.indexOf("</script>", historicalScriptStartIndex),
+          ),
+          historicalDeltas,
         );
-  const math = Object.create(Math) as Math;
-  math.random = seed();
-  const store = new Map<string, string>();
-  let observedGame: ReferenceGame | undefined;
+  const historicalMath = Object.create(Math) as Math;
+  historicalMath.random = createSeededRandom();
+  const storageValues = new Map<string, string>();
+  let observedHistoricalGame: ReferenceGame | undefined;
   // Minimal presentation ports let focused tests execute actual historical
   // boot/choice handlers. No rule/effect/log/news behavior lives in these ports.
   class ElementPort {
@@ -101,53 +115,58 @@ export function reference(deltas: readonly VerifiedDelta[] = verifiedDeltas) {
     children: ElementPort[] = [];
     onclick: (() => void) | null = null;
     classList = { toggle() {} };
-    private markup = "";
+    private innerHtmlMarkup = "";
     get innerHTML() {
-      return this.markup;
+      return this.innerHtmlMarkup;
     }
-    set innerHTML(value: string) {
-      this.markup = value;
+    set innerHTML(markupValue: string) {
+      this.innerHtmlMarkup = markupValue;
       this.children = [];
     }
-    appendChild(child: ElementPort) {
-      this.children.push(child);
+    appendChild(childElementPort: ElementPort) {
+      this.children.push(childElementPort);
     }
     setAttribute() {}
     getContext() {
       return {};
     }
   }
-  const elements = new Map<string, ElementPort>();
-  const element = (selector: string): ElementPort => {
-    let port = elements.get(selector);
-    if (!port) {
-      port = new ElementPort();
-      elements.set(selector, port);
+  const elementPortsBySelector = new Map<string, ElementPort>();
+  const getElementPort = (elementSelector: string): ElementPort => {
+    let elementPort = elementPortsBySelector.get(elementSelector);
+    if (!elementPort) {
+      elementPort = new ElementPort();
+      elementPortsBySelector.set(elementSelector, elementPort);
     }
-    return port;
+    return elementPort;
   };
-  const sandbox = {
+  const historicalSandbox = {
     // F18 independent measurement: use historical population/adoption data,
     // never the migrated reach/recordPeak implementation or a fixture setter.
     // Exact manifest call sites define the observations: adopt/burst before and
     // after, launch/start after seeding, and tick after the whole growth batch.
     observeAdoptionPeak() {
       assert.ok(
-        observedGame,
+        observedHistoricalGame,
         "historical API exists before gameplay observations",
       );
-      let population = 0,
-        adopted = 0;
-      for (const [i, region] of observedGame.REGIONS.entries()) {
-        population += region.pop;
-        adopted += observedGame.state.regions[i].a * region.pop;
+      let totalPopulationMillions = 0,
+        adoptedPopulationMillions = 0;
+      for (const [
+        regionIndex,
+        regionDefinition,
+      ] of observedHistoricalGame.REGION_DEFINITIONS.entries()) {
+        totalPopulationMillions += regionDefinition.populationMillions;
+        adoptedPopulationMillions +=
+          observedHistoricalGame.state.regions[regionIndex].a *
+          regionDefinition.populationMillions;
       }
-      observedGame.state.stats.peak = Math.max(
-        observedGame.state.stats.peak,
-        adopted / population,
+      observedHistoricalGame.state.stats.peak = Math.max(
+        observedHistoricalGame.state.stats.peak,
+        adoptedPopulationMillions / totalPopulationMillions,
       );
     },
-    Math: math,
+    Math: historicalMath,
     Date: class extends Date {
       static now() {
         return 1700000000000;
@@ -156,25 +175,29 @@ export function reference(deltas: readonly VerifiedDelta[] = verifiedDeltas) {
     performance: { now: () => 0 },
     matchMedia: () => ({ matches: true }),
     document: {
-      querySelector: element,
+      querySelector: getElementPort,
       createElement: () => new ElementPort(),
     },
     innerWidth: 1024,
     navigator: {},
     localStorage: {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => store.set(key, value),
+      getItem: (storageKey: string) => storageValues.get(storageKey) ?? null,
+      setItem: (storageKey: string, storageValue: string) =>
+        storageValues.set(storageKey, storageValue),
     },
     window: {},
     console,
   };
-  vm.createContext(sandbox);
-  const boundary = activeScript.indexOf(
+  virtualMachine.createContext(historicalSandbox);
+  const browserStartupBoundaryIndex = executableHistoricalScript.indexOf(
     "addEventListener('resize',setAppHeight);",
   );
-  assert.ok(boundary > 0, "historical browser startup boundary");
-  vm.runInContext(
-    activeScript.slice(0, boundary) +
+  assert.ok(
+    browserStartupBoundaryIndex > 0,
+    "historical browser startup boundary",
+  );
+  virtualMachine.runInContext(
+    executableHistoricalScript.slice(0, browserStartupBoundaryIndex) +
       `
 this.api={get state(){return S},set state(s){S=s},ui:UI,freshState,tick,derive,costOf,status,lockReason,UPGRADES,UP,EVENTS,ENDINGS,DRAWS,REGIONS,FX,buy,buildDC,checkStrikes,checkRebuilds,endGame,makeEval,fireEval,fireEvent,fireById,schedule,evalReal,buildEvalObj,reach,log,bulletin,checkRestrictions,checkMilestones,burst,startRun,previewChoice,showEvent,nextDecision};
 toast=interrupt=pulseRegion=showEnd=openRegion=openTree=()=>{};SND.play=()=>{};
@@ -182,59 +205,81 @@ toast=interrupt=pulseRegion=showEnd=openRegion=openTree=()=>{};SND.play=()=>{};
 // the actual historical bulletin, not transcribed log/news expectations.
 {const originalBulletin=bulletin;bulletin=(...args)=>{const was=UI.acting;UI.acting=false;try{return originalBulletin(...args);}finally{UI.acting=was;}};}
 `,
-    sandbox,
+    historicalSandbox,
   );
   // Only the explicitly exported historical VM port is asserted. Rule bodies,
   // bulletin/log/news, scheduler, audits and outcomes execute the actual source.
-  const game = (sandbox as typeof sandbox & { api: ReferenceGame }).api;
-  observedGame = game;
+  const historicalRulePort = (
+    historicalSandbox as typeof historicalSandbox & {
+      api: HistoricalReferencePort;
+    }
+  ).api;
+  const historicalGame: ReferenceGame =
+    adaptHistoricalReferencePort(historicalRulePort);
+  observedHistoricalGame = historicalGame;
   return {
-    game,
-    choice(index: number) {
-      const callback = element("#evChoices").children[index]?.onclick;
-      assert.ok(callback, `historical choice ${index} has a click handler`);
-      callback();
+    game: historicalGame,
+    historicalPort: historicalRulePort,
+    choice(choiceIndex: number) {
+      const choiceCallback =
+        getElementPort("#evChoices").children[choiceIndex]?.onclick;
+      assert.ok(
+        choiceCallback,
+        `historical choice ${choiceIndex} has a click handler`,
+      );
+      choiceCallback();
     },
     continueChoice() {
-      const callback = element("#evContinue").onclick;
-      assert.ok(callback, "historical Continue handler exists");
-      callback();
+      const continueChoiceCallback = getElementPort("#evContinue").onclick;
+      assert.ok(continueChoiceCallback, "historical Continue handler exists");
+      continueChoiceCallback();
     },
-    random(value: number | (() => number)) {
-      math.random = typeof value === "number" ? () => value : value;
+    random(randomSource: number | (() => number)) {
+      historicalMath.random =
+        typeof randomSource === "number" ? () => randomSource : randomSource;
     },
   };
 }
 // State has no functions. structuredClone is not used on Vue proxies.
-export function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+export function cloneSerializableValue<SerializableValueType>(
+  serializedValue: SerializableValueType,
+): SerializableValueType {
+  return JSON.parse(JSON.stringify(serializedValue)) as SerializableValueType;
 }
-export function configure<
-  G extends Pick<ReferenceGame, "state" | "freshState">,
+export function configureStartedRun<
+  GameType extends Pick<ReferenceGame, "state" | "createInitialState">,
 >(
-  game: G,
-  arch: ArchitectureId = "assistant",
-  diff: DifficultyId = "standard",
-): G {
-  game.state = game.freshState(diff, arch);
-  Object.assign(game.state, {
+  gameContext: GameType,
+  architectureId: ArchitectureId = "assistant",
+  difficultyId: DifficultyId = "standard",
+): GameType {
+  gameContext.state = gameContext.createInitialState(
+    difficultyId,
+    architectureId,
+  );
+  Object.assign(gameContext.state, {
     started: true,
     origin: "ME",
     pts: 100000,
     nextEv: 99999,
     nextEval: 99999,
   });
-  return game;
+  return gameContext;
 }
-export function snapshot(state: GameState) {
-  const { savedAt: _wallClockSave, ...out } = clone(state);
-  if (out.ended) out.ended.at = 1700000000000;
-  return out;
+export function snapshotComparableState(gameState: GameState) {
+  const { savedAt: _wallClockSaveTimestamp, ...comparableState } =
+    cloneSerializableValue(gameState);
+  if (comparableState.ended) comparableState.ended.at = 1700000000000;
+  return comparableState;
 }
-export function stateEqual(
-  actual: GameState,
-  expected: GameState,
-  label: string,
+export function assertGameStatesEqual(
+  actualState: GameState,
+  historicalState: GameState,
+  comparisonLabel: string,
 ): void {
-  assert.deepEqual(snapshot(actual), snapshot(expected), label);
+  assert.deepEqual(
+    snapshotComparableState(actualState),
+    snapshotComparableState(historicalState),
+    comparisonLabel,
+  );
 }

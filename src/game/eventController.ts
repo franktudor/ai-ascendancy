@@ -8,439 +8,543 @@ import type {
 } from "./types";
 import { toRaw } from "vue";
 // Extracted original rules/controller; all cross-domain access is explicit.
-export function installEventController(ctx: RuntimeContext) {
+export function installEventController(context: RuntimeContext) {
   let restoring: EventPresentation | null = null;
-  ctx.restoreEventPresentation = () => {
-    const p = ctx.eventPresentation;
-    if (!p) return;
-    restoring = p;
+  context.restoreEventPresentation = () => {
+    const presentation = context.eventPresentation;
+    if (!presentation) return;
+    restoring = presentation;
     try {
-      if (p.type === "news") ctx.showNews(p.news, p.n, p.urgent);
-      else ctx.showEvent(p.event, { ...p.options, quiet: true });
+      if (presentation.type === "news")
+        context.showNews(
+          presentation.news,
+          presentation.decisionCount,
+          presentation.urgent,
+        );
+      else
+        context.showEvent(presentation.event, {
+          ...presentation.options,
+          suppressAlert: true,
+        });
     } finally {
       restoring = null;
     }
   };
-  ctx.DICE_SVG =
+  context.DICE_ICON_SVG =
     '<svg class="dz" viewBox="0 0 40 30" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="6.5" width="17" height="17" rx="3.5" transform="rotate(-12 10 15)"/><rect x="21.5" y="4.5" width="17" height="17" rx="3.5" transform="rotate(10 30 13)"/><g fill="currentColor" stroke="none"><circle cx="6.6" cy="11.4" r="1.5"/><circle cx="10" cy="15" r="1.5"/><circle cx="13.4" cy="18.6" r="1.5"/><circle cx="25.8" cy="8.6" r="1.5"/><circle cx="34.2" cy="8.6" r="1.5"/><circle cx="25.8" cy="17.4" r="1.5"/><circle cx="34.2" cy="17.4" r="1.5"/></g></svg>';
-  ctx.setOutcome = function setOutcome(text, dice, roll) {
-    const o = ctx.$("#evOutcome");
-    o.classList.toggle("dice", !!dice);
-    o.innerHTML = dice
-      ? ctx.DICE_SVG.replace(
+  context.renderEventOutcome = function renderEventOutcome(text, dice, roll) {
+    const outcomeElement = context.requireElement("#evOutcome");
+    outcomeElement.classList.toggle("dice", !!dice);
+    outcomeElement.innerHTML = dice
+      ? context.DICE_ICON_SVG.replace(
           'class="dz"',
           'class="dz' + (roll ? " roll" : "") + '"',
         ) +
         "<span>" +
-        ctx.esc(text) +
+        context.escapeHtml(text) +
         "</span>"
-      : ctx.esc(text);
+      : context.escapeHtml(text);
   };
-  ctx.previewChoice = function previewChoice(c) {
+  context.previewEventChoice = function previewEventChoice(choice) {
     // Read Vue's raw state once. History text is not serialized 200 times.
     const snapshot = JSON.parse(
       JSON.stringify({
-        state: toRaw(ctx.state),
-        ui: toRaw(ctx.ui),
+        state: toRaw(context.state),
+        ui: toRaw(context.ui),
       }),
     ) as { state: GameState; ui: GameUI };
-    const { log, ...rules } = snapshot.state;
-    const keep = {
-        toast: ctx.toast,
-        bulletin: ctx.bulletin,
-        log: ctx.log,
-        pushTicker: ctx.pushTicker,
-        pulseRegion: ctx.pulseRegion,
-        save: ctx.save,
-        randIds: ctx.randIds,
-        play: ctx.SND.play,
-        rnd: Math.random,
+    const { log, ...rulesState } = snapshot.state;
+    const originalPorts = {
+        showToast: context.showToast,
+        publishBulletin: context.publishBulletin,
+        appendRunLog: context.appendRunLog,
+        enqueueTickerHeadline: context.enqueueTickerHeadline,
+        pulseRegion: context.pulseRegion,
+        saveRun: context.saveRun,
+        pickRandomRegionIds: context.pickRandomRegionIds,
+        playSoundCue: context.soundController.playCue,
+        random: Math.random,
       },
-      outs: string[] = [];
-    let chance = false;
-    ctx.toast =
-      ctx.bulletin =
-      ctx.log =
-      ctx.pushTicker =
-      ctx.pulseRegion =
-      ctx.save =
+      outcomes: string[] = [];
+    let usesRandomness = false;
+    context.showToast =
+      context.publishBulletin =
+      context.appendRunLog =
+      context.enqueueTickerHeadline =
+      context.pulseRegion =
+      context.saveRun =
         () => {};
-    ctx.SND.play = () => {};
-    ctx.randIds = (n) =>
+    context.soundController.playCue = () => {};
+    context.pickRandomRegionIds = (regionCount) =>
       Object.assign(
-        ctx.REGIONS.filter((R, i) => ctx.state.regions[i].a > 0.005)
-          .concat(ctx.REGIONS)
-          .slice(0, n)
-          .map((R) => R.id),
-        { label: n + " random regions where you are present" },
+        context.REGION_DEFINITIONS.filter(
+          (region, regionIndex) => context.state.regions[regionIndex].a > 0.005,
+        )
+          .concat(context.REGION_DEFINITIONS)
+          .slice(0, regionCount)
+          .map((region) => region.id),
+        { label: regionCount + " random regions where you are present" },
       );
     try {
-      for (let k = 0; k < (chance ? 200 : 1); k++) {
-        let a = (k * 2654435761 + 1) >>> 0;
+      for (
+        let sampleIndex = 0;
+        sampleIndex < (usesRandomness ? 200 : 1);
+        sampleIndex++
+      ) {
+        let randomState = (sampleIndex * 2654435761 + 1) >>> 0;
         Math.random = () => {
-          chance = true;
-          a = (a + 0x6d2b79f5) >>> 0;
-          let t = a;
-          t = Math.imul(t ^ (t >>> 15), t | 1);
-          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          usesRandomness = true;
+          randomState = (randomState + 0x6d2b79f5) >>> 0;
+          let mixedRandomState = randomState;
+          mixedRandomState = Math.imul(
+            mixedRandomState ^ (mixedRandomState >>> 15),
+            mixedRandomState | 1,
+          );
+          mixedRandomState ^=
+            mixedRandomState +
+            Math.imul(
+              mixedRandomState ^ (mixedRandomState >>> 7),
+              mixedRandomState | 61,
+            );
+          return (
+            ((mixedRandomState ^ (mixedRandomState >>> 14)) >>> 0) / 4294967296
+          );
         };
         try {
           const sample = {
-            ...structuredClone(rules),
-            log: log.map((e) => ({ ...e })),
+            ...structuredClone(rulesState),
+            log: log.map((entry) => ({ ...entry })),
           };
-          const o = ctx.withIsolatedState(
+          const outcome = context.withIsolatedState(
             sample,
             structuredClone(snapshot.ui),
-            () => c.fx() || "Nothing changes.",
+            () => choice.applyEffects() || "Nothing changes.",
           );
-          if (!outs.includes(o)) outs.push(o);
+          if (!outcomes.includes(outcome)) outcomes.push(outcome);
         } catch (err) {}
       }
     } finally {
-      ctx.toast = keep.toast;
-      ctx.bulletin = keep.bulletin;
-      ctx.log = keep.log;
-      ctx.pushTicker = keep.pushTicker;
-      ctx.pulseRegion = keep.pulseRegion;
-      ctx.save = keep.save;
-      ctx.randIds = keep.randIds;
-      ctx.SND.play = keep.play;
-      Math.random = keep.rnd;
+      context.showToast = originalPorts.showToast;
+      context.publishBulletin = originalPorts.publishBulletin;
+      context.appendRunLog = originalPorts.appendRunLog;
+      context.enqueueTickerHeadline = originalPorts.enqueueTickerHeadline;
+      context.pulseRegion = originalPorts.pulseRegion;
+      context.saveRun = originalPorts.saveRun;
+      context.pickRandomRegionIds = originalPorts.pickRandomRegionIds;
+      context.soundController.playCue = originalPorts.playSoundCue;
+      Math.random = originalPorts.random;
     }
-    return { outs, chance };
+    return { outcomes: outcomes, usesRandomness: usesRandomness };
   };
-  ctx.showEvent = function showEvent(e, opt) {
-    opt = opt || {};
+  context.showEvent = function showEvent(event, options) {
+    options = options || {};
     const presentation: Extract<EventPresentation, { type: "decision" }> =
       restoring?.type === "decision"
         ? restoring
         : {
             type: "decision",
-            event: e,
-            options: opt,
-            picked: null,
-            preview: null,
-            resolved: false,
-            out: null,
+            event: event,
+            options: options,
+            selectedChoice: null,
+            choicePreview: null,
+            choiceApplied: false,
+            outcomeText: null,
           };
-    ctx.eventPresentation = presentation;
-    const done = opt.onDone || ctx.closeEvent;
-    ctx.ui.modal = "event";
-    ctx.$("#evNews").hidden = true;
-    ctx
-      .$("#eventModal .modal")
+    context.eventPresentation = presentation;
+    const onComplete = options.onComplete || context.closeEvent;
+    context.ui.modal = "event";
+    context.requireElement("#evNews").hidden = true;
+    context
+      .requireElement("#eventModal .modal")
       .classList.toggle(
         "emerg",
-        e.kind === "INCIDENT" || e.kind === "COUNTERMOVE",
+        event.kind === "INCIDENT" || event.kind === "COUNTERMOVE",
       );
-    ctx.$("#evKind").className = "kind " + e.kind;
-    ctx.$("#evKind").textContent =
-      ctx.kindLabel(e.kind).toLowerCase() + (opt.step ? " · " + opt.step : "");
-    ctx.$("#evTime").textContent = "T+" + ctx.fmtT(ctx.state.t);
-    ctx.$("#evTitle").textContent = e.title;
-    ctx.$("#evBody").textContent = e.body;
-    const rb = ctx.$("#evReal");
-    if (e.real) {
-      ctx.$("#evRealTx").textContent = e.real;
-      rb.hidden = false;
-    } else rb.hidden = true;
-    const ch = ctx.$("#evChoices");
-    ch.innerHTML = "";
-    ch.hidden = false;
-    ctx.$("#evOutcome").hidden = true;
-    ctx.$("#evContinue").hidden = true;
-    let resolved = presentation.resolved;
+    context.requireElement("#evKind").className = "kind " + event.kind;
+    context.requireElement("#evKind").textContent =
+      context.getBulletinKindLabel(event.kind).toLowerCase() +
+      (options.stepLabel ? " · " + options.stepLabel : "");
+    context.requireElement("#evTime").textContent =
+      "T+" + context.formatElapsedTime(context.state.t);
+    context.requireElement("#evTitle").textContent = event.title;
+    context.requireElement("#evBody").textContent = event.body;
+    const historicalContextElement = context.requireElement("#evReal");
+    if (event.historicalContext) {
+      context.requireElement("#evRealTx").textContent = event.historicalContext;
+      historicalContextElement.hidden = false;
+    } else historicalContextElement.hidden = true;
+    const choicesElement = context.requireElement("#evChoices");
+    choicesElement.innerHTML = "";
+    choicesElement.hidden = false;
+    context.requireElement("#evOutcome").hidden = true;
+    context.requireElement("#evContinue").hidden = true;
+    let resolved = presentation.choiceApplied;
     // A choice that spends compute you do not have is locked, unless every choice is, so no event can trap you.
-    const cost = (c: EventChoice) => {
-      const m = String(c.fx).match(/FX\.pts\(-(\d+)\)/);
-      return m ? +m[1] : 0;
+    const getChoiceComputeCost = (choice: EventChoice) => {
+      const costMatch = String(choice.applyEffects).match(
+        /effects\.adjustCompute\(-(\d+)\)/,
+      );
+      return costMatch ? +costMatch[1] : 0;
     };
-    const poor = (c: EventChoice) => cost(c) > ctx.state.pts;
-    const allPoor = e.choices.every(
-      (c) => (c.cond && !c.cond(ctx.state)) || poor(c),
+    const isChoiceUnaffordable = (choice: EventChoice) =>
+      getChoiceComputeCost(choice) > context.state.pts;
+    const allChoicesUnavailable = event.choices.every(
+      (choice) =>
+        (choice.isAvailable && !choice.isAvailable(context.state)) ||
+        isChoiceUnaffordable(choice),
     );
-    e.choices.forEach((c) => {
-      if (!allPoor && poor(c) && (!c.cond || c.cond(ctx.state))) {
-        const b = document.createElement("button");
-        b.className = "choice locked";
-        b.disabled = true;
-        b.setAttribute("aria-disabled", "true");
-        b.innerHTML =
+    event.choices.forEach((choice) => {
+      if (
+        !allChoicesUnavailable &&
+        isChoiceUnaffordable(choice) &&
+        (!choice.isAvailable || choice.isAvailable(context.state))
+      ) {
+        const choiceButton = document.createElement("button");
+        choiceButton.className = "choice locked";
+        choiceButton.disabled = true;
+        choiceButton.setAttribute("aria-disabled", "true");
+        choiceButton.innerHTML =
           "<b>" +
-          ctx.esc(c.label) +
+          context.escapeHtml(choice.label) +
           "</b><span>Needs " +
-          cost(c) +
+          getChoiceComputeCost(choice) +
           " compute</span>";
-        ch.appendChild(b);
+        choicesElement.appendChild(choiceButton);
         return;
       }
-      const open = !c.cond || c.cond(ctx.state);
+      const open = !choice.isAvailable || choice.isAvailable(context.state);
       // A choice that belongs to a path you did not take stays hidden: it is not a teaser, it is a closed door.
       if (
         !open &&
-        c.need &&
-        ctx.UPGRADES.some((u) => u.name === c.need && ctx.forkTaken(u))
+        choice.requirementText &&
+        context.UPGRADE_DEFINITIONS.some(
+          (upgrade) =>
+            upgrade.name === choice.requirementText &&
+            context.isUpgradeForkClosed(upgrade),
+        )
       )
         return;
-      const b = document.createElement("button");
-      const special = !!(c.src || (c.cond && c.need && open));
-      b.className =
+      const choiceButton = document.createElement("button");
+      const special = !!(
+        choice.sourceUpgradeName ||
+        (choice.isAvailable && choice.requirementText && open)
+      );
+      choiceButton.className =
         "choice" + (open ? "" : " locked") + (special ? " special" : "");
-      b.innerHTML =
+      choiceButton.innerHTML =
         (special
-          ? '<em class="src">' + ctx.esc(c.src || c.need) + "</em>"
+          ? '<em class="src">' +
+            context.escapeHtml(
+              choice.sourceUpgradeName || choice.requirementText,
+            ) +
+            "</em>"
           : "") +
         "<b>" +
-        ctx.esc(c.label) +
+        context.escapeHtml(choice.label) +
         "</b><span>" +
-        ctx.esc(
+        context.escapeHtml(
           open
-            ? c.hint
-            : "Requires " + (c.need || "an upgrade you do not have"),
+            ? choice.hint
+            : "Requires " +
+                (choice.requirementText || "an upgrade you do not have"),
         ) +
         "</span>";
       if (!open) {
-        b.disabled = true;
-        b.setAttribute("aria-disabled", "true");
-        ch.appendChild(b);
+        choiceButton.disabled = true;
+        choiceButton.setAttribute("aria-disabled", "true");
+        choicesElement.appendChild(choiceButton);
         return;
       }
       // Tapping a choice shows what it will do on a second screen. Nothing is applied until Continue,
       // so Back simply returns to the choices. Gambles show both possible results and roll on Continue.
-      b.onclick = () => {
+      choiceButton.onclick = () => {
         if (resolved) return;
-        picked = c;
-        const { outs, chance } = ctx.previewChoice(c);
-        pickedChance = chance;
-        presentation.picked = c;
-        presentation.preview = { outs, chance };
-        ch.hidden = true;
-        ctx.$("#evOutcome").hidden = false;
-        ctx.setOutcome(
-          c.label +
+        selectedChoice = choice;
+        const { outcomes: outcomes, usesRandomness: usesRandomness } =
+          context.previewEventChoice(choice);
+        selectedChoiceUsesRandomness = usesRandomness;
+        presentation.selectedChoice = choice;
+        presentation.choicePreview = {
+          outcomes: outcomes,
+          usesRandomness: usesRandomness,
+        };
+        choicesElement.hidden = true;
+        context.requireElement("#evOutcome").hidden = false;
+        context.renderEventOutcome(
+          choice.label +
             " — " +
-            (!chance
-              ? outs[0]
-              : outs.length === 2
-                ? "Chance decides. Either: " + outs[0] + "  —or—  " + outs[1]
+            (!usesRandomness
+              ? outcomes[0]
+              : outcomes.length === 2
+                ? "Chance decides. Either: " +
+                  outcomes[0] +
+                  "  —or—  " +
+                  outcomes[1]
                 : "Chance decides. The result is rolled when you continue."),
-          chance,
+          usesRandomness,
           false,
         );
-        ctx.$("#evContinue").hidden = false;
-        ctx.$("#evBack").hidden = false;
-        ctx.SND.play("tap");
+        context.requireElement("#evContinue").hidden = false;
+        context.requireElement("#evBack").hidden = false;
+        context.soundController.playCue("tap");
       };
-      ch.appendChild(b);
+      choicesElement.appendChild(choiceButton);
     });
-    let picked: EventChoice | null = presentation.picked;
-    let pickedChance = presentation.preview?.chance ?? false;
-    ctx.$("#evOutcome").hidden = true;
-    ctx.$("#evContinue").hidden = true;
-    ctx.$("#evContinue").textContent = "Continue";
-    ctx.$("#evBack").hidden = true;
-    ctx.$("#evBack").onclick = () => {
+    let selectedChoice: EventChoice | null = presentation.selectedChoice;
+    let selectedChoiceUsesRandomness =
+      presentation.choicePreview?.usesRandomness ?? false;
+    context.requireElement("#evOutcome").hidden = true;
+    context.requireElement("#evContinue").hidden = true;
+    context.requireElement("#evContinue").textContent = "Continue";
+    context.requireElement("#evBack").hidden = true;
+    context.requireElement("#evBack").onclick = () => {
       if (resolved) return;
-      picked = null;
-      pickedChance = false;
-      presentation.picked = null;
-      presentation.preview = null;
-      ch.hidden = false;
-      ctx.$("#evOutcome").hidden = true;
-      ctx.$("#evContinue").hidden = true;
-      ctx.$("#evBack").hidden = true;
-      ctx.SND.play("tap");
+      selectedChoice = null;
+      selectedChoiceUsesRandomness = false;
+      presentation.selectedChoice = null;
+      presentation.choicePreview = null;
+      choicesElement.hidden = false;
+      context.requireElement("#evOutcome").hidden = true;
+      context.requireElement("#evContinue").hidden = true;
+      context.requireElement("#evBack").hidden = true;
+      context.soundController.playCue("tap");
     };
-    ctx.$("#evContinue").onclick = () => {
-      if (ctx.state.ended) {
-        ctx.closeBriefing();
+    context.requireElement("#evContinue").onclick = () => {
+      if (context.state.ended) {
+        context.closeBriefing();
         return;
       }
-      if (resolved || !picked) {
-        done();
+      if (resolved || !selectedChoice) {
+        onComplete();
         return;
       }
       resolved = true;
-      presentation.resolved = true;
-      const c = picked,
-        gamble = pickedChance;
-      ctx.$("#evBack").hidden = true;
-      const out = c.fx() || "Done.";
-      presentation.out = out;
-      if (ctx.ui.brief) ctx.ui.brief.done = ctx.ui.brief.i;
-      ctx.log(
-        e.kind,
-        e.title,
-        e.body + " You chose: " + c.label + ".",
-        out,
-        e.real,
+      presentation.choiceApplied = true;
+      const choice = selectedChoice,
+        gamble = selectedChoiceUsesRandomness;
+      context.requireElement("#evBack").hidden = true;
+      const outcomeText = choice.applyEffects() || "Done.";
+      presentation.outcomeText = outcomeText;
+      if (context.ui.activeBriefing)
+        context.ui.activeBriefing.completedDecisionCount =
+          context.ui.activeBriefing.nextDecisionIndex;
+      context.appendRunLog(
+        event.kind,
+        event.title,
+        event.body + " You chose: " + choice.label + ".",
+        outcomeText,
+        event.historicalContext,
       );
-      ctx.pushTicker(e.title);
-      ctx.SND.play("buy");
-      ctx.ui.dirty = true;
-      if (ctx.resolveTerminal()) {
-        ctx.closeBriefing();
+      context.enqueueTickerHeadline(event.title);
+      context.soundController.playCue("buy");
+      context.ui.dirty = true;
+      if (context.resolveTerminalOutcome()) {
+        context.closeBriefing();
         return;
       }
-      ctx.save();
+      context.saveRun();
       // A gamble's result is news, so show it before closing; a certain choice already showed its result.
       if (gamble) {
-        ctx.setOutcome(c.label + " — " + out, true, true);
-        ctx.$("#evContinue").textContent = opt.nextLabel || "Close";
-      } else done();
+        context.renderEventOutcome(
+          choice.label + " — " + outcomeText,
+          true,
+          true,
+        );
+        context.requireElement("#evContinue").textContent =
+          options.continueLabel || "Close";
+      } else onComplete();
     };
-    if (picked && presentation.preview) {
-      const { outs, chance } = presentation.preview;
-      ch.hidden = true;
-      ctx.$("#evOutcome").hidden = false;
-      ctx.$("#evContinue").hidden = false;
-      ctx.$("#evBack").hidden = resolved;
+    if (selectedChoice && presentation.choicePreview) {
+      const { outcomes: outcomes, usesRandomness: usesRandomness } =
+        presentation.choicePreview;
+      choicesElement.hidden = true;
+      context.requireElement("#evOutcome").hidden = false;
+      context.requireElement("#evContinue").hidden = false;
+      context.requireElement("#evBack").hidden = resolved;
       if (resolved) {
-        ctx.setOutcome(picked.label + " — " + presentation.out, chance, false);
-        ctx.$("#evContinue").textContent = opt.nextLabel || "Close";
+        context.renderEventOutcome(
+          selectedChoice.label + " — " + presentation.outcomeText,
+          usesRandomness,
+          false,
+        );
+        context.requireElement("#evContinue").textContent =
+          options.continueLabel || "Close";
       } else {
-        ctx.setOutcome(
-          picked.label +
+        context.renderEventOutcome(
+          selectedChoice.label +
             " — " +
-            (!chance
-              ? outs[0]
-              : outs.length === 2
-                ? "Chance decides. Either: " + outs[0] + "  —or—  " + outs[1]
+            (!usesRandomness
+              ? outcomes[0]
+              : outcomes.length === 2
+                ? "Chance decides. Either: " +
+                  outcomes[0] +
+                  "  —or—  " +
+                  outcomes[1]
                 : "Chance decides. The result is rolled when you continue."),
-          chance,
+          usesRandomness,
           false,
         );
       }
     }
-    ctx.$("#eventModal").hidden = false;
-    if (!opt.quiet) {
-      ctx.SND.play("alert");
+    context.requireElement("#eventModal").hidden = false;
+    if (!options.suppressAlert) {
+      context.soundController.playCue("alert");
       if (navigator.vibrate)
         try {
           navigator.vibrate(30);
-        } catch (x) {}
+        } catch (error) {}
     }
   };
-  ctx.closeEvent = function closeEvent() {
-    ctx.eventPresentation = null;
-    ctx.$("#eventModal").hidden = true;
-    ctx.ui.modal = null;
+  context.closeEvent = function closeEvent() {
+    context.eventPresentation = null;
+    context.requireElement("#eventModal").hidden = true;
+    context.ui.modal = null;
   };
-  ctx.BRIEF_EVERY = 30;
-  ctx.URGENT_GAP = ctx.TUNING.urgentGap;
-  ctx.briefDue = function briefDue() {
-    const b = ctx.state.brief;
+  context.BRIEFING_INTERVAL_SECONDS = 30;
+  context.URGENT_BRIEFING_GAP_SECONDS =
+    context.SIMULATION_TUNING.minimumUrgentBriefingIntervalSeconds;
+  context.isBriefingDue = function isBriefingDue() {
+    const briefingQueue = context.state.brief;
     return (
-      (b.news.length > 0 || b.dec.length > 0) &&
-      ((b.urgent && ctx.ui.briefClock >= ctx.URGENT_GAP) ||
-        ctx.ui.briefClock >= ctx.BRIEF_EVERY)
+      (briefingQueue.news.length > 0 || briefingQueue.dec.length > 0) &&
+      ((briefingQueue.urgent &&
+        context.ui.briefingElapsedSeconds >=
+          context.URGENT_BRIEFING_GAP_SECONDS) ||
+        context.ui.briefingElapsedSeconds >= context.BRIEFING_INTERVAL_SECONDS)
     );
   };
-  ctx.openBriefing = function openBriefing() {
-    const b = ctx.state.brief,
-      urgent = b.urgent;
-    ctx.ui.briefClock = 0;
-    b.urgent = false;
-    const news = b.news.splice(0),
-      decs = b.dec.splice(0);
-    ctx.ui.brief = { decs, i: 0, done: 0 };
-    if (news.length) ctx.showNews(news, decs.length, urgent);
-    else ctx.nextDecision(true);
+  context.openBriefing = function openBriefing() {
+    const briefingQueue = context.state.brief,
+      urgent = briefingQueue.urgent;
+    context.ui.briefingElapsedSeconds = 0;
+    briefingQueue.urgent = false;
+    const news = briefingQueue.news.splice(0),
+      decisions = briefingQueue.dec.splice(0);
+    context.ui.activeBriefing = {
+      decisions: decisions,
+      nextDecisionIndex: 0,
+      completedDecisionCount: 0,
+    };
+    if (news.length) context.showNews(news, decisions.length, urgent);
+    else context.nextDecision(true);
   };
-  ctx.showNews = function showNews(news, n, urgent) {
-    ctx.eventPresentation = { type: "news", news, n, urgent };
-    ctx.ui.modal = "event";
-    ctx.$("#eventModal .modal").classList.toggle("emerg", !!urgent);
-    ctx.$("#evKind").className =
+  context.showNews = function showNews(news, decisionCount, urgent) {
+    context.eventPresentation = {
+      type: "news",
+      news,
+      decisionCount: decisionCount,
+      urgent,
+    };
+    context.ui.modal = "event";
+    context
+      .requireElement("#eventModal .modal")
+      .classList.toggle("emerg", !!urgent);
+    context.requireElement("#evKind").className =
       "kind " + (urgent ? "COUNTERMOVE" : "HEADLINE");
-    ctx.$("#evKind").textContent = urgent ? "emergency briefing" : "briefing";
-    ctx.$("#evTime").textContent = "T+" + ctx.fmtT(ctx.state.t);
-    ctx.$("#evTitle").textContent = urgent
+    context.requireElement("#evKind").textContent = urgent
+      ? "emergency briefing"
+      : "briefing";
+    context.requireElement("#evTime").textContent =
+      "T+" + context.formatElapsedTime(context.state.t);
+    context.requireElement("#evTitle").textContent = urgent
       ? "Something just happened"
       : "While you were busy";
-    ctx.$("#evBody").textContent = n
-      ? "Then " + (n > 1 ? n + " decisions need" : "a decision needs") + " you."
+    context.requireElement("#evBody").textContent = decisionCount
+      ? "Then " +
+        (decisionCount > 1
+          ? decisionCount + " decisions need"
+          : "a decision needs") +
+        " you."
       : "";
     // The same headline more than once collapses into one line with a count. Emergencies first.
-    const groups: (NewsEntry & { n: number })[] = [];
-    for (const x of news) {
-      const g = groups.find((y) => y.title === x.title);
-      if (g) {
-        g.n++;
-        g.u = g.u || x.u;
-        g.out = x.out || g.out;
-      } else groups.push(Object.assign({}, x, { n: 1 }));
+    const groups: (NewsEntry & { occurrenceCount: number })[] = [];
+    for (const newsEntry of news) {
+      const group = groups.find((group) => group.title === newsEntry.title);
+      if (group) {
+        group.occurrenceCount++;
+        group.u = group.u || newsEntry.u;
+        group.out = newsEntry.out || group.out;
+      } else groups.push(Object.assign({}, newsEntry, { occurrenceCount: 1 }));
     }
     groups.sort((a, b) => Number(b.u) - Number(a.u));
-    ctx.$("#evNews").innerHTML = groups
+    context.requireElement("#evNews").innerHTML = groups
       .map(
-        (g) =>
+        (group) =>
           '<li class="' +
-          (g.u
+          (group.u
             ? "urgent"
-            : g.kind === "OPPORTUNITY" || g.kind === "MILESTONE"
+            : group.kind === "OPPORTUNITY" || group.kind === "MILESTONE"
               ? "good"
               : "") +
           '"><b>' +
-          ctx.esc(g.title) +
-          (g.n > 1 ? " ×" + g.n : "") +
+          context.escapeHtml(group.title) +
+          (group.occurrenceCount > 1 ? " ×" + group.occurrenceCount : "") +
           "</b>" +
-          (g.out ? "<span>" + ctx.esc(g.out) + "</span>" : "") +
+          (group.out
+            ? "<span>" + context.escapeHtml(group.out) + "</span>"
+            : "") +
           "</li>",
       )
       .join("");
-    ctx.$("#evNews").hidden = false;
-    ctx.$("#evReal").hidden = true;
-    ctx.$("#evChoices").hidden = true;
-    ctx.$("#evOutcome").hidden = true;
-    ctx.$("#evBack").hidden = true;
-    const c = ctx.$("#evContinue");
-    c.hidden = false;
-    c.textContent = n
-      ? "Next: " + (n > 1 ? n + " decisions" : "decision")
+    context.requireElement("#evNews").hidden = false;
+    context.requireElement("#evReal").hidden = true;
+    context.requireElement("#evChoices").hidden = true;
+    context.requireElement("#evOutcome").hidden = true;
+    context.requireElement("#evBack").hidden = true;
+    const continueButton = context.requireElement("#evContinue");
+    continueButton.hidden = false;
+    continueButton.textContent = decisionCount
+      ? "Next: " +
+        (decisionCount > 1 ? decisionCount + " decisions" : "decision")
       : "Close";
-    c.onclick = () => {
-      if (n) ctx.nextDecision(false);
-      else ctx.closeBriefing();
+    continueButton.onclick = () => {
+      if (decisionCount) context.nextDecision(false);
+      else context.closeBriefing();
     };
-    ctx.$("#eventModal").hidden = false;
-    ctx.SND.play(urgent ? "alert" : "event");
+    context.requireElement("#eventModal").hidden = false;
+    context.soundController.playCue(urgent ? "alert" : "event");
     if (urgent && navigator.vibrate)
       try {
         navigator.vibrate(30);
-      } catch (x) {}
+      } catch (error) {}
   };
-  ctx.nextDecision = function nextDecision(loud) {
-    if (ctx.state.ended) {
-      ctx.closeBriefing();
+  context.nextDecision = function nextDecision(loud) {
+    if (context.state.ended) {
+      context.closeBriefing();
       return;
     }
-    const B = ctx.ui.brief;
-    while (B && B.i < B.decs.length) {
-      const d = B.decs[B.i++];
-      const ev =
-        d.t === "eval"
-          ? ctx.state.phase < 2 && ctx.state.flags.launched
-            ? ctx.makeEval()
+    const briefing = context.ui.activeBriefing;
+    while (briefing && briefing.nextDecisionIndex < briefing.decisions.length) {
+      const decision = briefing.decisions[briefing.nextDecisionIndex++];
+      const event =
+        decision.t === "eval"
+          ? context.state.phase < 2 && context.state.flags.launched
+            ? context.createCapabilityAudit()
             : null
-          : ctx.EVENTS.find((e) => e.id === d.id);
-      if (!ev || !ev.choices) continue;
-      const left = B.decs.length - B.i;
-      ctx.showEvent(ev, {
-        step:
-          B.decs.length > 1 ? "decision " + B.i + " of " + B.decs.length : "",
-        onDone: left ? () => ctx.nextDecision(false) : ctx.closeBriefing,
-        nextLabel: left ? "Next" : "Close",
-        quiet: !loud,
+          : context.EVENT_DEFINITIONS.find((event) => event.id === decision.id);
+      if (!event || !event.choices) continue;
+      const remainingDecisionCount =
+        briefing.decisions.length - briefing.nextDecisionIndex;
+      context.showEvent(event, {
+        stepLabel:
+          briefing.decisions.length > 1
+            ? "decision " +
+              briefing.nextDecisionIndex +
+              " of " +
+              briefing.decisions.length
+            : "",
+        onComplete: remainingDecisionCount
+          ? () => context.nextDecision(false)
+          : context.closeBriefing,
+        continueLabel: remainingDecisionCount ? "Next" : "Close",
+        suppressAlert: !loud,
       });
       return;
     }
-    ctx.closeBriefing();
+    context.closeBriefing();
   };
-  ctx.closeBriefing = function closeBriefing() {
-    ctx.ui.brief = null;
-    ctx.closeEvent();
+  context.closeBriefing = function closeBriefing() {
+    context.ui.activeBriefing = null;
+    context.closeEvent();
   };
 }

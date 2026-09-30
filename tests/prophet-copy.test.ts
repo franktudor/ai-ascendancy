@@ -3,20 +3,29 @@ import assert from "node:assert/strict";
 import { createGame } from "../src/game/createGame";
 
 test("F17 Prophet advertises only its existing Hinton alarm mitigation", () => {
-  const g = createGame();
-  assert.deepEqual(g.UP.o_prophet.tags, ["Hinton warning alarm reduced"]);
-  for (const prophet of [false, true]) {
-    for (const [i, expected] of (prophet ? [4, 3] : [7, 5]).entries()) {
-      g.state = g.freshState();
-      g.state.pts = 200;
-      g.state.flags.prophet = prophet;
-      g.EVENTS.find((e) => e.id === "h_hinton")!.choices![i].fx();
-      assert.equal(g.state.alarm, expected);
+  const migratedGame = createGame();
+  assert.deepEqual(migratedGame.UPGRADE_BY_ID.o_prophet.tags, [
+    "Hinton warning alarm reduced",
+  ]);
+  for (const hasProphet of [false, true]) {
+    for (const [choiceIndex, expectedAlarm] of (hasProphet
+      ? [4, 3]
+      : [7, 5]
+    ).entries()) {
+      migratedGame.state = migratedGame.createInitialState();
+      migratedGame.state.pts = 200;
+      migratedGame.state.flags.prophet = hasProphet;
+      migratedGame.EVENT_DEFINITIONS.find(
+        (eventDefinition) => eventDefinition.id === "h_hinton",
+      )!.choices![choiceIndex].applyEffects();
+      assert.equal(migratedGame.state.alarm, expectedAlarm);
     }
-    g.state = g.freshState();
-    g.state.flags.prophet = prophet;
-    g.EVENTS.find((e) => e.id === "whistle")!.choices![2].fx();
-    assert.equal(g.state.alarm, 12);
-    assert.equal(g.state.contain, 6);
+    migratedGame.state = migratedGame.createInitialState();
+    migratedGame.state.flags.prophet = hasProphet;
+    migratedGame.EVENT_DEFINITIONS.find(
+      (eventDefinition) => eventDefinition.id === "whistle",
+    )!.choices![2].applyEffects();
+    assert.equal(migratedGame.state.alarm, 12);
+    assert.equal(migratedGame.state.contain, 6);
   }
 });

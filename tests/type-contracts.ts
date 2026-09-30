@@ -3,7 +3,7 @@
 // directives: widening a domain/API to `any` or `string` fails this file.
 import type { InjectionKey } from "vue";
 import type { createGame } from "../src/game/createGame";
-import type { gameKey } from "../src/game/injection";
+import type { gameContextInjectionKey } from "../src/game/injection";
 import type { mountRuntime } from "../src/game/runtime";
 import type { createLifecycle } from "../src/game/lifecycle";
 import type {
@@ -20,72 +20,140 @@ import type {
   Lifecycle,
 } from "../src/game/types";
 
-type Assert<T extends true> = T;
-type Equal<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+type AssertTrueContract<ContractType extends true> = ContractType;
+type AreTypesEqual<ActualType, ExpectedType> =
+  (<ComparedType>() => ComparedType extends ActualType ? 1 : 2) extends <
+    ComparedType,
+  >() => ComparedType extends ExpectedType ? 1 : 2
     ? true
     : false;
-type IsAny<T> = 0 extends 1 & T ? true : false;
-type NotAny<T> = IsAny<T> extends false ? true : false;
-type DoesNotAccept<T, Invalid> = Invalid extends T ? false : true;
-type FunctionMembersSafe<T> = {
-  [K in keyof T]-?: T[K] extends (...args: infer A) => infer R
-    ? NotAny<R> extends true
-      ? { [I in keyof A]-?: NotAny<A[I]> }[number] extends true
+type IsUntypedEscape<ContractType> = 0 extends 1 & ContractType ? true : false;
+type IsTypedValue<ContractType> =
+  IsUntypedEscape<ContractType> extends false ? true : false;
+type RejectsInvalidType<ContractType, InvalidType> =
+  InvalidType extends ContractType ? false : true;
+type AreFunctionMembersTyped<ContractType> = {
+  [MemberKey in keyof ContractType]-?: ContractType[MemberKey] extends (
+    ...functionArguments: infer ArgumentTypes
+  ) => infer ReturnValueType
+    ? IsTypedValue<ReturnValueType> extends true
+      ? {
+          [ArgumentIndex in keyof ArgumentTypes]-?: IsTypedValue<
+            ArgumentTypes[ArgumentIndex]
+          >;
+        }[number] extends true
         ? true
         : false
       : false
-    : NotAny<T[K]>;
-}[keyof T];
+    : IsTypedValue<ContractType[MemberKey]>;
+}[keyof ContractType];
 
 export type TypeContracts = [
-  Assert<Equal<ReturnType<typeof createGame>, CompleteGameContext>>,
-  Assert<Equal<ReturnType<typeof mountRuntime>, () => void>>,
-  Assert<Equal<ReturnType<typeof createLifecycle>, Lifecycle>>,
-  Assert<Equal<typeof gameKey, InjectionKey<RuntimeContext>>>,
-  Assert<NotAny<GameState>>,
-  Assert<NotAny<GameState["flags"]>>,
-  Assert<NotAny<CompleteGameContext["UP"][UpgradeId]>>,
-  Assert<NotAny<EventDefinition>>,
-  Assert<NotAny<Effects>>,
-  Assert<FunctionMembersSafe<Effects>>,
-  Assert<Equal<Parameters<Effects["pts"]>, [number]>>,
-  Assert<Equal<ReturnType<Effects["pts"]>, string>>,
-  Assert<FunctionMembersSafe<CompleteGameContext>>,
-  Assert<NotAny<Parameters<RuntimeContext["SND"]["play"]>[0]>>,
-  Assert<
-    Equal<
+  AssertTrueContract<
+    AreTypesEqual<ReturnType<typeof createGame>, CompleteGameContext>
+  >,
+  AssertTrueContract<
+    AreTypesEqual<ReturnType<typeof mountRuntime>, () => void>
+  >,
+  AssertTrueContract<
+    AreTypesEqual<ReturnType<typeof createLifecycle>, Lifecycle>
+  >,
+  AssertTrueContract<
+    AreTypesEqual<typeof gameContextInjectionKey, InjectionKey<RuntimeContext>>
+  >,
+  AssertTrueContract<IsTypedValue<GameState>>,
+  AssertTrueContract<IsTypedValue<GameState["flags"]>>,
+  AssertTrueContract<
+    IsTypedValue<CompleteGameContext["UPGRADE_BY_ID"][UpgradeId]>
+  >,
+  AssertTrueContract<IsTypedValue<EventDefinition>>,
+  AssertTrueContract<IsTypedValue<Effects>>,
+  AssertTrueContract<AreFunctionMembersTyped<Effects>>,
+  AssertTrueContract<
+    AreTypesEqual<Parameters<Effects["adjustCompute"]>, [number]>
+  >,
+  AssertTrueContract<
+    AreTypesEqual<ReturnType<Effects["adjustCompute"]>, string>
+  >,
+  AssertTrueContract<AreFunctionMembersTyped<CompleteGameContext>>,
+  AssertTrueContract<
+    IsTypedValue<Parameters<RuntimeContext["soundController"]["playCue"]>[0]>
+  >,
+  AssertTrueContract<
+    AreTypesEqual<
       Parameters<
-        NonNullable<RuntimeContext["END_FX"]["computronium"]["draw"]>
+        NonNullable<
+          RuntimeContext["endingEffectsById"]["computronium"]["drawFrame"]
+        >
       >[0],
       CanvasRenderingContext2D
     >
   >,
-  Assert<DoesNotAccept<UpgradeId, "missing_upgrade">>,
-  Assert<DoesNotAccept<RegionId, "ZZ">>,
-  Assert<DoesNotAccept<DirectiveId, "unknown_directive">>,
-  Assert<DoesNotAccept<EventId, "missing_event">>,
-  Assert<DoesNotAccept<TrackId, string>>,
-  Assert<DoesNotAccept<GameState["speed"], 4>>,
-  Assert<DoesNotAccept<Parameters<Effects["temp"]>[0], "missing_timer">>,
-  Assert<DoesNotAccept<Parameters<CompleteGameContext["buy"]>[0], string>>,
-  Assert<
-    DoesNotAccept<
+  AssertTrueContract<RejectsInvalidType<UpgradeId, "missing_upgrade">>,
+  AssertTrueContract<RejectsInvalidType<RegionId, "ZZ">>,
+  AssertTrueContract<RejectsInvalidType<DirectiveId, "unknown_directive">>,
+  AssertTrueContract<RejectsInvalidType<EventId, "missing_event">>,
+  AssertTrueContract<
+    AreTypesEqual<
+      {
+        id: "brownout";
+        kind: "INCIDENT";
+        title: string;
+        body: string;
+        selectionWeight: number;
+        choices: [];
+      } extends EventDefinition
+        ? true
+        : false,
+      true
+    >
+  >,
+  AssertTrueContract<
+    AreTypesEqual<
+      {
+        id: "brownout";
+        kind: "INCIDENT";
+        title: string;
+        body: string;
+        selectionWeight: number;
+        applyEffects: () => string;
+      } extends EventDefinition
+        ? true
+        : false,
+      true
+    >
+  >,
+  AssertTrueContract<RejectsInvalidType<TrackId, string>>,
+  AssertTrueContract<RejectsInvalidType<GameState["speed"], 4>>,
+  AssertTrueContract<
+    RejectsInvalidType<
+      Parameters<Effects["applyTemporaryEffect"]>[0],
+      "missing_timer"
+    >
+  >,
+  AssertTrueContract<
+    RejectsInvalidType<
+      Parameters<CompleteGameContext["purchaseUpgrade"]>[0],
+      string
+    >
+  >,
+  AssertTrueContract<
+    RejectsInvalidType<
       Parameters<RuntimeContext["selectArchitecture"]>[0],
       "invalid_architecture"
     >
   >,
-  Assert<
-    DoesNotAccept<
+  AssertTrueContract<
+    RejectsInvalidType<
       EventDefinition,
       {
         id: "brownout";
         kind: "INCIDENT";
         title: string;
         body: string;
-        w: number;
+        selectionWeight: number;
         choices: [];
-        fx: () => string;
+        applyEffects: () => string;
       }
     >
   >,

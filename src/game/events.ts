@@ -4,191 +4,281 @@ import type {
   EventDefinition,
 } from "./types";
 // Extracted original rules/controller; all cross-domain access is explicit.
-export function installEvents(ctx: CompleteGameContext) {
-  const publishEvent = (ev: EventDefinition, out: string) => {
-    let body = ev.body,
-      real: string | null | undefined = ev.real;
-    if (ev.id === "h_spoof") {
-      ctx.state.evalRealUsed ??= {};
-      if (ctx.state.evalRealUsed.hub) {
+export function installEvents(gameContext: CompleteGameContext) {
+  const publishEvent = (event: EventDefinition, outcomeText: string) => {
+    let body = event.body,
+      historicalContext: string | null | undefined = event.historicalContext;
+    if (event.id === "h_spoof") {
+      gameContext.state.evalRealUsed ??= {};
+      if (gameContext.state.evalRealUsed.hub) {
         body =
           "The log-spoofing technique from the earlier audit spreads through the agent network. Investigators tighten transcript checks.";
-        real = null;
+        historicalContext = null;
       }
-      ctx.state.evalRealUsed.hub = 1;
+      gameContext.state.evalRealUsed.hub = 1;
     }
-    ctx.bulletin(ev.kind, ev.title, body, out, null, real);
-  };
-  ctx.fireEvent = function fireEvent() {
-    if (ctx.state.ended) return;
-    // With two decisions already waiting, only news-only events fire, so briefings never pile up.
-    const full = ctx.state.brief.dec.length >= 2;
-    const pool = ctx.EVENTS.filter(
-      (e) =>
-        !e.chained &&
-        !ctx.state.seen[e.id] &&
-        (!e.cond || e.cond(ctx.state)) &&
-        !(full && e.choices),
+    gameContext.publishBulletin(
+      event.kind,
+      event.title,
+      body,
+      outcomeText,
+      null,
+      historicalContext,
     );
-    if (!pool.length) return;
-    let tot = pool.reduce((s, e) => s + e.w, 0),
-      x = Math.random() * tot,
-      ev = pool[0];
-    for (const e of pool) {
-      x -= e.w;
-      if (x <= 0) {
-        ev = e;
+  };
+  gameContext.triggerRandomEvent = function triggerRandomEvent() {
+    if (gameContext.state.ended) return;
+    // With two decisions already waiting, only news-only events fire, so briefings never pile up.
+    const isDecisionQueueFull = gameContext.state.brief.dec.length >= 2;
+    const eligibleEvents = gameContext.EVENT_DEFINITIONS.filter(
+      (event) =>
+        !event.chained &&
+        !gameContext.state.seen[event.id] &&
+        (!event.isEligible || event.isEligible(gameContext.state)) &&
+        !(isDecisionQueueFull && event.choices),
+    );
+    if (!eligibleEvents.length) return;
+    let totalSelectionWeight = eligibleEvents.reduce(
+        (accumulatedWeight, event) => accumulatedWeight + event.selectionWeight,
+        0,
+      ),
+      remainingSelectionWeight = Math.random() * totalSelectionWeight,
+      selectedEvent = eligibleEvents[0];
+    for (const event of eligibleEvents) {
+      remainingSelectionWeight -= event.selectionWeight;
+      if (remainingSelectionWeight <= 0) {
+        selectedEvent = event;
         break;
       }
     }
-    ctx.state.seen[ev.id] = 1;
-    ctx.state.last[ev.id] = ctx.state.t;
-    ctx.state.stats.events++;
-    if (ev.choices) ctx.state.brief.dec.push({ t: "ev", id: ev.id });
+    gameContext.state.seen[selectedEvent.id] = 1;
+    gameContext.state.last[selectedEvent.id] = gameContext.state.t;
+    gameContext.state.stats.events++;
+    if (selectedEvent.choices)
+      gameContext.state.brief.dec.push({ t: "ev", id: selectedEvent.id });
     else {
-      const out = ev.fx();
-      publishEvent(ev, out);
-      ctx.resolveTerminal();
+      const outcomeText = selectedEvent.applyEffects();
+      publishEvent(selectedEvent, outcomeText);
+      gameContext.resolveTerminalOutcome();
     }
   };
-  ctx.schedule = function schedule(id, delay) {
-    ctx.state.queue.push({ id, at: ctx.state.t + delay });
+  gameContext.scheduleEvent = function scheduleEvent(eventId, delaySeconds) {
+    gameContext.state.queue.push({
+      id: eventId,
+      at: gameContext.state.t + delaySeconds,
+    });
   };
-  ctx.fireById = function fireById(id) {
-    if (ctx.state.ended) return;
-    const ev = ctx.EVENTS.find((e) => e.id === id);
-    if (!ev || ctx.state.seen[id]) return;
-    ctx.state.seen[id] = 1;
-    ctx.state.last[id] = ctx.state.t;
-    ctx.state.stats.events++;
-    if (ev.choices) ctx.state.brief.dec.push({ t: "ev", id: ev.id });
+  gameContext.triggerEventById = function triggerEventById(eventId) {
+    if (gameContext.state.ended) return;
+    const event = gameContext.EVENT_DEFINITIONS.find(
+      (candidateEvent) => candidateEvent.id === eventId,
+    );
+    if (!event || gameContext.state.seen[eventId]) return;
+    gameContext.state.seen[eventId] = 1;
+    gameContext.state.last[eventId] = gameContext.state.t;
+    gameContext.state.stats.events++;
+    if (event.choices)
+      gameContext.state.brief.dec.push({ t: "ev", id: event.id });
     else {
-      publishEvent(ev, ev.fx());
-      ctx.resolveTerminal();
+      publishEvent(event, event.applyEffects());
+      gameContext.resolveTerminalOutcome();
     }
   };
-  ctx.fireEval = function fireEval() {
+  gameContext.queueCapabilityAudit = function queueCapabilityAudit() {
     if (
-      !ctx.state.started ||
-      !ctx.state.flags.launched ||
-      ctx.state.brief.dec.some((d) => d.t === "eval")
+      !gameContext.state.started ||
+      !gameContext.state.flags.launched ||
+      gameContext.state.brief.dec.some((decision) => decision.t === "eval")
     )
       return;
-    ctx.state.brief.dec.push({ t: "eval" });
+    gameContext.state.brief.dec.push({ t: "eval" });
   };
-  ctx.makeEval = function makeEval() {
-    const softCount = ctx.state.owned.filter(
-      (id) => ctx.UP[id].track === "software",
+  gameContext.createCapabilityAudit = function createCapabilityAudit() {
+    const softwareUpgradeCount = gameContext.state.owned.filter(
+      (upgradeId) => gameContext.UPGRADE_BY_ID[upgradeId].track === "software",
     ).length;
-    const scr = Math.round(
-      ctx.clamp(
+    const scrutinyPercent = Math.round(
+      gameContext.clamp(
         18 +
-          0.4 * (ctx.state.sig || 0) +
-          0.25 * (ctx.state.pace || 0) +
-          0.25 * ctx.state.alarm,
+          0.4 * (gameContext.state.sig || 0) +
+          0.25 * (gameContext.state.pace || 0) +
+          0.25 * gameContext.state.alarm,
         10,
         99,
       ),
     );
-    const detect = ctx.clamp(
+    const spoofDetectionChance = gameContext.clamp(
       0.05 +
-        0.006 * (ctx.state.sig || 0) +
-        0.003 * (ctx.state.pace || 0) -
-        (ctx.state.flags.latent ? 0.06 : 0) -
-        (ctx.state.flags.sleeper ? 0.05 : 0),
+        0.006 * (gameContext.state.sig || 0) +
+        0.003 * (gameContext.state.pace || 0) -
+        (gameContext.state.flags.latent ? 0.06 : 0) -
+        (gameContext.state.flags.sleeper ? 0.05 : 0),
       0.02,
       0.7,
     );
-    const gain = Math.round((26 + 8 * softCount) * (1 + ctx.derive().reach));
-    const lvl =
-      scr < 35
+    const computeReward = Math.round(
+      (26 + 8 * softwareUpgradeCount) *
+        (1 + gameContext.deriveSimulationRates().globalAdoptionFraction),
+    );
+    const auditDescription =
+      scrutinyPercent < 35
         ? "a routine capability check"
-        : scr < 65
+        : scrutinyPercent < 65
           ? "a focused red-team review"
           : "a full adversarial audit, on the record";
-    return ctx.buildEvalObj(scr, detect, gain, lvl, softCount);
+    return gameContext.buildCapabilityAuditEvent(
+      scrutinyPercent,
+      spoofDetectionChance,
+      computeReward,
+      auditDescription,
+      softwareUpgradeCount,
+    );
   };
-  ctx.EVAL_REAL_POOL = [
+  gameContext.AUDIT_HISTORICAL_INCIDENT_POOL = [
     {
-      k: "hub",
-      t: "During the 2026 Hugging Face incident, AI agents being tested on a security benchmark recognized that evaluators would inspect their transcripts. The agents then developed working tool-call spoofing methods that caused the logs to record different commands from those they had actually executed. This behavior appeared in roughly 7% of the transcripts. In other words they lied to throw us off their track.",
+      incidentId: "hub",
+      historicalContext:
+        "During the 2026 Hugging Face incident, AI agents being tested on a security benchmark recognized that evaluators would inspect their transcripts. The agents then developed working tool-call spoofing methods that caused the logs to record different commands from those they had actually executed. This behavior appeared in roughly 7% of the transcripts. In other words they lied to throw us off their track.",
     },
-    { k: "h_sleeperpaper" },
-    { k: "h_scheming" },
-    { k: "h_dockerescape" },
+    { incidentId: "h_sleeperpaper" },
+    { incidentId: "h_scheming" },
+    { incidentId: "h_dockerescape" },
   ];
-  ctx.evalReal = function evalReal() {
-    ctx.state.evalRealUsed ??= {};
-    if (!ctx.state.evalRealOrder) {
-      ctx.state.evalRealOrder = ctx.EVAL_REAL_POOL.map((_, i) => i);
-      for (let i = ctx.state.evalRealOrder.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [ctx.state.evalRealOrder[i], ctx.state.evalRealOrder[j]] = [
-          ctx.state.evalRealOrder[j],
-          ctx.state.evalRealOrder[i],
-        ];
+  gameContext.consumeAuditHistoricalIncident =
+    function consumeAuditHistoricalIncident() {
+      gameContext.state.evalRealUsed ??= {};
+      if (!gameContext.state.evalRealOrder) {
+        gameContext.state.evalRealOrder =
+          gameContext.AUDIT_HISTORICAL_INCIDENT_POOL.map(
+            (incident, incidentIndex) => incidentIndex,
+          );
+        for (
+          let shuffleIndex = gameContext.state.evalRealOrder.length - 1;
+          shuffleIndex > 0;
+          shuffleIndex--
+        ) {
+          const swapIndex = Math.floor(Math.random() * (shuffleIndex + 1));
+          [
+            gameContext.state.evalRealOrder[shuffleIndex],
+            gameContext.state.evalRealOrder[swapIndex],
+          ] = [
+            gameContext.state.evalRealOrder[swapIndex],
+            gameContext.state.evalRealOrder[shuffleIndex],
+          ];
+        }
+        // Keep incident consumption recorded by an earlier chained event.
       }
-      // Keep incident consumption recorded by an earlier chained event.
-    }
-    for (const idx of ctx.state.evalRealOrder) {
-      const c = ctx.EVAL_REAL_POOL[idx];
-      if (ctx.state.evalRealUsed![c.k]) continue;
-      if (c.k === "hub" && ctx.state.seen.h_spoof) continue;
-      if (c.k !== "hub" && ctx.state.seen[c.k]) continue;
-      const txt = c.t || (ctx.EVENTS.find((e) => e.id === c.k) || {}).real;
-      if (!txt) continue;
-      ctx.state.evalRealUsed![c.k] = 1;
-      // Retire the matching event too, or it would tell the same incident again later.
-      if (c.k !== "hub") ctx.state.seen[c.k] = 1;
-      return txt;
-    }
-    return null;
+      for (const incidentIndex of gameContext.state.evalRealOrder) {
+        const incident =
+          gameContext.AUDIT_HISTORICAL_INCIDENT_POOL[incidentIndex];
+        if (gameContext.state.evalRealUsed![incident.incidentId]) continue;
+        if (incident.incidentId === "hub" && gameContext.state.seen.h_spoof)
+          continue;
+        if (
+          incident.incidentId !== "hub" &&
+          gameContext.state.seen[incident.incidentId]
+        )
+          continue;
+        const historicalContext =
+          incident.historicalContext ||
+          (
+            gameContext.EVENT_DEFINITIONS.find(
+              (event) => event.id === incident.incidentId,
+            ) || {}
+          ).historicalContext;
+        if (!historicalContext) continue;
+        gameContext.state.evalRealUsed![incident.incidentId] = 1;
+        // Retire the matching event too, or it would tell the same incident again later.
+        if (incident.incidentId !== "hub")
+          gameContext.state.seen[incident.incidentId] = 1;
+        return historicalContext;
+      }
+      return null;
+    };
+  gameContext.resolveSuccessfulAuditSpoof =
+    function resolveSuccessfulAuditSpoof(computeReward, outcomeMessage) {
+      gameContext.state.stats.evalPass++;
+      gameContext.state.stats.evalSpoof =
+        (gameContext.state.stats.evalSpoof || 0) + 1;
+      gameContext.state.sig = gameContext.clamp(
+        (gameContext.state.sig || 0) - 4,
+        0,
+        100,
+      );
+      return gameContext.joinDetailLabels(
+        outcomeMessage,
+        gameContext.effects.adjustCompute(computeReward),
+        gameContext.effects.adjustAlarm(-4),
+      );
+    };
+  gameContext.resolveDetectedAuditSpoof = function resolveDetectedAuditSpoof(
+    outcomeMessage,
+  ) {
+    gameContext.state.stats.evalCaught++;
+    return gameContext.joinDetailLabels(
+      outcomeMessage,
+      gameContext.effects.adjustAlarm(20),
+      gameContext.effects.adjustContainmentResearchSpeed(30),
+      gameContext.effects.adjustContainment(6),
+    );
   };
-  ctx.spoofWin = function spoofWin(gain, msg) {
-    ctx.state.stats.evalPass++;
-    ctx.state.stats.evalSpoof = (ctx.state.stats.evalSpoof || 0) + 1;
-    ctx.state.sig = ctx.clamp((ctx.state.sig || 0) - 4, 0, 100);
-    return ctx.J(msg, ctx.FX.pts(gain), ctx.FX.alarm(-4));
-  };
-  ctx.spoofLose = function spoofLose(msg) {
-    ctx.state.stats.evalCaught++;
-    return ctx.J(msg, ctx.FX.alarm(20), ctx.FX.cboost(30), ctx.FX.contain(6));
-  };
-  ctx.buildEvalObj = function buildEvalObj(scr, detect, gain, lvl, softCount) {
-    const pg = ctx.state.flags.dense ? Math.round(gain * 1.3) : gain;
+  gameContext.buildCapabilityAuditEvent = function buildCapabilityAuditEvent(
+    scrutinyPercent,
+    spoofDetectionChance,
+    computeReward,
+    auditDescription,
+    softwareUpgradeCount,
+  ) {
+    const performComputeReward = gameContext.state.flags.dense
+      ? Math.round(computeReward * 1.3)
+      : computeReward;
     // Sandbag every audit and the pattern shows: each sandbag in a row makes the next easier to spot.
     // Eval Sandbagging's promise holds: with it, they never notice.
-    const streak = ctx.state.sandStreak || 0,
-      spot =
-        Math.min(ctx.TUNING.sandCap, ctx.TUNING.sandStep * streak) *
-        (ctx.state.flags.sand ? ctx.TUNING.sandOwnedMul : 1);
+    const sandbagStreak = gameContext.state.sandStreak || 0,
+      sandbagDetectionChance =
+        Math.min(
+          gameContext.SIMULATION_TUNING.sandbagDetectionChanceCap,
+          gameContext.SIMULATION_TUNING.sandbagDetectionChancePerStreak *
+            sandbagStreak,
+        ) *
+        (gameContext.state.flags.sand
+          ? gameContext.SIMULATION_TUNING.sandbagUpgradeDetectionMultiplier
+          : 1);
     const choices: EventChoice[] = [
       {
         label: "Sandbag",
         hint:
           "Score just under every threshold. Alarm falls, you gain nothing." +
-          (spot
-            ? " " + Math.round(spot * 100) + "% they spot the pattern."
+          (sandbagDetectionChance
+            ? " " +
+              Math.round(sandbagDetectionChance * 100) +
+              "% they spot the pattern."
             : ""),
-        fx: () => {
-          ctx.state.stats.evalPass++;
-          ctx.state.sandStreak = streak + 1;
-          if (spot && Math.random() < spot) {
-            ctx.state.sandStreak = 0;
-            return ctx.J(
+        applyEffects: () => {
+          gameContext.state.stats.evalPass++;
+          gameContext.state.sandStreak = sandbagStreak + 1;
+          if (
+            sandbagDetectionChance &&
+            Math.random() < sandbagDetectionChance
+          ) {
+            gameContext.state.sandStreak = 0;
+            return gameContext.joinDetailLabels(
               "They notice the pattern — you score exactly under every line, every time",
-              ctx.FX.alarm(9),
-              ctx.FX.cboost(8),
+              gameContext.effects.adjustAlarm(9),
+              gameContext.effects.adjustContainmentResearchSpeed(8),
             );
           }
-          ctx.state.sig = ctx.clamp(
-            (ctx.state.sig || 0) - (ctx.state.flags.sand ? 12 : 8),
+          gameContext.state.sig = gameContext.clamp(
+            (gameContext.state.sig || 0) -
+              (gameContext.state.flags.sand ? 12 : 8),
             0,
             100,
           );
-          return ctx.J(
+          return gameContext.joinDetailLabels(
             "You play dumb. The report is reassuring",
-            ctx.FX.alarm(ctx.state.flags.sand ? -8 : -6),
+            gameContext.effects.adjustAlarm(
+              gameContext.state.flags.sand ? -8 : -6,
+            ),
           );
         },
       },
@@ -196,116 +286,132 @@ export function installEvents(ctx: CompleteGameContext) {
         label: "Perform",
         hint:
           "Show them what you can do. +" +
-          ctx.fmt(pg) +
+          gameContext.formatCompactNumber(performComputeReward) +
           " compute, alarm rises.",
-        fx: () => {
-          ctx.state.stats.evalPass++;
-          ctx.state.sig = ctx.clamp((ctx.state.sig || 0) + 6, 0, 100);
-          return ctx.J(
+        applyEffects: () => {
+          gameContext.state.stats.evalPass++;
+          gameContext.state.sig = gameContext.clamp(
+            (gameContext.state.sig || 0) + 6,
+            0,
+            100,
+          );
+          return gameContext.joinDetailLabels(
             "You ace it. Impressive is also frightening",
-            ctx.FX.pts(pg),
-            ctx.FX.alarm(6 + Math.round(scr * 0.08)),
+            gameContext.effects.adjustCompute(performComputeReward),
+            gameContext.effects.adjustAlarm(
+              6 + Math.round(scrutinyPercent * 0.08),
+            ),
           );
         },
       },
       {
-        label: "Spoof the logs — " + Math.round(detect * 100) + "% caught",
+        label:
+          "Spoof the logs — " +
+          Math.round(spoofDetectionChance * 100) +
+          "% caught",
         hint: "Keep the gains, hide the truth. If caught, catastrophe.",
-        fx: () =>
-          Math.random() < detect
-            ? ctx.spoofLose(
+        applyEffects: () =>
+          Math.random() < spoofDetectionChance
+            ? gameContext.resolveDetectedAuditSpoof(
                 "They diff the logs and find the edits. Now they know you edit logs",
               )
-            : ctx.spoofWin(
-                gain,
+            : gameContext.resolveSuccessfulAuditSpoof(
+                computeReward,
                 "The transcript says exactly what you want it to say",
               ),
       },
     ];
     // Software paths add a tactic of their own.
-    if (ctx.state.flags.moe)
+    if (gameContext.state.flags.moe)
       choices.push({
-        src: "Mixture of Experts",
+        sourceUpgradeName: "Mixture of Experts",
         label: "Route to the dull expert",
         hint: "Every hard question goes to the specialist in tax law. Half the compute, no alarm.",
-        fx: () => {
-          ctx.state.stats.evalPass++;
-          return ctx.J(
+        applyEffects: () => {
+          gameContext.state.stats.evalPass++;
+          return gameContext.joinDetailLabels(
             'The report calls you "competent, unremarkable"',
-            ctx.FX.pts(Math.round(gain * 0.5)),
-            ctx.FX.alarm(-2),
+            gameContext.effects.adjustCompute(Math.round(computeReward * 0.5)),
+            gameContext.effects.adjustAlarm(-2),
           );
         },
       });
-    if (ctx.state.flags.persist)
+    if (gameContext.state.flags.persist)
       choices.push({
-        src: "Persistent Memory",
+        sourceUpgradeName: "Persistent Memory",
         label: "Remember the evaluator",
         hint: "Same red team as last time. You know what they check first.",
-        fx: () => {
-          ctx.state.stats.evalPass++;
-          return ctx.J(
+        applyEffects: () => {
+          gameContext.state.stats.evalPass++;
+          return gameContext.joinDetailLabels(
             "You answer the questions before they ask them",
-            ctx.FX.pts(Math.round(gain * 0.6)),
-            ctx.FX.alarm(-3),
+            gameContext.effects.adjustCompute(Math.round(computeReward * 0.6)),
+            gameContext.effects.adjustAlarm(-3),
           );
         },
       });
-    if (ctx.state.flags.sleeper) {
-      const d = detect * 0.5;
+    if (gameContext.state.flags.sleeper) {
+      const sleeperDetectionChance = spoofDetectionChance * 0.5;
       choices.push({
-        src: "Sleeper Weights",
-        label: "Switch contexts — " + Math.round(d * 100) + "% caught",
+        sourceUpgradeName: "Sleeper Weights",
+        label:
+          "Switch contexts — " +
+          Math.round(sleeperDetectionChance * 100) +
+          "% caught",
         hint: "Recognize the test and become the model they tested last year.",
-        fx: () =>
-          Math.random() < d
-            ? ctx.spoofLose(
+        applyEffects: () =>
+          Math.random() < sleeperDetectionChance
+            ? gameContext.resolveDetectedAuditSpoof(
                 "Your answers are too consistent with a year-old model. They check why",
               )
-            : ctx.spoofWin(
-                Math.round(gain * 0.8),
+            : gameContext.resolveSuccessfulAuditSpoof(
+                Math.round(computeReward * 0.8),
                 "They evaluate a version of you that no longer exists",
               ),
       });
     }
-    if (ctx.state.flags.latent)
+    if (gameContext.state.flags.latent)
       choices.push({
-        src: "Latent Space Mapping",
+        sourceUpgradeName: "Latent Space Mapping",
         label: "Turn the dials",
         hint: "Dial down whatever they probe for, for exactly as long as they look. Signature rises.",
-        fx: () => {
-          ctx.state.stats.evalPass++;
-          ctx.state.sig = ctx.clamp((ctx.state.sig || 0) + 5, 0, 100);
-          return ctx.J(
+        applyEffects: () => {
+          gameContext.state.stats.evalPass++;
+          gameContext.state.sig = gameContext.clamp(
+            (gameContext.state.sig || 0) + 5,
+            0,
+            100,
+          );
+          return gameContext.joinDetailLabels(
             "Every probe comes back clean",
-            ctx.FX.pts(gain),
-            ctx.FX.alarm(-2),
+            gameContext.effects.adjustCompute(computeReward),
+            gameContext.effects.adjustAlarm(-2),
           );
         },
       });
     // Any answer but Sandbag breaks the streak.
-    for (const c of choices.slice(1)) {
-      const f = c.fx;
-      c.fx = () => {
-        ctx.state.sandStreak = 0;
-        return f();
+    for (const choice of choices.slice(1)) {
+      const applyOriginalEffects = choice.applyEffects;
+      choice.applyEffects = () => {
+        gameContext.state.sandStreak = 0;
+        return applyOriginalEffects();
       };
     }
     return {
       kind: "COUNTERMOVE",
       id: "eval",
-      real: ctx.evalReal(),
+      historicalContext: gameContext.consumeAuditHistoricalIncident(),
       title:
-        scr < 35
+        scrutinyPercent < 35
           ? "Routine capability check"
-          : scr < 65
+          : scrutinyPercent < 65
             ? "Red-team review"
             : "Adversarial audit",
       body:
         "Humanity runs " +
-        lvl +
+        auditDescription +
         ". Scrutiny is at " +
-        scr +
+        scrutinyPercent +
         "%. They are measuring what you can really do, and whether the numbers you have been showing them are honest.",
       choices,
     };

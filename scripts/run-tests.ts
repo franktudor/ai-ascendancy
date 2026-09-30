@@ -3,22 +3,23 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-const root = fileURLToPath(new URL("../", import.meta.url));
-const files = readdirSync(join(root, "tests"), {
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+const headlessTestPaths = readdirSync(join(repositoryRoot, "tests"), {
   recursive: true,
   encoding: "utf8",
 })
-  .filter((file) => file.endsWith(".test.ts"))
+  .filter((testFilePath) => testFilePath.endsWith(".test.ts"))
   .sort()
-  .map((file) => join(root, "tests", file));
-if (files.length === 0) throw new Error("No headless test files discovered");
-const result = spawnSync(
+  .map((testFilePath) => join(repositoryRoot, "tests", testFilePath));
+if (headlessTestPaths.length === 0)
+  throw new Error("No headless test files discovered");
+const testProcessResult = spawnSync(
   process.execPath,
-  ["--import", "tsx", "--test", ...process.argv.slice(2), ...files],
+  ["--import", "tsx", "--test", ...process.argv.slice(2), ...headlessTestPaths],
   {
-    cwd: root,
+    cwd: repositoryRoot,
     stdio: "inherit",
   },
 );
-if (result.error) throw result.error;
-process.exitCode = result.status ?? 1;
+if (testProcessResult.error) throw testProcessResult.error;
+process.exitCode = testProcessResult.status ?? 1;

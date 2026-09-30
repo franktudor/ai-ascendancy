@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, provide } from "vue";
-import { gameKey } from "./game/injection";
+import { gameContextInjectionKey } from "./game/injection";
 import type { RuntimeContext, StoragePort } from "./game/types";
 import { createGame } from "./game/createGame";
 import { mountRuntime } from "./game/runtime";
@@ -16,20 +16,20 @@ import EventHost from "./components/EventHost.vue";
 import CodexHost from "./components/CodexHost.vue";
 import MenuDialog from "./components/MenuDialog.vue";
 import EndingHost from "./components/EndingHost.vue";
-let storage: StoragePort | null = null;
+let storagePort: StoragePort | null = null;
 try {
-  storage = window.localStorage;
+  storagePort = window.localStorage;
 } catch {
   /* A browser may prohibit even reading the property. */
 }
-const game = createGame({ storage });
-defineExpose({ game });
+const gameContext = createGame({ storage: storagePort });
+defineExpose({ game: gameContext });
 // Controllers attach before user interaction in onMounted; all components share this same object.
-provide(gameKey, game as RuntimeContext);
+provide(gameContextInjectionKey, gameContext as RuntimeContext);
 onMounted(() => {
-  mountRuntime(game);
+  mountRuntime(gameContext);
 });
-onBeforeUnmount(() => (game as RuntimeContext).disposeRuntime?.());
+onBeforeUnmount(() => (gameContext as RuntimeContext).disposeRuntime?.());
 </script>
 <template>
   <GameHeader />

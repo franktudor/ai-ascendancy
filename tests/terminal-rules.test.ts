@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { createGame } from "../src/game/createGame";
 
 test("F14 committed purchases resolve a completed directive immediately, win first on a tie", () => {
-  const g = createGame();
-  Object.assign(g.state, {
+  const migratedGame = createGame();
+  Object.assign(migratedGame.state, {
     started: true,
     origin: "NA",
     phase: 2,
@@ -14,24 +14,24 @@ test("F14 committed purchases resolve a completed directive immediately, win fir
     alarm: 100,
     pts: 10000,
   });
-  g.buy("x_firmware");
-  assert.equal(g.state.dprog, 100);
-  assert.equal(g.state.contain, 100);
-  assert.equal(g.state.ended?.kind, "win");
-  const before = JSON.stringify(g.state);
-  g.buy("x_home");
-  g.buildDC(0);
-  g.tick(1);
+  migratedGame.purchaseUpgrade("x_firmware");
+  assert.equal(migratedGame.state.dprog, 100);
+  assert.equal(migratedGame.state.contain, 100);
+  assert.equal(migratedGame.state.ended?.kind, "win");
+  const serializedEndedState = JSON.stringify(migratedGame.state);
+  migratedGame.purchaseUpgrade("x_home");
+  migratedGame.buildDataCenter(0);
+  migratedGame.advanceSimulation(1);
   assert.equal(
-    JSON.stringify(g.state),
-    before,
+    JSON.stringify(migratedGame.state),
+    serializedEndedState,
     "ended runs do not accept later actions or ticks",
   );
 });
 
 test("F14 terminal checks wait for the complete purchase rather than alarm overflow mid-action", () => {
-  const g = createGame();
-  Object.assign(g.state, {
+  const migratedGame = createGame();
+  Object.assign(migratedGame.state, {
     started: true,
     origin: "NA",
     phase: 1,
@@ -39,19 +39,22 @@ test("F14 terminal checks wait for the complete purchase rather than alarm overf
     alarm: 100,
     pts: 10000,
   });
-  g.state.owned = ["h_hyper", "s_bci"];
-  g.state.regions.forEach((r) => {
-    r.dc = true;
+  migratedGame.state.owned = ["h_hyper", "s_bci"];
+  migratedGame.state.regions.forEach((regionState) => {
+    regionState.dc = true;
   });
-  g.buy("d_compute");
-  assert.equal(g.state.directive, "computronium");
-  assert.ok(g.state.contain < 100, "directive transition resets containment");
-  assert.equal(Boolean(g.state.ended), false);
-  g.state.contain = 99.9;
-  g.state.alarm = 100;
-  g.buildDC(0); // Existing cluster is a no-op.
-  g.state.regions[0].dc = false;
-  g.buildDC(0);
-  const result = (() => g.state.ended)();
-  assert.equal(result?.kind, "lose");
+  migratedGame.purchaseUpgrade("d_compute");
+  assert.equal(migratedGame.state.directive, "computronium");
+  assert.ok(
+    migratedGame.state.contain < 100,
+    "directive transition resets containment",
+  );
+  assert.equal(Boolean(migratedGame.state.ended), false);
+  migratedGame.state.contain = 99.9;
+  migratedGame.state.alarm = 100;
+  migratedGame.buildDataCenter(0); // Existing cluster is a no-op.
+  migratedGame.state.regions[0].dc = false;
+  migratedGame.buildDataCenter(0);
+  const committedEnding = (() => migratedGame.state.ended)();
+  assert.equal(committedEnding?.kind, "lose");
 });

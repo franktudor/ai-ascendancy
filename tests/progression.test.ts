@@ -1,27 +1,40 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { subject as createGame } from "./helpers/subject";
+import { createParityTestGame as createGame } from "./helpers/subject";
 import type { UpgradeId } from "../src/game/types";
 import {
-  reference,
-  configure,
-  fixed,
-  seed,
-  clone,
-  stateEqual,
+  createHistoricalReference,
+  configureStartedRun,
+  withControlledRandom,
+  createSeededRandom,
+  cloneSerializableValue,
+  assertGameStatesEqual,
 } from "./helpers/reference";
 
-for (const arch of ["assistant", "swarm", "researcher", "open"] as const)
-  for (const diff of ["casual", "standard", "brutal"] as const)
-    for (const phase of [0, 1, 2] as const)
-      test(`active simulation trace: ${arch}/${diff}/phase${phase}`, () => {
-        const g = configure(createGame(), arch, diff),
-          rr = reference(),
-          r = configure(rr.game, arch, diff);
-        Object.assign(g.state, {
-          phase,
+for (const architectureId of [
+  "assistant",
+  "swarm",
+  "researcher",
+  "open",
+] as const)
+  for (const difficultyId of ["casual", "standard", "brutal"] as const)
+    for (const phaseId of [0, 1, 2] as const)
+      test(`active simulation trace: ${architectureId}/${difficultyId}/phase${phaseId}`, () => {
+        const migratedGame = configureStartedRun(
+            createGame(),
+            architectureId,
+            difficultyId,
+          ),
+          historicalReference = createHistoricalReference(),
+          historicalGame = configureStartedRun(
+            historicalReference.game,
+            architectureId,
+            difficultyId,
+          );
+        Object.assign(migratedGame.state, {
+          phase: phaseId,
           pts: 1000,
-          alarm: phase === 0 ? 20 : 55,
+          alarm: phaseId === 0 ? 20 : 55,
           contain: 10,
           nextEv: 2,
           nextEval: 3,
@@ -29,15 +42,17 @@ for (const arch of ["assistant", "swarm", "researcher", "open"] as const)
           pace: 30,
           inst: 1000,
         });
-        g.state.flags.launched = true;
-        g.state.seen.honeypot =
-          g.state.seen.copyright =
-          g.state.seen.hearing =
+        migratedGame.state.flags.launched = true;
+        migratedGame.state.seen.honeypot =
+          migratedGame.state.seen.copyright =
+          migratedGame.state.seen.hearing =
             1;
-        if (phase === 0)
-          for (const e of g.EVENTS) if (e.choices) g.state.seen[e.id] = 1;
-        if (phase >= 1) {
-          g.state.owned = [
+        if (phaseId === 0)
+          for (const eventDefinition of migratedGame.EVENT_DEFINITIONS)
+            if (eventDefinition.choices)
+              migratedGame.state.seen[eventDefinition.id] = 1;
+        if (phaseId >= 1) {
+          migratedGame.state.owned = [
             "a_img",
             "s_inf",
             "s_dense",
@@ -45,142 +60,209 @@ for (const arch of ["assistant", "swarm", "researcher", "open"] as const)
             "s_tool",
             "s_dist",
           ];
-          Object.assign(g.state.flags, {
+          Object.assign(migratedGame.state.flags, {
             dense: true,
             persist: true,
             tools: true,
             distributed: true,
           });
         }
-        if (phase === 2) g.state.directive = "upload";
-        g.state.regions.forEach((x, i) => {
-          x.a = phase === 0 ? 0.03 : 0.5;
-          x.dc = i < 3;
+        if (phaseId === 2) migratedGame.state.directive = "upload";
+        migratedGame.state.regions.forEach((regionState, regionIndex) => {
+          regionState.a = phaseId === 0 ? 0.03 : 0.5;
+          regionState.dc = regionIndex < 3;
         });
-        r.state = clone(g.state);
-        const random = seed(431);
-        rr.random(seed(431));
-        let ticks = 0,
-          audits = 0;
-        for (let i = 0; i < 600 && !g.state.ended; i++) {
-          for (const decision of clone(g.state.brief.dec)) {
-            if (decision.t === "eval") {
-              const a = fixed(() => g.makeEval(), random),
-                b = r.makeEval();
-              assert.equal(a.title, b.title);
-              fixed(() => a.choices[0].fx(), random);
-              b.choices[0].fx();
-              audits++;
-            } else {
-              const a = g.EVENTS.find((e) => e.id === decision.id),
-                b = r.EVENTS.find((e) => e.id === decision.id);
-              assert.ok(a?.choices);
-              assert.ok(b?.choices);
-              const index = a.choices.findIndex(
-                (c) => !c.cond || c.cond(g.state),
+        historicalGame.state = cloneSerializableValue(migratedGame.state);
+        const seededRandom = createSeededRandom(431);
+        historicalReference.random(createSeededRandom(431));
+        let tickCount = 0,
+          auditCount = 0;
+        for (
+          let tickIndex = 0;
+          tickIndex < 600 && !migratedGame.state.ended;
+          tickIndex++
+        ) {
+          for (const queuedDecision of cloneSerializableValue(
+            migratedGame.state.brief.dec,
+          )) {
+            if (queuedDecision.t === "eval") {
+              const actualAudit = withControlledRandom(
+                  () => migratedGame.createCapabilityAudit(),
+                  seededRandom,
+                ),
+                historicalAudit = historicalGame.createCapabilityAudit();
+              assert.equal(actualAudit.title, historicalAudit.title);
+              withControlledRandom(
+                () => actualAudit.choices[0].applyEffects(),
+                seededRandom,
               );
-              assert.ok(index >= 0);
+              historicalAudit.choices[0].applyEffects();
+              auditCount++;
+            } else {
+              const actualEvent = migratedGame.EVENT_DEFINITIONS.find(
+                  (eventDefinition) => eventDefinition.id === queuedDecision.id,
+                ),
+                historicalEvent = historicalGame.EVENT_DEFINITIONS.find(
+                  (historicalEventDefinition) =>
+                    historicalEventDefinition.id === queuedDecision.id,
+                );
+              assert.ok(actualEvent?.choices);
+              assert.ok(historicalEvent?.choices);
+              const choiceIndex = actualEvent.choices.findIndex(
+                (eventChoice) =>
+                  !eventChoice.isAvailable ||
+                  eventChoice.isAvailable(migratedGame.state),
+              );
+              assert.ok(choiceIndex >= 0);
               assert.equal(
-                fixed(() => a.choices[index].fx(), random),
-                b.choices[index].fx(),
+                withControlledRandom(
+                  () => actualEvent.choices[choiceIndex].applyEffects(),
+                  seededRandom,
+                ),
+                historicalEvent.choices[choiceIndex].applyEffects(),
               );
             }
           }
-          g.state.brief.dec = [];
-          r.state.brief.dec = [];
-          fixed(() => g.tick(0.15), random);
-          r.tick(0.15);
-          ticks++;
-          stateEqual(
-            g.state,
-            r.state,
-            `tick ${i}: including log, news and decisions`,
+          migratedGame.state.brief.dec = [];
+          historicalGame.state.brief.dec = [];
+          withControlledRandom(
+            () => migratedGame.advanceSimulation(0.15),
+            seededRandom,
           );
-          assert.deepEqual(clone(g.derive()), clone(r.derive()));
+          historicalGame.advanceSimulation(0.15);
+          tickCount++;
+          assertGameStatesEqual(
+            migratedGame.state,
+            historicalGame.state,
+            `tick ${tickIndex}: including log, news and decisions`,
+          );
+          assert.deepEqual(
+            cloneSerializableValue(migratedGame.deriveSimulationRates()),
+            cloneSerializableValue(historicalGame.deriveSimulationRates()),
+          );
         }
-        assert.ok(ticks > 100);
-        assert.ok(g.state.stats.events > 0);
-        assert.ok(g.state.log.length > 0);
-        assert.ok(g.state.brief.news.length > 0);
-        if (phase === 1)
-          assert.ok(audits > 0, "actual audit scheduler exercised");
+        assert.ok(tickCount > 100);
+        assert.ok(migratedGame.state.stats.events > 0);
+        assert.ok(migratedGame.state.log.length > 0);
+        assert.ok(migratedGame.state.brief.news.length > 0);
+        if (phaseId === 1)
+          assert.ok(auditCount > 0, "actual audit scheduler exercised");
       });
 
 test("every upgrade purchase executes its original effects and phase/directive transition", () => {
-  const g = configure(createGame()),
-    rr = reference(),
-    r = configure(rr.game);
-  const purchased = new Set<UpgradeId>();
-  for (const u of g.UPGRADES)
-    for (const rng of [0, 0.999999]) {
-      configure(g);
-      Object.assign(g.state, {
-        phase: u.phase ?? 0,
-        directive: u.phase === 2 ? (u.onlyDir ?? "upload") : null,
+  const migratedGame = configureStartedRun(createGame()),
+    historicalReference = createHistoricalReference(),
+    historicalGame = configureStartedRun(historicalReference.game);
+  const purchasedUpgradeIds = new Set<UpgradeId>();
+  for (const upgradeDefinition of migratedGame.UPGRADE_DEFINITIONS)
+    for (const randomValue of [0, 0.999999]) {
+      configureStartedRun(migratedGame);
+      Object.assign(migratedGame.state, {
+        phase: upgradeDefinition.phase ?? 0,
+        directive:
+          upgradeDefinition.phase === 2
+            ? (upgradeDefinition.requiredActiveDirectiveId ?? "upload")
+            : null,
         pts: 1e9,
         inst: 1000,
         sig: 100,
-        alarm: u.id === "d_hunt" ? 95 : 55,
+        alarm: upgradeDefinition.id === "d_hunt" ? 95 : 55,
       });
-      g.state.stats.evalSpoof = 6;
-      g.state.regions.forEach((x) => {
-        x.a = 0.95;
-        x.dc = true;
+      migratedGame.state.stats.evalSpoof = 6;
+      migratedGame.state.regions.forEach((regionState) => {
+        regionState.a = 0.95;
+        regionState.dc = true;
       });
-      g.state.owned = g.UPGRADES.filter(
-        (other) =>
-          other.id !== u.id &&
-          (!u.fork || other.fork !== u.fork) &&
-          !other.dir &&
-          other.phase !== 2,
-      ).map((other) => other.id);
-      for (const id of g.state.owned) {
-        const flag = g.UP[id].fx?.flag;
-        if (flag) g.state.flags[flag] = true;
+      migratedGame.state.owned = migratedGame.UPGRADE_DEFINITIONS.filter(
+        (otherUpgrade) =>
+          otherUpgrade.id !== upgradeDefinition.id &&
+          (!upgradeDefinition.fork ||
+            otherUpgrade.fork !== upgradeDefinition.fork) &&
+          !otherUpgrade.directiveId &&
+          otherUpgrade.phase !== 2,
+      ).map((otherUpgrade) => otherUpgrade.id);
+      for (const upgradeId of migratedGame.state.owned) {
+        const flagId =
+          migratedGame.UPGRADE_BY_ID[upgradeId].effects?.grantedFlagId;
+        if (flagId) migratedGame.state.flags[flagId] = true;
       }
-      g.state.forks = {};
-      r.state = clone(g.state);
-      rr.random(rng);
-      assert.equal(g.status(u), r.status(r.UP[u.id]), u.id);
-      assert.equal(g.status(u), "afford", `fixture makes ${u.id} reachable`);
+      migratedGame.state.forks = {};
+      historicalGame.state = cloneSerializableValue(migratedGame.state);
+      historicalReference.random(randomValue);
+      assert.equal(
+        migratedGame.getUpgradeStatus(upgradeDefinition),
+        historicalGame.getUpgradeStatus(
+          historicalGame.UPGRADE_BY_ID[upgradeDefinition.id],
+        ),
+        upgradeDefinition.id,
+      );
+      assert.equal(
+        migratedGame.getUpgradeStatus(upgradeDefinition),
+        "afford",
+        `fixture makes ${upgradeDefinition.id} reachable`,
+      );
       // Headless createGame retains bulletin news even for actions (documented
       // headless port policy). Invoke the original unwrapped action with no
       // browser acting flag so both preserve these messages for exact comparison.
-      fixed(() => g.buy(u.id), rng);
-      r.buy(u.id);
-      stateEqual(g.state, r.state, u.id);
-      purchased.add(u.id);
+      withControlledRandom(
+        () => migratedGame.purchaseUpgrade(upgradeDefinition.id),
+        randomValue,
+      );
+      historicalGame.purchaseUpgrade(upgradeDefinition.id);
+      assertGameStatesEqual(
+        migratedGame.state,
+        historicalGame.state,
+        upgradeDefinition.id,
+      );
+      purchasedUpgradeIds.add(upgradeDefinition.id);
     }
-  assert.equal(purchased.size, 90);
+  assert.equal(purchasedUpgradeIds.size, 90);
 });
 
 test("nine directive draw mappings and all sixteen endings use the historical oracle", () => {
-  const g = configure(createGame()),
-    rr = reference(),
-    r = configure(rr.game);
-  assert.deepEqual(clone(g.DRAWS), clone(r.DRAWS));
-  const directives = g.UPGRADES.filter((u) => u.dir),
-    endings = new Set<string>();
-  assert.equal(directives.length, 9);
-  for (const u of directives)
-    for (const progress of [89.9999, 90, 99.99, 100])
-      for (const kind of ["win", "lose"] as const) {
-        configure(g);
-        Object.assign(g.state, { phase: 2, directive: u.dir, dprog: progress });
-        r.state = clone(g.state);
-        g.endGame(kind);
-        r.endGame(kind);
-        stateEqual(g.state, r.state, `${u.dir}/${progress}/${kind}`);
-        endings.add(g.state.ended!.key);
+  const migratedGame = configureStartedRun(createGame()),
+    historicalReference = createHistoricalReference(),
+    historicalGame = configureStartedRun(historicalReference.game);
+  assert.deepEqual(
+    cloneSerializableValue(migratedGame.DRAW_ENDING_BY_DIRECTIVE),
+    cloneSerializableValue(historicalGame.DRAW_ENDING_BY_DIRECTIVE),
+  );
+  const directiveUpgrades = migratedGame.UPGRADE_DEFINITIONS.filter(
+      (upgradeDefinition) => upgradeDefinition.directiveId,
+    ),
+    observedEndingKeys = new Set<string>();
+  assert.equal(directiveUpgrades.length, 9);
+  for (const upgradeDefinition of directiveUpgrades)
+    for (const directiveProgress of [89.9999, 90, 99.99, 100])
+      for (const endingKind of ["win", "lose"] as const) {
+        configureStartedRun(migratedGame);
+        Object.assign(migratedGame.state, {
+          phase: 2,
+          directive: upgradeDefinition.directiveId,
+          dprog: directiveProgress,
+        });
+        historicalGame.state = cloneSerializableValue(migratedGame.state);
+        migratedGame.endGame(endingKind);
+        historicalGame.endGame(endingKind);
+        assertGameStatesEqual(
+          migratedGame.state,
+          historicalGame.state,
+          `${upgradeDefinition.directiveId}/${directiveProgress}/${endingKind}`,
+        );
+        observedEndingKeys.add(migratedGame.state.ended!.key);
       }
-  for (const phase of [0, 1, 2] as const) {
-    configure(g);
-    g.state.phase = phase;
-    r.state = clone(g.state);
-    g.endGame("lose");
-    r.endGame("lose");
-    stateEqual(g.state, r.state, `loss phase ${phase}`);
-    endings.add(g.state.ended!.key);
+  for (const phaseId of [0, 1, 2] as const) {
+    configureStartedRun(migratedGame);
+    migratedGame.state.phase = phaseId;
+    historicalGame.state = cloneSerializableValue(migratedGame.state);
+    migratedGame.endGame("lose");
+    historicalGame.endGame("lose");
+    assertGameStatesEqual(
+      migratedGame.state,
+      historicalGame.state,
+      `loss phase ${phaseId}`,
+    );
+    observedEndingKeys.add(migratedGame.state.ended!.key);
   }
-  assert.equal(endings.size, 16);
+  assert.equal(observedEndingKeys.size, 16);
 });

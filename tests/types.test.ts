@@ -4,26 +4,36 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-function assertScriptsCovered(
-  include: readonly string[],
-  compiler: string,
+function assertTypeScriptLaunchersCovered(
+  includedPathPatterns: readonly string[],
+  compilerLabel: string,
 ): void {
   assert.ok(
-    include.includes("scripts/**/*.ts"),
-    `scripts/**/*.ts misses ${compiler}`,
+    includedPathPatterns.includes("scripts/**/*.ts"),
+    `scripts/**/*.ts misses ${compilerLabel}`,
   );
 }
 
 test("compiler coverage guard rejects excluding TS launchers in either project", () => {
-  for (const filename of ["tsconfig.json", "tsconfig.native.json"]) {
-    const config = JSON.parse(
-      readFileSync(new URL("../" + filename, import.meta.url), "utf8"),
+  for (const compilerConfigFilename of [
+    "tsconfig.json",
+    "tsconfig.native.json",
+  ]) {
+    const compilerConfig = JSON.parse(
+      readFileSync(
+        new URL("../" + compilerConfigFilename, import.meta.url),
+        "utf8",
+      ),
     ) as { include: string[] };
-    const mutant = config.include.filter(
-      (pattern) => pattern !== "scripts/**/*.ts",
+    const configurationWithoutLaunchers = compilerConfig.include.filter(
+      (includedPathPattern) => includedPathPattern !== "scripts/**/*.ts",
     );
     assert.throws(
-      () => assertScriptsCovered(mutant, filename),
+      () =>
+        assertTypeScriptLaunchersCovered(
+          configurationWithoutLaunchers,
+          compilerConfigFilename,
+        ),
       /scripts\/\*\*\/\*\.ts misses/,
     );
   }
@@ -32,36 +42,38 @@ test("compiler coverage guard rejects excluding TS launchers in either project",
 // Migration tracer: run before implementation. The build must enforce the
 // complete strict TS project, not merely transpile renamed JavaScript.
 test("the application, controllers, tests and configs are covered by strict TypeScript", () => {
-  const root = fileURLToPath(new URL("../", import.meta.url));
-  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+  const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+  const packageManifest = JSON.parse(
+    readFileSync(join(repositoryRoot, "package.json"), "utf8"),
+  ) as {
     scripts: Record<string, string>;
     devDependencies: { typescript: string; "@typescript/native": string };
   };
   assert.equal(
-    pkg.scripts.typecheck,
+    packageManifest.scripts.typecheck,
     "npm run typecheck:native && npm run typecheck:vue",
     "missing strict typecheck command",
   );
-  assert.match(pkg.scripts.build, /typecheck.*vite build/);
+  assert.match(packageManifest.scripts.build, /typecheck.*vite build/);
   assert.equal(
-    pkg.devDependencies["@typescript/native"],
+    packageManifest.devDependencies["@typescript/native"],
     "npm:typescript@7.0.2",
   );
   assert.equal(
-    pkg.devDependencies.typescript,
+    packageManifest.devDependencies.typescript,
     "npm:@typescript/typescript6@6.0.2",
   );
-  assert.equal(pkg.scripts["typecheck:vue"], "vue-tsc --noEmit");
+  assert.equal(packageManifest.scripts["typecheck:vue"], "vue-tsc --noEmit");
   assert.equal(
-    pkg.scripts["typecheck:native"],
+    packageManifest.scripts["typecheck:native"],
     "tsc --noEmit -p tsconfig.native.json",
   );
-  const nativeConfig = JSON.parse(
-    readFileSync(join(root, "tsconfig.native.json"), "utf8"),
+  const nativeCompilerConfig = JSON.parse(
+    readFileSync(join(repositoryRoot, "tsconfig.native.json"), "utf8"),
   ) as { extends: string; include: string[] };
-  assert.equal(nativeConfig.extends, "./tsconfig.json");
-  assertScriptsCovered(nativeConfig.include, "TS 7");
-  for (const covered of [
+  assert.equal(nativeCompilerConfig.extends, "./tsconfig.json");
+  assertTypeScriptLaunchersCovered(nativeCompilerConfig.include, "TS 7");
+  for (const requiredPathPattern of [
     "src/data/**/*.ts",
     "src/game/**/*.ts",
     "src/env.d.ts",
@@ -69,18 +81,21 @@ test("the application, controllers, tests and configs are covered by strict Type
     "vite.config.ts",
     "playwright.config.ts",
   ])
-    assert.ok(nativeConfig.include.includes(covered), `${covered} misses TS 7`);
-  const config = JSON.parse(
-    readFileSync(join(root, "tsconfig.json"), "utf8"),
+    assert.ok(
+      nativeCompilerConfig.include.includes(requiredPathPattern),
+      `${requiredPathPattern} misses TS 7`,
+    );
+  const compilerConfig = JSON.parse(
+    readFileSync(join(repositoryRoot, "tsconfig.json"), "utf8"),
   ) as {
     compilerOptions: { strict: boolean; allowJs?: boolean; noCheck?: boolean };
     include: string[];
   };
-  assert.equal(config.compilerOptions.strict, true);
-  assert.notEqual(config.compilerOptions.allowJs, true);
-  assert.notEqual(config.compilerOptions.noCheck, true);
-  assertScriptsCovered(config.include, "strict checking");
-  for (const covered of [
+  assert.equal(compilerConfig.compilerOptions.strict, true);
+  assert.notEqual(compilerConfig.compilerOptions.allowJs, true);
+  assert.notEqual(compilerConfig.compilerOptions.noCheck, true);
+  assertTypeScriptLaunchersCovered(compilerConfig.include, "strict checking");
+  for (const requiredPathPattern of [
     "src/**/*.ts",
     "src/**/*.vue",
     "tests/**/*.ts",
@@ -88,31 +103,40 @@ test("the application, controllers, tests and configs are covered by strict Type
     "playwright.config.ts",
   ])
     assert.ok(
-      config.include.includes(covered),
-      `${covered} is not included in strict checking`,
+      compilerConfig.include.includes(requiredPathPattern),
+      `${requiredPathPattern} is not included in strict checking`,
     );
-  for (const dir of ["src", "tests"]) {
-    const files = readdirSync(join(root, dir), {
+  for (const directory of ["src", "tests"]) {
+    const directoryEntries = readdirSync(join(repositoryRoot, directory), {
       recursive: true,
       encoding: "utf8",
     });
     assert.deepEqual(
-      files.filter((f) => f.endsWith(".js")),
+      directoryEntries.filter((sourceFilename) =>
+        sourceFilename.endsWith(".js"),
+      ),
       [],
-      `${dir} still contains JavaScript`,
+      `${directory} still contains JavaScript`,
     );
-    for (const f of files.filter((f) => /\.(ts|vue)$/.test(f))) {
-      const text = readFileSync(join(root, dir, f), "utf8");
-      assert.doesNotMatch(text, /@ts-(?:ignore|nocheck)/);
-      if (f.endsWith(".vue") && text.includes("<script"))
-        assert.match(text, /<script[^>]*lang="ts"/);
+    for (const sourceFilename of directoryEntries.filter((sourceFilename) =>
+      /\.(ts|vue)$/.test(sourceFilename),
+    )) {
+      const sourceText = readFileSync(
+        join(repositoryRoot, directory, sourceFilename),
+        "utf8",
+      );
+      assert.doesNotMatch(sourceText, /@ts-(?:ignore|nocheck)/);
+      if (sourceFilename.endsWith(".vue") && sourceText.includes("<script"))
+        assert.match(sourceText, /<script[^>]*lang="ts"/);
     }
   }
-  for (const f of [
+  for (const sourceFilename of [
     "vite.config.ts",
     "playwright.config.ts",
     "src/game/types.ts",
     "src/game/injection.ts",
   ])
-    assert.ok(readFileSync(join(root, f), "utf8").length > 0);
+    assert.ok(
+      readFileSync(join(repositoryRoot, sourceFilename), "utf8").length > 0,
+    );
 });

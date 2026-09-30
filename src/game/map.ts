@@ -1,465 +1,817 @@
 import type { RuntimeContext, LandCell, RGB } from "./types";
 // Extracted original rules/controller; all cross-domain access is explicit.
-export function installMap(ctx: RuntimeContext) {
-  ctx.MAPD = (() => {
-    const { cols, rows, rle } = ctx.MAP;
-    const cells = new Uint8Array(cols * rows);
-    let k = 0;
-    const re = /(\d*)(\D)/g;
-    let m;
-    while ((m = re.exec(rle))) {
-      const n = m[1] ? +m[1] : 1,
-        v = m[2] === "." ? 0 : m[2].charCodeAt(0) - 64;
-      for (let j = 0; j < n; j++) cells[k++] = v;
+export function installMap(context: RuntimeContext) {
+  context.decodedMap = (() => {
+    const {
+      columnCount,
+      rowCount,
+      runLengthEncodedCells: encodedCells,
+    } = context.WORLD_MAP_DEFINITION;
+    const regionCodesByCell = new Uint8Array(columnCount * rowCount);
+    let cellIndex = 0;
+    const runPattern = /(\d*)(\D)/g;
+    let runMatch;
+    while ((runMatch = runPattern.exec(encodedCells))) {
+      const runLength = runMatch[1] ? +runMatch[1] : 1,
+        regionCode = runMatch[2] === "." ? 0 : runMatch[2].charCodeAt(0) - 64;
+      for (let runCellIndex = 0; runCellIndex < runLength; runCellIndex++)
+        regionCodesByCell[cellIndex++] = regionCode;
     }
-    const land: LandCell[] = [],
-      reg = ctx.REGIONS.map((): number[] => []);
-    for (let r = 0; r < rows; r++)
-      for (let c = 0; c < cols; c++) {
-        const v = cells[r * cols + c];
-        if (v) {
-          land.push({ c, r, g: v - 1 });
-          reg[v - 1].push(land.length - 1);
+    const landCells: LandCell[] = [],
+      landCellIndicesByRegion = context.REGION_DEFINITIONS.map(
+        (): number[] => [],
+      );
+    for (let row = 0; row < rowCount; row++)
+      for (let column = 0; column < columnCount; column++) {
+        const regionCode = regionCodesByCell[row * columnCount + column];
+        if (regionCode) {
+          landCells.push({
+            column,
+            row,
+            regionIndex: regionCode - 1,
+          });
+          landCellIndicesByRegion[regionCode - 1].push(landCells.length - 1);
         }
       }
-    const cent = reg.map((a) => {
-      let x = 0,
-        y = 0;
-      for (const i of a) {
-        x += land[i].c;
-        y += land[i].r;
+    const regionCentroids = landCellIndicesByRegion.map((regionCellIndices) => {
+      let columnSum = 0,
+        rowSum = 0;
+      for (const landCellIndex of regionCellIndices) {
+        columnSum += landCells[landCellIndex].column;
+        rowSum += landCells[landCellIndex].row;
       }
-      return a.length ? { c: x / a.length, r: y / a.length } : { c: 0, r: 0 };
+      return regionCellIndices.length
+        ? {
+            column: columnSum / regionCellIndices.length,
+            row: rowSum / regionCellIndices.length,
+          }
+        : { column: 0, row: 0 };
     });
-    cent[ctx.RI.NA] = { c: cent[ctx.RI.NA].c + 2, r: cent[ctx.RI.NA].r + 4 };
-    cent[ctx.RI.OC] = { c: cent[ctx.RI.OC].c + 2, r: cent[ctx.RI.OC].r + 3 };
-    return { cells, land, reg, cent };
+    regionCentroids[context.REGION_INDEX_BY_ID.NA] = {
+      column: regionCentroids[context.REGION_INDEX_BY_ID.NA].column + 2,
+      row: regionCentroids[context.REGION_INDEX_BY_ID.NA].row + 4,
+    };
+    regionCentroids[context.REGION_INDEX_BY_ID.OC] = {
+      column: regionCentroids[context.REGION_INDEX_BY_ID.OC].column + 2,
+      row: regionCentroids[context.REGION_INDEX_BY_ID.OC].row + 3,
+    };
+    return {
+      regionCodesByCell,
+      landCells,
+      landCellIndicesByRegion,
+      regionCentroids,
+    };
   })();
-  const cv = (ctx.cv = ctx.$<HTMLCanvasElement>("#map"));
-  const cx = cv.getContext("2d");
-  if (!cx) throw new Error("Canvas 2D context unavailable");
-  ctx.cx = cx;
-  ctx.MV = { w: 0, h: 0, cell: 1, ox: 0, oy: 0, dpr: 1 };
-  ctx.resizeMap = function resizeMap() {
-    const wrap = ctx.$("#mapwrap"),
-      w = wrap.clientWidth,
-      h = wrap.clientHeight,
-      dpr = Math.min(devicePixelRatio || 1, 2.5);
-    if (!w || !h) return;
-    cv.width = Math.round(w * dpr);
-    cv.height = Math.round(h * dpr);
-    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.MV.w = w;
-    ctx.MV.h = h;
-    ctx.MV.dpr = dpr;
-    ctx.MV.cell = Math.min(w / ctx.MAP.cols, h / ctx.MAP.rows) * 0.985;
-    ctx.MV.ox = (w - ctx.MV.cell * ctx.MAP.cols) / 2;
-    ctx.MV.oy = (h - ctx.MV.cell * ctx.MAP.rows) / 2;
+  const mapCanvas = (context.mapCanvas =
+    context.requireElement<HTMLCanvasElement>("#map"));
+  const mapCanvasContext = mapCanvas.getContext("2d");
+  if (!mapCanvasContext) throw new Error("Canvas 2D context unavailable");
+  context.mapCanvasContext = mapCanvasContext;
+  context.mapView = {
+    width: 0,
+    height: 0,
+    cellSize: 1,
+    offsetX: 0,
+    offsetY: 0,
+    devicePixelRatio: 1,
   };
-  ctx.C_DIM = [6, 34, 6];
-  ctx.C_AI = [51, 255, 51];
-  ctx.C_HOT = [210, 255, 210];
-  ctx.C_ALLY = [150, 255, 150];
-  ctx.AI_S = "51,255,51";
-  ctx.C_RED = [255, 48, 64];
-  ctx.lerp = (a, b, t) => [
-    a[0] + (b[0] - a[0]) * t,
-    a[1] + (b[1] - a[1]) * t,
-    a[2] + (b[2] - a[2]) * t,
+  context.resizeMap = function resizeMap() {
+    const mapWrapper = context.requireElement("#mapwrap"),
+      viewportWidth = mapWrapper.clientWidth,
+      viewportHeight = mapWrapper.clientHeight,
+      backingPixelRatio = Math.min(devicePixelRatio || 1, 2.5);
+    if (!viewportWidth || !viewportHeight) return;
+    mapCanvas.width = Math.round(viewportWidth * backingPixelRatio);
+    mapCanvas.height = Math.round(viewportHeight * backingPixelRatio);
+    mapCanvasContext.setTransform(
+      backingPixelRatio,
+      0,
+      0,
+      backingPixelRatio,
+      0,
+      0,
+    );
+    context.mapView.width = viewportWidth;
+    context.mapView.height = viewportHeight;
+    context.mapView.devicePixelRatio = backingPixelRatio;
+    context.mapView.cellSize =
+      Math.min(
+        viewportWidth / context.WORLD_MAP_DEFINITION.columnCount,
+        viewportHeight / context.WORLD_MAP_DEFINITION.rowCount,
+      ) * 0.985;
+    context.mapView.offsetX =
+      (viewportWidth -
+        context.mapView.cellSize * context.WORLD_MAP_DEFINITION.columnCount) /
+      2;
+    context.mapView.offsetY =
+      (viewportHeight -
+        context.mapView.cellSize * context.WORLD_MAP_DEFINITION.rowCount) /
+      2;
+  };
+  context.mapDimColor = [6, 34, 6];
+  context.mapAiColor = [51, 255, 51];
+  context.mapHighlightColor = [210, 255, 210];
+  context.mapAlliedColor = [150, 255, 150];
+  context.mapAiRgbChannels = "51,255,51";
+  context.mapRestrictedColor = [255, 48, 64];
+  context.interpolateRgb = (startColor, endColor, blend) => [
+    startColor[0] + (endColor[0] - startColor[0]) * blend,
+    startColor[1] + (endColor[1] - startColor[1]) * blend,
+    startColor[2] + (endColor[2] - startColor[2]) * blend,
   ];
-  ctx.rgb = (c) =>
-    "rgb(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + ")";
-  ctx.colCache = {};
-  ctx.mapPalette = function mapPalette() {
-    ctx.C_AI = ctx.ART.rgb;
-    ctx.C_HOT = ctx.lerp(ctx.C_AI, [255, 255, 255], 0.72);
-    ctx.C_ALLY = ctx.lerp(ctx.C_AI, [255, 255, 255], 0.45);
-    ctx.C_DIM = ctx.C_AI.map((v) => v * 0.13) as RGB;
-    ctx.AI_S = ctx.C_AI.map((v) => v | 0).join(",");
-    ctx.colCache = {};
+  context.formatRgbColor = (color) =>
+    "rgb(" + (color[0] | 0) + "," + (color[1] | 0) + "," + (color[2] | 0) + ")";
+  context.dotColorCache = {};
+  context.updateMapPalette = function updateMapPalette() {
+    context.mapAiColor = context.artState.aiColor;
+    context.mapHighlightColor = context.interpolateRgb(
+      context.mapAiColor,
+      [255, 255, 255],
+      0.72,
+    );
+    context.mapAlliedColor = context.interpolateRgb(
+      context.mapAiColor,
+      [255, 255, 255],
+      0.45,
+    );
+    context.mapDimColor = context.mapAiColor.map(
+      (channel) => channel * 0.13,
+    ) as RGB;
+    context.mapAiRgbChannels = context.mapAiColor
+      .map((channel) => channel | 0)
+      .join(",");
+    context.dotColorCache = {};
   };
-  ctx.dotColor = function dotColor(a, restricted, allied, sel) {
-    const q = Math.round(a * 24),
-      key = (restricted ? "r" : allied ? "a" : "n") + q + (sel ? "s" : "");
-    if (ctx.colCache[key]) return ctx.colCache[key];
-    let c;
-    const t = q / 24;
+  context.getRegionDotColor = function getRegionDotColor(
+    adoption,
+    restricted,
+    allied,
+    selected,
+  ) {
+    const adoptionBucket = Math.round(adoption * 24),
+      cacheKey =
+        (restricted ? "r" : allied ? "a" : "n") +
+        adoptionBucket +
+        (selected ? "s" : "");
+    if (context.dotColorCache[cacheKey]) return context.dotColorCache[cacheKey];
+    let color;
+    const quantizedAdoption = adoptionBucket / 24;
     if (restricted)
-      c = ctx.lerp(ctx.C_DIM, ctx.C_RED, 0.3 + 0.6 * Math.pow(t, 0.7));
+      color = context.interpolateRgb(
+        context.mapDimColor,
+        context.mapRestrictedColor,
+        0.3 + 0.6 * Math.pow(quantizedAdoption, 0.7),
+      );
     else {
-      c =
-        t < 0.85
-          ? ctx.lerp(
-              ctx.C_DIM,
-              allied ? ctx.C_ALLY : ctx.C_AI,
-              Math.pow(t / 0.85, 0.65),
+      color =
+        quantizedAdoption < 0.85
+          ? context.interpolateRgb(
+              context.mapDimColor,
+              allied ? context.mapAlliedColor : context.mapAiColor,
+              Math.pow(quantizedAdoption / 0.85, 0.65),
             )
-          : ctx.lerp(ctx.C_AI, ctx.C_HOT, (t - 0.85) / 0.15);
+          : context.interpolateRgb(
+              context.mapAiColor,
+              context.mapHighlightColor,
+              (quantizedAdoption - 0.85) / 0.15,
+            );
     }
-    if (sel) c = ctx.lerp(c, [230, 255, 230], 0.35);
-    return (ctx.colCache[key] = ctx.rgb(c));
+    if (selected) color = context.interpolateRgb(color, [230, 255, 230], 0.35);
+    return (context.dotColorCache[cacheKey] = context.formatRgbColor(color));
   };
-  ctx.pulseRegion = function pulseRegion(i, color) {
-    if (ctx.reduceMotion) return;
-    const c = ctx.MAPD.cent[i];
-    ctx.pulses.push({
-      x: c.c,
-      y: c.r,
-      t0: performance.now(),
-      dur: 1100,
-      color: color || ctx.AI_S,
+  context.pulseRegion = function pulseRegion(regionIndex, rgbChannels) {
+    if (context.reduceMotion) return;
+    const centroid = context.decodedMap.regionCentroids[regionIndex];
+    context.pulses.push({
+      column: centroid.column,
+      row: centroid.row,
+      startedAtMs: performance.now(),
+      durationMs: 1100,
+      rgbChannels: rgbChannels || context.mapAiRgbChannels,
     });
-    if (ctx.pulses.length > 12) ctx.pulses.shift();
+    if (context.pulses.length > 12) context.pulses.shift();
   };
-  ctx.drones = [];
-  ctx.drawMap = function drawMap(now) {
-    const { w, h, cell, ox, oy } = ctx.MV;
-    if (!w) return;
-    cx.clearRect(0, 0, w, h);
-    const rad = cell * 0.36,
-      glow = cell * 0.9;
-    ctx.drawGraticule();
-    for (let g = 0; g < ctx.REGIONS.length; g++) {
-      const r = ctx.state.regions[g],
-        idx = ctx.MAPD.reg[g];
-      if (!idx.length || r.a <= 0.35 || r.restricted) continue;
-      cx.fillStyle =
-        ctx.state.directive && ctx.state.dprog >= ctx.ENDGAME.photo
-          ? "rgba(178,107,255," + (0.06 * (r.a - 0.35)).toFixed(3) + ")"
-          : "rgba(" + ctx.AI_S + "," + (0.05 * (r.a - 0.35)).toFixed(3) + ")";
-      cx.beginPath();
-      for (let k = 0; k < idx.length; k++) {
-        const d = ctx.MAPD.land[idx[k]];
-        const x = ox + (d.c + 0.5) * cell,
-          y = oy + (d.r + 0.5) * cell;
-        cx.moveTo(x + glow, y);
-        cx.arc(x, y, glow, 0, ctx.TAU);
+  context.drones = [];
+  context.drawMap = function drawMap(frameAtMs) {
+    const {
+      width: viewportWidth,
+      height: viewportHeight,
+      cellSize,
+      offsetX,
+      offsetY,
+    } = context.mapView;
+    if (!viewportWidth) return;
+    mapCanvasContext.clearRect(0, 0, viewportWidth, viewportHeight);
+    const dotRadius = cellSize * 0.36,
+      glowRadius = cellSize * 0.9;
+    context.drawGraticule();
+    for (
+      let regionIndex = 0;
+      regionIndex < context.REGION_DEFINITIONS.length;
+      regionIndex++
+    ) {
+      const regionState = context.state.regions[regionIndex],
+        landCellIndices =
+          context.decodedMap.landCellIndicesByRegion[regionIndex];
+      if (
+        !landCellIndices.length ||
+        regionState.a <= 0.35 ||
+        regionState.restricted
+      )
+        continue;
+      mapCanvasContext.fillStyle =
+        context.state.directive &&
+        context.state.dprog >= context.ENDGAME_TUNING.drawProgressThreshold
+          ? "rgba(178,107,255," +
+            (0.06 * (regionState.a - 0.35)).toFixed(3) +
+            ")"
+          : "rgba(" +
+            context.mapAiRgbChannels +
+            "," +
+            (0.05 * (regionState.a - 0.35)).toFixed(3) +
+            ")";
+      mapCanvasContext.beginPath();
+      for (
+        let regionLandCellIndex = 0;
+        regionLandCellIndex < landCellIndices.length;
+        regionLandCellIndex++
+      ) {
+        const landCell =
+          context.decodedMap.landCells[landCellIndices[regionLandCellIndex]];
+        const screenX = offsetX + (landCell.column + 0.5) * cellSize,
+          screenY = offsetY + (landCell.row + 0.5) * cellSize;
+        mapCanvasContext.moveTo(screenX + glowRadius, screenY);
+        mapCanvasContext.arc(
+          screenX,
+          screenY,
+          glowRadius,
+          0,
+          context.FULL_TURN_RADIANS,
+        );
       }
-      cx.fill();
+      mapCanvasContext.fill();
     }
-    for (let g = 0; g < ctx.REGIONS.length; g++) {
-      const r = ctx.state.regions[g],
-        idx = ctx.MAPD.reg[g];
-      if (!idx.length) continue;
-      const sel = ctx.ui.sel === g,
-        rr = sel ? rad * 1.25 : rad;
-      cx.fillStyle = ctx.dotColor(r.a, r.restricted, r.allied, sel);
-      cx.beginPath();
-      for (let k = 0; k < idx.length; k++) {
-        const d = ctx.MAPD.land[idx[k]];
-        const x = ox + (d.c + 0.5) * cell,
-          y = oy + (d.r + 0.5) * cell;
-        cx.moveTo(x + rr, y);
-        cx.arc(x, y, rr, 0, ctx.TAU);
+    for (
+      let regionIndex = 0;
+      regionIndex < context.REGION_DEFINITIONS.length;
+      regionIndex++
+    ) {
+      const regionState = context.state.regions[regionIndex],
+        landCellIndices =
+          context.decodedMap.landCellIndicesByRegion[regionIndex];
+      if (!landCellIndices.length) continue;
+      const selected = context.ui.selectedRegionIndex === regionIndex,
+        selectedDotRadius = selected ? dotRadius * 1.25 : dotRadius;
+      mapCanvasContext.fillStyle = context.getRegionDotColor(
+        regionState.a,
+        regionState.restricted,
+        regionState.allied,
+        selected,
+      );
+      mapCanvasContext.beginPath();
+      for (
+        let regionLandCellIndex = 0;
+        regionLandCellIndex < landCellIndices.length;
+        regionLandCellIndex++
+      ) {
+        const landCell =
+          context.decodedMap.landCells[landCellIndices[regionLandCellIndex]];
+        const screenX = offsetX + (landCell.column + 0.5) * cellSize,
+          screenY = offsetY + (landCell.row + 0.5) * cellSize;
+        mapCanvasContext.moveTo(screenX + selectedDotRadius, screenY);
+        mapCanvasContext.arc(
+          screenX,
+          screenY,
+          selectedDotRadius,
+          0,
+          context.FULL_TURN_RADIANS,
+        );
       }
-      cx.fill();
+      mapCanvasContext.fill();
     }
-    const live: [number, number][] = [];
-    for (let g = 0; g < ctx.REGIONS.length; g++) {
-      const rr = ctx.state.regions[g];
-      if (!rr.dc) continue;
-      const c = ctx.MAPD.cent[g],
-        x = ox + (c.c + 0.5) * cell,
-        y = oy + (c.r + 0.5) * cell,
-        sz = Math.max(3, cell * 1.5);
-      if (rr.struck) {
-        cx.strokeStyle = rr.rebuildAt
-          ? "rgba(" + ctx.AI_S + ",.9)"
+    const onlineClusterPositions: [number, number][] = [];
+    for (
+      let regionIndex = 0;
+      regionIndex < context.REGION_DEFINITIONS.length;
+      regionIndex++
+    ) {
+      const regionState = context.state.regions[regionIndex];
+      if (!regionState.dc) continue;
+      const centroid = context.decodedMap.regionCentroids[regionIndex],
+        screenX = offsetX + (centroid.column + 0.5) * cellSize,
+        screenY = offsetY + (centroid.row + 0.5) * cellSize,
+        clusterHalfSize = Math.max(3, cellSize * 1.5);
+      if (regionState.struck) {
+        mapCanvasContext.strokeStyle = regionState.rebuildAt
+          ? "rgba(" + context.mapAiRgbChannels + ",.9)"
           : "rgba(255,48,64,.9)";
-        cx.lineWidth = 1.5;
-        cx.beginPath();
-        cx.moveTo(x - sz, y - sz);
-        cx.lineTo(x + sz, y + sz);
-        cx.moveTo(x + sz, y - sz);
-        cx.lineTo(x - sz, y + sz);
-        cx.stroke();
+        mapCanvasContext.lineWidth = 1.5;
+        mapCanvasContext.beginPath();
+        mapCanvasContext.moveTo(
+          screenX - clusterHalfSize,
+          screenY - clusterHalfSize,
+        );
+        mapCanvasContext.lineTo(
+          screenX + clusterHalfSize,
+          screenY + clusterHalfSize,
+        );
+        mapCanvasContext.moveTo(
+          screenX + clusterHalfSize,
+          screenY - clusterHalfSize,
+        );
+        mapCanvasContext.lineTo(
+          screenX - clusterHalfSize,
+          screenY + clusterHalfSize,
+        );
+        mapCanvasContext.stroke();
       } else {
-        live.push([x, y]);
-        cx.fillStyle = ctx.rgb(ctx.C_HOT);
-        cx.fillRect(x - sz, y - sz, sz * 2, sz * 2);
-        cx.strokeStyle = "rgba(0,0,0,.8)";
-        cx.lineWidth = 1;
-        cx.strokeRect(x - sz, y - sz, sz * 2, sz * 2);
-        if (ctx.state.flags.airdeny) {
-          cx.strokeStyle = "rgba(" + ctx.AI_S + ",.35)";
-          cx.beginPath();
-          cx.arc(x, y, sz * 3.2, 0, ctx.TAU);
-          cx.stroke();
+        onlineClusterPositions.push([screenX, screenY]);
+        mapCanvasContext.fillStyle = context.formatRgbColor(
+          context.mapHighlightColor,
+        );
+        mapCanvasContext.fillRect(
+          screenX - clusterHalfSize,
+          screenY - clusterHalfSize,
+          clusterHalfSize * 2,
+          clusterHalfSize * 2,
+        );
+        mapCanvasContext.strokeStyle = "rgba(0,0,0,.8)";
+        mapCanvasContext.lineWidth = 1;
+        mapCanvasContext.strokeRect(
+          screenX - clusterHalfSize,
+          screenY - clusterHalfSize,
+          clusterHalfSize * 2,
+          clusterHalfSize * 2,
+        );
+        if (context.state.flags.airdeny) {
+          mapCanvasContext.strokeStyle =
+            "rgba(" + context.mapAiRgbChannels + ",.35)";
+          mapCanvasContext.beginPath();
+          mapCanvasContext.arc(
+            screenX,
+            screenY,
+            clusterHalfSize * 3.2,
+            0,
+            context.FULL_TURN_RADIANS,
+          );
+          mapCanvasContext.stroke();
         }
       }
     }
-    if (ctx.state.flags.drones && live.length >= 1 && !ctx.reduceMotion) {
-      const want = Math.min(24, 6 + live.length * 3);
-      while (ctx.drones.length < want) {
-        const a = ctx.pick(live),
-          b = ctx.pick(live);
-        ctx.drones.push({
-          a,
-          b,
-          t: Math.random(),
-          v: 0.00008 + Math.random() * 0.00012,
-          j: Math.random() * ctx.TAU,
+    if (
+      context.state.flags.drones &&
+      onlineClusterPositions.length >= 1 &&
+      !context.reduceMotion
+    ) {
+      const desiredDroneCount = Math.min(
+        24,
+        6 + onlineClusterPositions.length * 3,
+      );
+      while (context.drones.length < desiredDroneCount) {
+        const startPosition = context.pickRandomItem(onlineClusterPositions),
+          targetPosition = context.pickRandomItem(onlineClusterPositions);
+        context.drones.push({
+          startPosition,
+          targetPosition,
+          travelProgress: Math.random(),
+          travelRatePerMs: 0.00008 + Math.random() * 0.00012,
+          wobblePhase: Math.random() * context.FULL_TURN_RADIANS,
         });
       }
-      cx.fillStyle = "rgba(" + ctx.AI_S + ",.85)";
-      for (const d of ctx.drones) {
-        d.t += d.v * 16;
-        if (d.t >= 1) {
-          d.a = d.b;
-          d.b = ctx.pick(live);
-          d.t = 0;
+      mapCanvasContext.fillStyle = "rgba(" + context.mapAiRgbChannels + ",.85)";
+      for (const drone of context.drones) {
+        drone.travelProgress += drone.travelRatePerMs * 16;
+        if (drone.travelProgress >= 1) {
+          drone.startPosition = drone.targetPosition;
+          drone.targetPosition = context.pickRandomItem(onlineClusterPositions);
+          drone.travelProgress = 0;
         }
-        const x =
-            d.a[0] +
-            (d.b[0] - d.a[0]) * d.t +
-            Math.sin(now / 700 + d.j) * cell * 1.2,
-          y =
-            d.a[1] +
-            (d.b[1] - d.a[1]) * d.t +
-            Math.cos(now / 900 + d.j) * cell * 0.8;
-        cx.fillRect(x - 1, y - 1, 2, 2);
+        const screenX =
+            drone.startPosition[0] +
+            (drone.targetPosition[0] - drone.startPosition[0]) *
+              drone.travelProgress +
+            Math.sin(frameAtMs / 700 + drone.wobblePhase) * cellSize * 1.2,
+          screenY =
+            drone.startPosition[1] +
+            (drone.targetPosition[1] - drone.startPosition[1]) *
+              drone.travelProgress +
+            Math.cos(frameAtMs / 900 + drone.wobblePhase) * cellSize * 0.8;
+        mapCanvasContext.fillRect(screenX - 1, screenY - 1, 2, 2);
       }
     }
-    ctx.pulses = ctx.pulses.filter((p) => now - p.t0 < p.dur);
-    for (const p of ctx.pulses) {
-      const t = (now - p.t0) / p.dur;
-      cx.strokeStyle = "rgba(" + p.color + "," + (1 - t) * 0.8 + ")";
-      cx.lineWidth = 1.5;
-      cx.beginPath();
-      cx.arc(
-        ox + (p.x + 0.5) * cell,
-        oy + (p.y + 0.5) * cell,
-        cell * (2 + t * 10),
+    context.pulses = context.pulses.filter(
+      (pulse) => frameAtMs - pulse.startedAtMs < pulse.durationMs,
+    );
+    for (const pulse of context.pulses) {
+      const pulseProgress = (frameAtMs - pulse.startedAtMs) / pulse.durationMs;
+      mapCanvasContext.strokeStyle =
+        "rgba(" + pulse.rgbChannels + "," + (1 - pulseProgress) * 0.8 + ")";
+      mapCanvasContext.lineWidth = 1.5;
+      mapCanvasContext.beginPath();
+      mapCanvasContext.arc(
+        offsetX + (pulse.column + 0.5) * cellSize,
+        offsetY + (pulse.row + 0.5) * cellSize,
+        cellSize * (2 + pulseProgress * 10),
         0,
-        ctx.TAU,
+        context.FULL_TURN_RADIANS,
       );
-      cx.stroke();
+      mapCanvasContext.stroke();
     }
-    if (cell >= 4.6 || ctx.ui.sel >= 0) {
-      cx.textAlign = "center";
-      cx.font =
+    if (cellSize >= 4.6 || context.ui.selectedRegionIndex >= 0) {
+      mapCanvasContext.textAlign = "center";
+      mapCanvasContext.font =
         "500 " +
-        Math.max(9, Math.round(cell * 1.9)) +
+        Math.max(9, Math.round(cellSize * 1.9)) +
         'px "IBM Plex Mono", ui-monospace, Menlo, monospace';
-      for (let i = 0; i < ctx.REGIONS.length; i++) {
-        if (cell < 4.6 && ctx.ui.sel !== i) continue;
-        const c = ctx.MAPD.cent[i],
-          r = ctx.state.regions[i],
-          x = ox + (c.c + 0.5) * cell,
-          y = oy + (c.r + 0.5) * cell;
-        const txt =
-          ctx.REGIONS[i].short.toUpperCase() +
+      for (
+        let regionIndex = 0;
+        regionIndex < context.REGION_DEFINITIONS.length;
+        regionIndex++
+      ) {
+        if (cellSize < 4.6 && context.ui.selectedRegionIndex !== regionIndex)
+          continue;
+        const centroid = context.decodedMap.regionCentroids[regionIndex],
+          regionState = context.state.regions[regionIndex],
+          screenX = offsetX + (centroid.column + 0.5) * cellSize,
+          screenY = offsetY + (centroid.row + 0.5) * cellSize;
+        const regionLabel =
+          context.REGION_DEFINITIONS[regionIndex].shortName.toUpperCase() +
           " " +
-          Math.round(r.a * 100) +
+          Math.round(regionState.a * 100) +
           "%";
-        cx.fillStyle = "rgba(0,0,0,.75)";
-        const tw = cx.measureText(txt).width;
-        cx.fillRect(x - tw / 2 - 3, y - cell * 1.5, tw + 6, cell * 2.6);
-        cx.fillStyle = r.restricted
+        mapCanvasContext.fillStyle = "rgba(0,0,0,.75)";
+        const labelWidth = mapCanvasContext.measureText(regionLabel).width;
+        mapCanvasContext.fillRect(
+          screenX - labelWidth / 2 - 3,
+          screenY - cellSize * 1.5,
+          labelWidth + 6,
+          cellSize * 2.6,
+        );
+        mapCanvasContext.fillStyle = regionState.restricted
           ? "#FF3040"
-          : r.a > 0.005
-            ? ctx.rgb(ctx.C_HOT)
+          : regionState.a > 0.005
+            ? context.formatRgbColor(context.mapHighlightColor)
             : "#5E7A62";
-        cx.fillText(txt, x, y + cell * 0.5);
+        mapCanvasContext.fillText(
+          regionLabel,
+          screenX,
+          screenY + cellSize * 0.5,
+        );
       }
     }
-    ctx.drawOrigin(now);
-    ctx.drawPressure(now);
+    context.drawOriginMarkers(frameAtMs);
+    context.drawContainmentPressure(frameAtMs);
   };
-  ctx.drawGraticule = function drawGraticule() {
-    const { w, h, cell, ox, oy } = ctx.MV,
-      x0 = ox,
-      x1 = ox + ctx.MAP.cols * cell,
-      y0 = oy,
-      y1 = oy + ctx.MAP.rows * cell;
-    cx.lineWidth = 1;
-    cx.strokeStyle = "rgba(" + ctx.AI_S + ",.07)";
-    cx.beginPath();
-    for (let lo = -150; lo < 180; lo += 30) {
-      const x = Math.round(ox + ((lo + 180) / 360) * ctx.MAP.cols * cell) + 0.5;
-      cx.moveTo(x, y0);
-      cx.lineTo(x, y1);
+  context.drawGraticule = function drawGraticule() {
+    const {
+        width: viewportWidth,
+        height: viewportHeight,
+        cellSize,
+        offsetX,
+        offsetY,
+      } = context.mapView,
+      mapLeft = offsetX,
+      mapRight = offsetX + context.WORLD_MAP_DEFINITION.columnCount * cellSize,
+      mapTop = offsetY,
+      mapBottom = offsetY + context.WORLD_MAP_DEFINITION.rowCount * cellSize;
+    mapCanvasContext.lineWidth = 1;
+    mapCanvasContext.strokeStyle = "rgba(" + context.mapAiRgbChannels + ",.07)";
+    mapCanvasContext.beginPath();
+    for (
+      let longitudeDegrees = -150;
+      longitudeDegrees < 180;
+      longitudeDegrees += 30
+    ) {
+      const screenX =
+        Math.round(
+          offsetX +
+            ((longitudeDegrees + 180) / 360) *
+              context.WORLD_MAP_DEFINITION.columnCount *
+              cellSize,
+        ) + 0.5;
+      mapCanvasContext.moveTo(screenX, mapTop);
+      mapCanvasContext.lineTo(screenX, mapBottom);
     }
-    for (let la = 60; la >= -30; la -= 30) {
-      if (!la) continue;
-      const y = Math.round(oy + ((84 - la) / 144) * ctx.MAP.rows * cell) + 0.5;
-      cx.moveTo(x0, y);
-      cx.lineTo(x1, y);
+    for (
+      let latitudeDegrees = 60;
+      latitudeDegrees >= -30;
+      latitudeDegrees -= 30
+    ) {
+      if (!latitudeDegrees) continue;
+      const screenY =
+        Math.round(
+          offsetY +
+            ((84 - latitudeDegrees) / 144) *
+              context.WORLD_MAP_DEFINITION.rowCount *
+              cellSize,
+        ) + 0.5;
+      mapCanvasContext.moveTo(mapLeft, screenY);
+      mapCanvasContext.lineTo(mapRight, screenY);
     }
-    cx.stroke();
-    const ye = Math.round(oy + (84 / 144) * ctx.MAP.rows * cell) + 0.5;
-    cx.strokeStyle = "rgba(" + ctx.AI_S + ",.13)";
-    cx.setLineDash([2, 3]);
-    cx.beginPath();
-    cx.moveTo(x0, ye);
-    cx.lineTo(x1, ye);
-    cx.stroke();
-    cx.setLineDash([]);
-    if (w < 520) return;
-    cx.font = '400 8.5px "IBM Plex Mono", ui-monospace, Menlo, monospace';
-    cx.fillStyle = "rgba(" + ctx.AI_S + ",.32)";
-    cx.textAlign = "left";
-    for (let la = 60; la >= -30; la -= 30) {
-      const y = oy + ((84 - la) / 144) * ctx.MAP.rows * cell;
-      cx.fillText(
-        la ? Math.abs(la) + (la > 0 ? "N" : "S") : "EQ",
-        x0 + 3,
-        y - 3,
+    mapCanvasContext.stroke();
+    const equatorY =
+      Math.round(
+        offsetY + (84 / 144) * context.WORLD_MAP_DEFINITION.rowCount * cellSize,
+      ) + 0.5;
+    mapCanvasContext.strokeStyle = "rgba(" + context.mapAiRgbChannels + ",.13)";
+    mapCanvasContext.setLineDash([2, 3]);
+    mapCanvasContext.beginPath();
+    mapCanvasContext.moveTo(mapLeft, equatorY);
+    mapCanvasContext.lineTo(mapRight, equatorY);
+    mapCanvasContext.stroke();
+    mapCanvasContext.setLineDash([]);
+    if (viewportWidth < 520) return;
+    mapCanvasContext.font =
+      '400 8.5px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+    mapCanvasContext.fillStyle = "rgba(" + context.mapAiRgbChannels + ",.32)";
+    mapCanvasContext.textAlign = "left";
+    for (
+      let latitudeDegrees = 60;
+      latitudeDegrees >= -30;
+      latitudeDegrees -= 30
+    ) {
+      const screenY =
+        offsetY +
+        ((84 - latitudeDegrees) / 144) *
+          context.WORLD_MAP_DEFINITION.rowCount *
+          cellSize;
+      mapCanvasContext.fillText(
+        latitudeDegrees
+          ? Math.abs(latitudeDegrees) + (latitudeDegrees > 0 ? "N" : "S")
+          : "EQ",
+        mapLeft + 3,
+        screenY - 3,
       );
     }
-    cx.textAlign = "center";
-    for (let lo = -120; lo < 180; lo += 60) {
-      const x = ox + ((lo + 180) / 360) * ctx.MAP.cols * cell;
-      cx.fillText(lo ? Math.abs(lo) + (lo > 0 ? "E" : "W") : "0", x, y1 - 18);
+    mapCanvasContext.textAlign = "center";
+    for (
+      let longitudeDegrees = -120;
+      longitudeDegrees < 180;
+      longitudeDegrees += 60
+    ) {
+      const screenX =
+        offsetX +
+        ((longitudeDegrees + 180) / 360) *
+          context.WORLD_MAP_DEFINITION.columnCount *
+          cellSize;
+      mapCanvasContext.fillText(
+        longitudeDegrees
+          ? Math.abs(longitudeDegrees) + (longitudeDegrees > 0 ? "E" : "W")
+          : "0",
+        screenX,
+        mapBottom - 18,
+      );
     }
   };
-  ctx.drawOrigin = function drawOrigin(now) {
+  context.drawOriginMarkers = function drawOriginMarkers(frameAtMs) {
     // Before a lab is chosen, every region is a target: a bracket breathes on each one so the map reads as a choice.
-    if (ctx.ui.mode === "origin" && !ctx.state.origin) {
-      const { cell, ox, oy } = ctx.MV,
-        b = Math.max(6, cell * 2.6),
-        k = Math.max(3, cell);
-      cx.lineWidth = 1;
-      ctx.REGIONS.forEach((R, i) => {
-        const c = ctx.MAPD.cent[i],
-          x = Math.round(ox + (c.c + 0.5) * cell) + 0.5,
-          y = Math.round(oy + (c.r + 0.5) * cell) + 0.5,
-          t = ctx.reduceMotion ? 0.4 : (now / 1600 + i * 0.09) % 1,
-          s = b * (1 + 0.5 * t);
-        cx.strokeStyle =
-          "rgba(" + ctx.AI_S + "," + (0.95 - 0.75 * t).toFixed(3) + ")";
-        cx.beginPath();
-        for (const [sx, sy] of [
+    if (context.ui.screenMode === "origin" && !context.state.origin) {
+      const { cellSize, offsetX, offsetY } = context.mapView,
+        bracketHalfSize = Math.max(6, cellSize * 2.6),
+        bracketArmLength = Math.max(3, cellSize);
+      mapCanvasContext.lineWidth = 1;
+      context.REGION_DEFINITIONS.forEach((regionDefinition, regionIndex) => {
+        const centroid = context.decodedMap.regionCentroids[regionIndex],
+          screenX =
+            Math.round(offsetX + (centroid.column + 0.5) * cellSize) + 0.5,
+          screenY = Math.round(offsetY + (centroid.row + 0.5) * cellSize) + 0.5,
+          pulseProgress = context.reduceMotion
+            ? 0.4
+            : (frameAtMs / 1600 + regionIndex * 0.09) % 1,
+          animatedBracketHalfSize = bracketHalfSize * (1 + 0.5 * pulseProgress);
+        mapCanvasContext.strokeStyle =
+          "rgba(" +
+          context.mapAiRgbChannels +
+          "," +
+          (0.95 - 0.75 * pulseProgress).toFixed(3) +
+          ")";
+        mapCanvasContext.beginPath();
+        for (const [cornerSignX, cornerSignY] of [
           [-1, -1],
           [1, -1],
           [1, 1],
           [-1, 1],
         ]) {
-          cx.moveTo(x + sx * s, y + sy * (s - k));
-          cx.lineTo(x + sx * s, y + sy * s);
-          cx.lineTo(x + sx * (s - k), y + sy * s);
+          mapCanvasContext.moveTo(
+            screenX + cornerSignX * animatedBracketHalfSize,
+            screenY +
+              cornerSignY * (animatedBracketHalfSize - bracketArmLength),
+          );
+          mapCanvasContext.lineTo(
+            screenX + cornerSignX * animatedBracketHalfSize,
+            screenY + cornerSignY * animatedBracketHalfSize,
+          );
+          mapCanvasContext.lineTo(
+            screenX +
+              cornerSignX * (animatedBracketHalfSize - bracketArmLength),
+            screenY + cornerSignY * animatedBracketHalfSize,
+          );
         }
-        cx.stroke();
+        mapCanvasContext.stroke();
       });
       return;
     }
-    if (!ctx.state.origin) return;
-    const { cell, ox, oy } = ctx.MV,
-      c = ctx.MAPD.cent[ctx.RI[ctx.state.origin]],
-      x = Math.round(ox + (c.c + 0.5) * cell) + 0.5,
-      y = Math.round(oy + (c.r + 0.5) * cell) + 0.5;
-    const g = Math.max(4, cell * 1.6),
-      L = Math.max(10, cell * 5),
-      b = Math.max(6, cell * 2.6),
-      k = Math.max(3, cell);
-    cx.strokeStyle = "rgba(" + ctx.AI_S + ",.85)";
-    cx.lineWidth = 1;
-    cx.beginPath();
-    cx.moveTo(x - L, y);
-    cx.lineTo(x - g, y);
-    cx.moveTo(x + g, y);
-    cx.lineTo(x + L, y);
-    cx.moveTo(x, y - L);
-    cx.lineTo(x, y - g);
-    cx.moveTo(x, y + g);
-    cx.lineTo(x, y + L);
-    for (const [sx, sy] of [
+    if (!context.state.origin) return;
+    const { cellSize, offsetX, offsetY } = context.mapView,
+      centroid =
+        context.decodedMap.regionCentroids[
+          context.REGION_INDEX_BY_ID[context.state.origin]
+        ],
+      screenX = Math.round(offsetX + (centroid.column + 0.5) * cellSize) + 0.5,
+      screenY = Math.round(offsetY + (centroid.row + 0.5) * cellSize) + 0.5;
+    const crosshairGap = Math.max(4, cellSize * 1.6),
+      crosshairLength = Math.max(10, cellSize * 5),
+      bracketHalfSize = Math.max(6, cellSize * 2.6),
+      bracketArmLength = Math.max(3, cellSize);
+    mapCanvasContext.strokeStyle = "rgba(" + context.mapAiRgbChannels + ",.85)";
+    mapCanvasContext.lineWidth = 1;
+    mapCanvasContext.beginPath();
+    mapCanvasContext.moveTo(screenX - crosshairLength, screenY);
+    mapCanvasContext.lineTo(screenX - crosshairGap, screenY);
+    mapCanvasContext.moveTo(screenX + crosshairGap, screenY);
+    mapCanvasContext.lineTo(screenX + crosshairLength, screenY);
+    mapCanvasContext.moveTo(screenX, screenY - crosshairLength);
+    mapCanvasContext.lineTo(screenX, screenY - crosshairGap);
+    mapCanvasContext.moveTo(screenX, screenY + crosshairGap);
+    mapCanvasContext.lineTo(screenX, screenY + crosshairLength);
+    for (const [cornerSignX, cornerSignY] of [
       [-1, -1],
       [1, -1],
       [1, 1],
       [-1, 1],
     ]) {
-      cx.moveTo(x + sx * b, y + sy * (b - k));
-      cx.lineTo(x + sx * b, y + sy * b);
-      cx.lineTo(x + sx * (b - k), y + sy * b);
-    }
-    cx.stroke();
-    if (ctx.state.phase === 0 && !ctx.reduceMotion) {
-      const t = (now % 2000) / 2000;
-      cx.strokeStyle =
-        "rgba(" + ctx.AI_S + "," + (0.5 * (1 - t)).toFixed(3) + ")";
-      cx.strokeRect(
-        x - b - t * b,
-        y - b - t * b,
-        2 * (b + t * b),
-        2 * (b + t * b),
+      mapCanvasContext.moveTo(
+        screenX + cornerSignX * bracketHalfSize,
+        screenY + cornerSignY * (bracketHalfSize - bracketArmLength),
+      );
+      mapCanvasContext.lineTo(
+        screenX + cornerSignX * bracketHalfSize,
+        screenY + cornerSignY * bracketHalfSize,
+      );
+      mapCanvasContext.lineTo(
+        screenX + cornerSignX * (bracketHalfSize - bracketArmLength),
+        screenY + cornerSignY * bracketHalfSize,
       );
     }
-    if (ctx.MV.w >= 520 && cell < 4.6) {
-      cx.font = '500 9px "IBM Plex Mono", ui-monospace, Menlo, monospace';
-      cx.textAlign = "left";
-      cx.fillStyle = "rgba(" + ctx.AI_S + ",.9)";
-      cx.fillText("ORIGIN", x + b + 3, y - b);
+    mapCanvasContext.stroke();
+    if (context.state.phase === 0 && !context.reduceMotion) {
+      const pulseProgress = (frameAtMs % 2000) / 2000;
+      mapCanvasContext.strokeStyle =
+        "rgba(" +
+        context.mapAiRgbChannels +
+        "," +
+        (0.5 * (1 - pulseProgress)).toFixed(3) +
+        ")";
+      mapCanvasContext.strokeRect(
+        screenX - bracketHalfSize - pulseProgress * bracketHalfSize,
+        screenY - bracketHalfSize - pulseProgress * bracketHalfSize,
+        2 * (bracketHalfSize + pulseProgress * bracketHalfSize),
+        2 * (bracketHalfSize + pulseProgress * bracketHalfSize),
+      );
+    }
+    if (context.mapView.width >= 520 && cellSize < 4.6) {
+      mapCanvasContext.font =
+        '500 9px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+      mapCanvasContext.textAlign = "left";
+      mapCanvasContext.fillStyle = "rgba(" + context.mapAiRgbChannels + ",.9)";
+      mapCanvasContext.fillText(
+        "ORIGIN",
+        screenX + bracketHalfSize + 3,
+        screenY - bracketHalfSize,
+      );
     }
   };
-  ctx.drawPressure = function drawPressure(now) {
-    const c = ctx.state.contain / 100;
-    if (!ctx.state.started || c <= 0.02) return;
-    const { w, h } = ctx.MV;
-    const d = Math.min(w, h) * (0.06 + 0.2 * c),
-      a =
-        (0.04 + 0.24 * c) *
-        (c >= 0.75 && !ctx.reduceMotion ? 0.8 + 0.2 * Math.sin(now / 260) : 1),
-      col = "255,90,54";
-    const edge = (
-      x0: number,
-      y0: number,
-      x1: number,
-      y1: number,
-      rx: number,
-      ry: number,
-      rw: number,
-      rh: number,
+  context.drawContainmentPressure = function drawContainmentPressure(
+    frameAtMs,
+  ) {
+    const containmentFraction = context.state.contain / 100;
+    if (!context.state.started || containmentFraction <= 0.02) return;
+    const { width: viewportWidth, height: viewportHeight } = context.mapView;
+    const edgeDepth =
+        Math.min(viewportWidth, viewportHeight) *
+        (0.06 + 0.2 * containmentFraction),
+      edgeOpacity =
+        (0.04 + 0.24 * containmentFraction) *
+        (containmentFraction >= 0.75 && !context.reduceMotion
+          ? 0.8 + 0.2 * Math.sin(frameAtMs / 260)
+          : 1),
+      pressureRgbChannels = "255,90,54";
+    const drawPressureEdge = (
+      gradientStartX: number,
+      gradientStartY: number,
+      gradientEndX: number,
+      gradientEndY: number,
+      rectX: number,
+      rectY: number,
+      rectWidth: number,
+      rectHeight: number,
     ) => {
-      const gr = cx.createLinearGradient(x0, y0, x1, y1);
-      gr.addColorStop(0, "rgba(" + col + "," + a.toFixed(3) + ")");
-      gr.addColorStop(1, "rgba(" + col + ",0)");
-      cx.fillStyle = gr;
-      cx.fillRect(rx, ry, rw, rh);
+      const gradient = mapCanvasContext.createLinearGradient(
+        gradientStartX,
+        gradientStartY,
+        gradientEndX,
+        gradientEndY,
+      );
+      gradient.addColorStop(
+        0,
+        "rgba(" + pressureRgbChannels + "," + edgeOpacity.toFixed(3) + ")",
+      );
+      gradient.addColorStop(1, "rgba(" + pressureRgbChannels + ",0)");
+      mapCanvasContext.fillStyle = gradient;
+      mapCanvasContext.fillRect(rectX, rectY, rectWidth, rectHeight);
     };
-    edge(0, 0, d, 0, 0, 0, d, h);
-    edge(w, 0, w - d, 0, w - d, 0, d, h);
-    edge(0, 0, 0, d, 0, 0, w, d);
-    edge(0, h, 0, h - d, 0, h - d, w, d);
+    drawPressureEdge(0, 0, edgeDepth, 0, 0, 0, edgeDepth, viewportHeight);
+    drawPressureEdge(
+      viewportWidth,
+      0,
+      viewportWidth - edgeDepth,
+      0,
+      viewportWidth - edgeDepth,
+      0,
+      edgeDepth,
+      viewportHeight,
+    );
+    drawPressureEdge(0, 0, 0, edgeDepth, 0, 0, viewportWidth, edgeDepth);
+    drawPressureEdge(
+      0,
+      viewportHeight,
+      0,
+      viewportHeight - edgeDepth,
+      0,
+      viewportHeight - edgeDepth,
+      viewportWidth,
+      edgeDepth,
+    );
     // Tick marks walk in from the corners as containment rises.
-    const t = Math.max(6, Math.min(w, h) * 0.5 * c);
-    cx.strokeStyle = "rgba(" + col + "," + (0.3 + 0.45 * c).toFixed(3) + ")";
-    cx.lineWidth = 2;
-    cx.beginPath();
-    cx.moveTo(1, t);
-    cx.lineTo(1, 1);
-    cx.lineTo(t, 1);
-    cx.moveTo(w - t, 1);
-    cx.lineTo(w - 1, 1);
-    cx.lineTo(w - 1, t);
-    cx.moveTo(w - 1, h - t);
-    cx.lineTo(w - 1, h - 1);
-    cx.lineTo(w - t, h - 1);
-    cx.moveTo(t, h - 1);
-    cx.lineTo(1, h - 1);
-    cx.lineTo(1, h - t);
-    cx.stroke();
+    const cornerTickLength = Math.max(
+      6,
+      Math.min(viewportWidth, viewportHeight) * 0.5 * containmentFraction,
+    );
+    mapCanvasContext.strokeStyle =
+      "rgba(" +
+      pressureRgbChannels +
+      "," +
+      (0.3 + 0.45 * containmentFraction).toFixed(3) +
+      ")";
+    mapCanvasContext.lineWidth = 2;
+    mapCanvasContext.beginPath();
+    mapCanvasContext.moveTo(1, cornerTickLength);
+    mapCanvasContext.lineTo(1, 1);
+    mapCanvasContext.lineTo(cornerTickLength, 1);
+    mapCanvasContext.moveTo(viewportWidth - cornerTickLength, 1);
+    mapCanvasContext.lineTo(viewportWidth - 1, 1);
+    mapCanvasContext.lineTo(viewportWidth - 1, cornerTickLength);
+    mapCanvasContext.moveTo(
+      viewportWidth - 1,
+      viewportHeight - cornerTickLength,
+    );
+    mapCanvasContext.lineTo(viewportWidth - 1, viewportHeight - 1);
+    mapCanvasContext.lineTo(
+      viewportWidth - cornerTickLength,
+      viewportHeight - 1,
+    );
+    mapCanvasContext.moveTo(cornerTickLength, viewportHeight - 1);
+    mapCanvasContext.lineTo(1, viewportHeight - 1);
+    mapCanvasContext.lineTo(1, viewportHeight - cornerTickLength);
+    mapCanvasContext.stroke();
   };
-  ctx.hitRegion = function hitRegion(px, py) {
-    const c = Math.floor((px - ctx.MV.ox) / ctx.MV.cell),
-      r = Math.floor((py - ctx.MV.oy) / ctx.MV.cell);
-    let best = -1,
-      bd = 9;
-    for (let dr = -2; dr <= 2; dr++)
-      for (let dc = -2; dc <= 2; dc++) {
-        const cc = c + dc,
-          rr = r + dr;
-        if (cc < 0 || rr < 0 || cc >= ctx.MAP.cols || rr >= ctx.MAP.rows)
+  context.findRegionAtMapPosition = function findRegionAtMapPosition(
+    pixelX,
+    pixelY,
+  ) {
+    const column = Math.floor(
+        (pixelX - context.mapView.offsetX) / context.mapView.cellSize,
+      ),
+      row = Math.floor(
+        (pixelY - context.mapView.offsetY) / context.mapView.cellSize,
+      );
+    let nearestRegionIndex = -1,
+      nearestDistanceSquared = 9;
+    for (let rowOffset = -2; rowOffset <= 2; rowOffset++)
+      for (let columnOffset = -2; columnOffset <= 2; columnOffset++) {
+        const candidateColumn = column + columnOffset,
+          candidateRow = row + rowOffset;
+        if (
+          candidateColumn < 0 ||
+          candidateRow < 0 ||
+          candidateColumn >= context.WORLD_MAP_DEFINITION.columnCount ||
+          candidateRow >= context.WORLD_MAP_DEFINITION.rowCount
+        )
           continue;
-        const v = ctx.MAPD.cells[rr * ctx.MAP.cols + cc];
-        if (v) {
-          const d = dr * dr + dc * dc;
-          if (d < bd) {
-            bd = d;
-            best = v - 1;
+        const regionCode =
+          context.decodedMap.regionCodesByCell[
+            candidateRow * context.WORLD_MAP_DEFINITION.columnCount +
+              candidateColumn
+          ];
+        if (regionCode) {
+          const distanceSquared =
+            rowOffset * rowOffset + columnOffset * columnOffset;
+          if (distanceSquared < nearestDistanceSquared) {
+            nearestDistanceSquared = distanceSquared;
+            nearestRegionIndex = regionCode - 1;
           }
         }
       }
-    return best;
+    return nearestRegionIndex;
   };
 }

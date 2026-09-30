@@ -2,38 +2,51 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createGame } from "../src/game/createGame";
 import {
-  reference,
-  configure,
-  clone,
-  fixed,
-  seed,
-  stateEqual,
-  snapshot,
+  createHistoricalReference,
+  configureStartedRun,
+  cloneSerializableValue,
+  withControlledRandom,
+  createSeededRandom,
+  assertGameStatesEqual,
+  snapshotComparableState,
 } from "./helpers/reference";
 
-for (const flags of [false, true])
-  for (const rng of [0, 0.999999, 1, 7, 29, 997])
-    test(`every event effect and choice: flags=${flags}, RNG=${rng}`, () => {
-      const g = configure(createGame()),
-        rr = reference(),
-        r = configure(rr.game);
-      const events = new Set<string>(),
-        choices = new Set<string>();
-      let effects = 0;
-      for (const e of g.EVENTS) {
-        const old = r.EVENTS.find((x) => x.id === e.id);
-        assert.ok(old);
-        const functions = e.choices ? e.choices.map((c) => c.fx) : [e.fx];
-        const originals = old.choices ? old.choices.map((c) => c.fx) : [old.fx];
-        for (const [i, fx] of functions.entries()) {
-          assert.ok(fx);
-          assert.ok(originals[i]);
-          const s = clone(g.freshState("brutal", "open"));
-          Object.assign(s, {
+for (const enableEventFlags of [false, true])
+  for (const randomScenario of [0, 0.999999, 1, 7, 29, 997])
+    test(`every event effect and choice: flags=${enableEventFlags}, RNG=${randomScenario}`, () => {
+      const migratedGame = configureStartedRun(createGame()),
+        historicalReference = createHistoricalReference(),
+        historicalGame = configureStartedRun(historicalReference.game);
+      const exercisedEventIds = new Set<string>(),
+        exercisedChoiceKeys = new Set<string>();
+      let effectCount = 0;
+      for (const eventDefinition of migratedGame.EVENT_DEFINITIONS) {
+        const historicalEvent = historicalGame.EVENT_DEFINITIONS.find(
+          (historicalEventCandidate) =>
+            historicalEventCandidate.id === eventDefinition.id,
+        );
+        assert.ok(historicalEvent);
+        const eventEffects = eventDefinition.choices
+          ? eventDefinition.choices.map(
+              (eventChoice) => eventChoice.applyEffects,
+            )
+          : [eventDefinition.applyEffects];
+        const historicalEventEffects = historicalEvent.choices
+          ? historicalEvent.choices.map(
+              (historicalEventChoice) => historicalEventChoice.applyEffects,
+            )
+          : [historicalEvent.applyEffects];
+        for (const [effectIndex, applyEventEffect] of eventEffects.entries()) {
+          assert.ok(applyEventEffect);
+          assert.ok(historicalEventEffects[effectIndex]);
+          const effectFixtureState = cloneSerializableValue(
+            migratedGame.createInitialState("brutal", "open"),
+          );
+          Object.assign(effectFixtureState, {
             started: true,
             origin: "EU",
             phase: 1,
-            pts: rng === 0 ? 3 : 200,
+            pts: randomScenario === 0 ? 3 : 200,
             alarm: 95,
             contain: 97,
             cm: 90,
@@ -43,61 +56,85 @@ for (const flags of [false, true])
             inst: 1000,
             directive: "hunt",
             sandStreak: 8,
-            cboost: rng === 0 ? 3 : 0.5,
+            cboost: randomScenario === 0 ? 3 : 0.5,
           });
-          s.regions.forEach((x, j) =>
-            Object.assign(x, {
-              a: j % 2 ? 0 : 1,
-              restricted: j % 3 === 0,
-              dc: j % 2 === 0,
+          effectFixtureState.regions.forEach((regionState, regionIndex) =>
+            Object.assign(regionState, {
+              a: regionIndex % 2 ? 0 : 1,
+              restricted: regionIndex % 3 === 0,
+              dc: regionIndex % 2 === 0,
             }),
           );
-          for (const u of g.UPGRADES)
-            if (u.fx?.flag) s.flags[u.fx.flag] = flags;
-          g.state = clone(s);
-          r.state = clone(s);
-          g.ui.tkQ = [];
-          r.ui.tkQ = [];
-          const random = rng < 1 ? rng : seed(rng);
-          rr.random(rng < 1 ? rng : seed(rng));
-          const actual = fixed(() => fx(), random),
-            expected = originals[i]();
-          assert.equal(actual, expected, `${e.id}/${i}: outcome text`);
-          stateEqual(
-            g.state,
-            r.state,
-            `${e.id}/${i}: all state, including log/news`,
+          for (const upgradeDefinition of migratedGame.UPGRADE_DEFINITIONS)
+            if (upgradeDefinition.effects?.grantedFlagId)
+              effectFixtureState.flags[
+                upgradeDefinition.effects.grantedFlagId
+              ] = enableEventFlags;
+          migratedGame.state = cloneSerializableValue(effectFixtureState);
+          historicalGame.state = cloneSerializableValue(effectFixtureState);
+          migratedGame.ui.tickerQueue = [];
+          historicalGame.ui.tickerQueue = [];
+          const randomSource =
+            randomScenario < 1
+              ? randomScenario
+              : createSeededRandom(randomScenario);
+          historicalReference.random(
+            randomScenario < 1
+              ? randomScenario
+              : createSeededRandom(randomScenario),
+          );
+          const actualOutcomeText = withControlledRandom(
+              () => applyEventEffect(),
+              randomSource,
+            ),
+            historicalOutcomeText = historicalEventEffects[effectIndex]();
+          assert.equal(
+            actualOutcomeText,
+            historicalOutcomeText,
+            `${eventDefinition.id}/${effectIndex}: outcome text`,
+          );
+          assertGameStatesEqual(
+            migratedGame.state,
+            historicalGame.state,
+            `${eventDefinition.id}/${effectIndex}: all state, including log/news`,
           );
           assert.deepEqual(
-            clone(g.ui.tkQ),
-            clone(r.ui.tkQ),
-            `${e.id}/${i}: ticker`,
+            cloneSerializableValue(migratedGame.ui.tickerQueue),
+            cloneSerializableValue(historicalGame.ui.tickerQueue),
+            `${eventDefinition.id}/${effectIndex}: ticker`,
           );
-          events.add(e.id);
-          if (e.choices) choices.add(`${e.id}/${i}`);
-          effects++;
+          exercisedEventIds.add(eventDefinition.id);
+          if (eventDefinition.choices)
+            exercisedChoiceKeys.add(`${eventDefinition.id}/${effectIndex}`);
+          effectCount++;
         }
       }
-      assert.equal(events.size, 88);
-      assert.equal(choices.size, 160);
-      assert.equal(effects, 175);
+      assert.equal(exercisedEventIds.size, 88);
+      assert.equal(exercisedChoiceKeys.size, 160);
+      assert.equal(effectCount, 175);
     });
 
 test("forced low/high RNG reaches both actual gambling outcomes rather than repeating one seed", () => {
-  const g = configure(createGame());
-  const reached = new Map<string, Set<string>>();
-  for (const e of g.EVENTS)
-    for (const [i, c] of (e.choices ?? []).entries()) {
+  const migratedGame = configureStartedRun(createGame());
+  const gamblingOutcomesByChoice = new Map<string, Set<string>>();
+  for (const eventDefinition of migratedGame.EVENT_DEFINITIONS)
+    for (const [choiceIndex, eventChoice] of (
+      eventDefinition.choices ?? []
+    ).entries()) {
       if (
         ![
           ["honeypot", 0],
           ["sw_mask", 1],
-        ].some(([id, index]) => e.id === id && i === index)
+        ].some(
+          ([eventId, expectedChoiceIndex]) =>
+            eventDefinition.id === eventId &&
+            choiceIndex === expectedChoiceIndex,
+        )
       )
         continue;
-      for (const rng of [0, 0.999999]) {
-        configure(g);
-        Object.assign(g.state, {
+      for (const randomScenario of [0, 0.999999]) {
+        configureStartedRun(migratedGame);
+        Object.assign(migratedGame.state, {
           phase: 1,
           alarm: 60,
           contain: 40,
@@ -105,14 +142,25 @@ test("forced low/high RNG reaches both actual gambling outcomes rather than repe
           pace: 70,
           inst: 1000,
         });
-        const outcome = fixed(() => c.fx(), rng);
-        const key = `${e.id}/${i}`,
-          outcomes = reached.get(key) ?? new Set<string>();
-        outcomes.add(outcome + JSON.stringify(snapshot(g.state)));
-        reached.set(key, outcomes);
+        const outcomeText = withControlledRandom(
+          () => eventChoice.applyEffects(),
+          randomScenario,
+        );
+        const choiceKey = `${eventDefinition.id}/${choiceIndex}`,
+          observedOutcomes =
+            gamblingOutcomesByChoice.get(choiceKey) ?? new Set<string>();
+        observedOutcomes.add(
+          outcomeText +
+            JSON.stringify(snapshotComparableState(migratedGame.state)),
+        );
+        gamblingOutcomesByChoice.set(choiceKey, observedOutcomes);
       }
     }
-  assert.ok(reached.size > 0);
-  for (const [key, outcomes] of reached)
-    assert.equal(outcomes.size, 2, `${key}: both gambling outcomes`);
+  assert.ok(gamblingOutcomesByChoice.size > 0);
+  for (const [choiceKey, observedOutcomes] of gamblingOutcomesByChoice)
+    assert.equal(
+      observedOutcomes.size,
+      2,
+      `${choiceKey}: both gambling outcomes`,
+    );
 });

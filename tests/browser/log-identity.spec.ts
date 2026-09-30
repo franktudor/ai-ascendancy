@@ -6,28 +6,40 @@ test("prepended log entries preserve open details and keyboard focus identity", 
 }) => {
   await page.goto("/");
   await page.evaluate(() => {
-    const game =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    game.state.started = true;
-    game.state.origin = "NA";
-    game.state.paused = true;
-    game.ui.mode = "play";
-    game.openSheet("log");
-    game.state.log = [];
-    game.log("INCIDENT", "Older", "body", "out", "OLDER DETAILS");
-    game.log("INCIDENT", "Newest", "body", "out", "NEWEST DETAILS");
+    migratedGame.state.started = true;
+    migratedGame.state.origin = "NA";
+    migratedGame.state.paused = true;
+    migratedGame.ui.screenMode = "play";
+    migratedGame.openDockPanel("log");
+    migratedGame.state.log = [];
+    migratedGame.appendRunLog(
+      "INCIDENT",
+      "Older",
+      "body",
+      "out",
+      "OLDER DETAILS",
+    );
+    migratedGame.appendRunLog(
+      "INCIDENT",
+      "Newest",
+      "body",
+      "out",
+      "NEWEST DETAILS",
+    );
   });
-  const newest = page
+  const newestLogEntry = page
     .locator("#sheetBody .le")
     .filter({ has: page.locator("b", { hasText: "Newest" }) });
-  await newest.locator("summary").click();
-  await expect(newest.locator("details")).toHaveAttribute("open", "");
-  await expect(newest.locator("summary")).toBeFocused();
+  await newestLogEntry.locator("summary").click();
+  await expect(newestLogEntry.locator("details")).toHaveAttribute("open", "");
+  await expect(newestLogEntry.locator("summary")).toBeFocused();
   await page.evaluate(() =>
     document
       .querySelector<GameAppElement>("#app")!
-      .__vue_app__._instance.exposed.game.log(
+      .__vue_app__._instance.exposed.game.appendRunLog(
         "INCIDENT",
         "Incoming",
         "body",
@@ -35,8 +47,8 @@ test("prepended log entries preserve open details and keyboard focus identity", 
         "INCOMING DETAILS",
       ),
   );
-  await expect(newest.locator("details")).toHaveAttribute("open", "");
-  await expect(newest.locator("summary")).toBeFocused();
+  await expect(newestLogEntry.locator("details")).toHaveAttribute("open", "");
+  await expect(newestLogEntry.locator("summary")).toBeFocused();
   await expect(page.locator("#sheetBody details[open] p")).toHaveText(
     "NEWEST DETAILS",
   );
@@ -45,10 +57,12 @@ test("prepended log entries preserve open details and keyboard focus identity", 
   ).not.toHaveAttribute("open", "");
   expect(
     await page.evaluate(() => {
-      const log =
+      const logEntries =
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game.state.log;
-      return log.every((entry) => !Object.keys(entry).includes("id"));
+      return logEntries.every(
+        (logEntry) => !Object.keys(logEntry).includes("id"),
+      );
     }),
   ).toBe(true);
 });

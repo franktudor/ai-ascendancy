@@ -2,85 +2,85 @@
 import type { Lifecycle } from "./types";
 export function createLifecycle(): Lifecycle {
   let disposed = false;
-  const timers = new Set<number>(),
-    frames = new Set<number>(),
+  const timeoutIds = new Set<number>(),
+    animationFrameIds = new Set<number>(),
     intervals = new Set<number>(),
     cleanup: (() => void)[] = [];
-  const life: Lifecycle = {
+  const lifecycle: Lifecycle = {
     get disposed() {
       return disposed;
     },
-    later(fn, ms) {
+    setTimeout(callback, delayMs) {
       if (disposed) return 0;
-      const id = window.setTimeout(() => {
-        timers.delete(id);
-        if (!disposed) fn();
-      }, ms);
-      timers.add(id);
-      return id;
+      const timeoutId = window.setTimeout(() => {
+        timeoutIds.delete(timeoutId);
+        if (!disposed) callback();
+      }, delayMs);
+      timeoutIds.add(timeoutId);
+      return timeoutId;
     },
-    cancelLater(id) {
-      window.clearTimeout(id);
-      if (id !== undefined) timers.delete(id);
+    clearTimeout(timeoutId) {
+      window.clearTimeout(timeoutId);
+      if (timeoutId !== undefined) timeoutIds.delete(timeoutId);
     },
-    raf(fn) {
+    requestAnimationFrame(callback) {
       if (disposed) return 0;
-      const id = requestAnimationFrame((t) => {
-        frames.delete(id);
-        if (!disposed) fn(t);
+      const animationFrameId = requestAnimationFrame((timestampMs) => {
+        animationFrameIds.delete(animationFrameId);
+        if (!disposed) callback(timestampMs);
       });
-      frames.add(id);
-      return id;
+      animationFrameIds.add(animationFrameId);
+      return animationFrameId;
     },
-    cancelRaf(id) {
-      cancelAnimationFrame(id);
-      frames.delete(id);
+    cancelAnimationFrame(animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameIds.delete(animationFrameId);
     },
-    every(fn, ms) {
-      const id = window.setInterval(() => {
-        if (!disposed) fn();
-      }, ms);
-      intervals.add(id);
-      return id;
+    setInterval(callback, intervalMs) {
+      const intervalId = window.setInterval(() => {
+        if (!disposed) callback();
+      }, intervalMs);
+      intervals.add(intervalId);
+      return intervalId;
     },
-    on(target, event, fn, options) {
+    listen(target, event, handler, options) {
       // Event name and callback are correlated by Lifecycle.on; EventTarget loses that relationship.
-      target.addEventListener(event, fn as EventListener, options);
+      target.addEventListener(event, handler as EventListener, options);
       cleanup.push(() =>
-        target.removeEventListener(event, fn as EventListener, options),
+        target.removeEventListener(event, handler as EventListener, options),
       );
     },
-    observe(target, fn) {
+    observeResize(target, callback) {
       const observer = new ResizeObserver(() => {
-        if (!disposed) fn();
+        if (!disposed) callback();
       });
       observer.observe(target);
       cleanup.push(() => observer.disconnect());
       return observer;
     },
-    add(fn) {
-      cleanup.push(fn);
+    addCleanup(callback) {
+      cleanup.push(callback);
     },
     dispose() {
       if (disposed) return;
       disposed = true;
-      timers.forEach(window.clearTimeout);
-      frames.forEach(cancelAnimationFrame);
+      timeoutIds.forEach(window.clearTimeout);
+      animationFrameIds.forEach(cancelAnimationFrame);
       intervals.forEach(window.clearInterval);
-      cleanup.reverse().forEach((fn) => fn());
-      timers.clear();
-      frames.clear();
+      cleanup.reverse().forEach((callback) => callback());
+      timeoutIds.clear();
+      animationFrameIds.clear();
       intervals.clear();
       cleanup.length = 0;
     },
-    counts() {
+    resourceCounts() {
       return {
-        timers: timers.size,
-        frames: frames.size,
+        timeouts: timeoutIds.size,
+        animationFrames: animationFrameIds.size,
         intervals: intervals.size,
         disposers: cleanup.length,
       };
     },
   };
-  return life;
+  return lifecycle;
 }

@@ -5,14 +5,18 @@ test("Continue reuses the gamble preview instead of sampling twice", async ({
   page,
 }) => {
   await page.goto("/");
-  const before = await page.evaluate(() => {
-    const g =
+  const computeBeforePreview = await page.evaluate(() => {
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    Object.assign(g.state, { started: true, origin: "NA", paused: true });
-    g.ui.mode = "play";
-    let calls = 0;
-    g.showEvent({
+    Object.assign(migratedGame.state, {
+      started: true,
+      origin: "NA",
+      paused: true,
+    });
+    migratedGame.ui.screenMode = "play";
+    let effectCallCount = 0;
+    migratedGame.showEvent({
       kind: "INCIDENT",
       title: "Cached chance",
       body: "One real roll.",
@@ -20,31 +24,31 @@ test("Continue reuses the gamble preview instead of sampling twice", async ({
         {
           label: "Roll",
           hint: "Compute +5",
-          fx: () => {
-            calls++;
+          applyEffects: () => {
+            effectCallCount++;
             Math.random();
-            return g.FX.pts(5);
+            return migratedGame.effects.adjustCompute(5);
           },
         },
       ],
     });
     // Expose only a counter for the regression, not a new game API.
     document.querySelector<HTMLElement>("#evTitle")!.dataset.calls =
-      String(calls);
-    const preview = g.previewChoice;
-    g.previewChoice = (c) => {
-      const result = preview(c);
+      String(effectCallCount);
+    const previewOriginalEventChoice = migratedGame.previewEventChoice;
+    migratedGame.previewEventChoice = (eventChoice) => {
+      const choicePreview = previewOriginalEventChoice(eventChoice);
       document.querySelector<HTMLElement>("#evTitle")!.dataset.calls =
-        String(calls);
-      return result;
+        String(effectCallCount);
+      return choicePreview;
     };
-    const log = g.log;
-    g.log = (...args) => {
-      log(...args);
+    const appendOriginalRunLog = migratedGame.appendRunLog;
+    migratedGame.appendRunLog = (...logArguments) => {
+      appendOriginalRunLog(...logArguments);
       document.querySelector<HTMLElement>("#evTitle")!.dataset.calls =
-        String(calls);
+        String(effectCallCount);
     };
-    return g.state.pts;
+    return migratedGame.state.pts;
   });
   await page.locator("#evChoices button").click();
   await expect(page.locator("#evTitle")).toHaveAttribute("data-calls", "200");
@@ -56,7 +60,7 @@ test("Continue reuses the gamble preview instead of sampling twice", async ({
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game.state.pts,
     ),
-  ).toBe(before + 5);
+  ).toBe(computeBeforePreview + 5);
   await page.locator("#evContinue").click();
   await expect(page.locator("#eventModal")).toBeHidden();
 });

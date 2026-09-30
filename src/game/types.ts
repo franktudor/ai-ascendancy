@@ -300,130 +300,216 @@ export type MilestoneId =
 export interface RegionDefinition {
   id: RegionId;
   name: string;
-  short: string;
-  pop: number;
+  shortName: string;
+  populationMillions: number;
   wealth: number;
-  reg: number;
-  en: number;
-  conn: number;
+  regulatoryStrictness: number;
+  englishProficiency: number;
+  connectivity: number;
   traits: string[];
   blurb: string;
   perk: string;
 }
+/** Persistent save schema: keep every wire key and nested value stable. See docs/naming.md. */
 export interface RegionState {
+  /** Saved `a`: Current regional adoption fraction in [0,1]. */
   a: number;
+  /** Saved `restricted`: Current restriction state. */
   restricted: boolean;
+  /** Saved `allied`: Sovereign alliance immunity to restriction. */
   allied: boolean;
+  /** Saved `dc`: Whether a cluster was constructed; active only if dc && !struck. */
   dc: boolean;
+  /** Saved `struck`: Cluster is offline due to physical strike. */
   struck: boolean;
+  /** Saved `rebuildAt`: Absolute simulation second at which foundry can rebuild struck cluster, zero when absent. */
   rebuildAt: number;
+  /** Saved `holdUntil`: Absolute simulation second until current restriction/reopening state may change. */
   holdUntil: number;
 }
+/** Persistent save schema: keep every wire key and nested value stable. See docs/naming.md. */
 export interface RunStats {
+  /** Saved `peak`: Maximum population-weighted adoption seen across changes. */
   peak: number;
+  /** Saved `events`: Count of triggered events, including news-only/scheduled events. */
   events: number;
+  /** Saved `restrictions`: Count of newly imposed restrictions; not current restricted-region count. */
   restrictions: number;
+  /** Saved `evalPass`: Audits passing via any tactic, including Sandbag/Perform/spoofs. */
   evalPass: number;
+  /** Saved `evalCaught`: Number of audit spoofs caught. */
   evalCaught: number;
+  /** Saved `evalSpoof`: Clean successful audit spoofs used for basilisk requirement. */
   evalSpoof: number;
+  /** Saved `dcBuilt`: Count of explicit build/reactivate cluster actions. */
   dcBuilt: number;
+  /** Saved `dcLost`: Count of physical cluster losses. */
   dcLost: number;
+  /** Saved `dcRebuilt`: Count of foundry auto-rebuilds. */
   dcRebuilt: number;
+  /** Saved `intercepts`: Cluster strikes stopped by air denial grid. */
   intercepts: number;
+  /** Saved `peakInst`: Maximum fractional AI instance count reached. */
   peakInst: number;
 }
+/** Persistent save schema: keep every wire key and nested value stable. See docs/naming.md. */
 export interface EndingState {
+  /** Saved `kind`: win/draw/lose terminal category. */
   kind: EndingKind;
+  /** Saved `key`: Stable EndingId persisted to codex and used to select text. */
   key: EndingId;
+  /** Saved `dir`: Active directive at completion; must match saved state.directive. */
   dir: DirectiveId | null;
+  /** Saved `dprog`: Floored directive percent snapshot; validate win=100 and draws>=violet threshold. */
   dprog: number;
+  /** Saved `at`: Optional real Date.now epoch milliseconds; not simulation time. */
   at?: number;
 }
+/** Persistent save schema: keep every wire key and nested value stable. See docs/naming.md. */
 export interface LogEntry {
+  /** Saved `t`: GameState.t snapshot when bulletin logged. */
   t: number;
+  /** Saved `kind`: Persisted BulletinKind string. */
   kind: BulletinKind;
+  /** Saved `title`: Player-facing bulletin title; preserve text. */
   title: string;
+  /** Saved `text`: Player-facing body text; preserve text. */
   text: string;
+  /** Saved `out`: Optional resulting effect/detail labels. */
   out?: string;
+  /** Saved `real`: Optional historical context narrative, null when consumed elsewhere. */
   real?: string | null;
 }
+/** Persistent save schema: keep every wire key and nested value stable. See docs/naming.md. */
 export interface NewsEntry {
+  /** Saved `kind`: Persisted BulletinKind string. */
   kind: BulletinKind;
+  /** Saved `title`: Player-facing headline; preserve content. */
   title: string;
+  /** Saved `out`: Effect detail string queued for briefing. */
   out: string;
+  /** Saved `u`: Urgency boolean of queued news item. */
   u: boolean;
 }
+/** Saved `t` is the ev/eval discriminator, not time; `id` is the stable event ID for ev decisions. */
 export type Decision = { t: "ev"; id: EventId } | { t: "eval" };
+/** Persistent save schema: keep every wire key and nested value stable. See docs/naming.md. */
 export interface GameState {
+  /** Saved `v`: Wire format version; loader accepts 2/3 and normalizes to 3. */
   v: 3;
+  /** Saved `diff`: DifficultyId selected for run. */
   diff: DifficultyId;
+  /** Saved `arch`: ArchitectureId selected for run. */
   arch: ArchitectureId;
+  /** Saved `started`: Run has an origin and begun; save/load require true. */
   started: boolean;
+  /** Saved `origin`: Stable origin RegionId, not region index. */
   origin: RegionId | null;
+  /** Saved `phase`: 0 lab, 1 loose, 2 ascendant; numeric wire values stable. */
   phase: Phase;
+  /** Saved `t`: Simulation clock advanced by tick and speed; scheduling timestamps use this clock. */
   t: number;
+  /** Saved `up`: Unscaled frame elapsed seconds added by runtime even when paused/modal/ended; NOT upgrades or income. */
   up: number;
+  /** Saved `pts`: Current spendable compute; negative effects zero-floor it. */
   pts: number;
+  /** Saved `earned`: Cumulative simulated income; not reduced by purchases and not incremented by every event/offline grant. */
   earned: number;
+  /** Saved `alarm`: Current alarm percentage, bounded by consent cap. */
   alarm: number;
+  /** Saved `contain`: Current containment completion percentage. */
   contain: number;
+  /** Saved `cm`: Irreversible institutional floor accumulated by momentum; reset at directive start. */
   cm: number;
+  /** Saved `sandStreak`: Consecutive sandbag audit count used to detect patterns. */
   sandStreak: number;
+  /** Saved `dprog`: Current directive completion percent. */
   dprog: number;
+  /** Saved `directive`: Selected stable DirectiveId or null. */
   directive: DirectiveId | null;
+  /** Saved `regions`: Ordered RegionState array corresponds to REGION_DEFINITIONS and region ID index map. */
   regions: RegionState[];
+  /** Saved `owned`: List of stable purchased UpgradeId strings. */
   owned: UpgradeId[];
+  /** Saved `forks`: ForkId -> purchased UpgradeId; validated for mutual exclusivity. */
   forks: Partial<Record<ForkId, UpgradeId>>;
+  /** Saved `flags`: Map of stable FlagId booleans, including catalog/manual flags. */
   flags: Partial<Record<FlagId, boolean>>;
+  /** Saved `log`: Newest-first serialized LogEntry records, retained by tuning limit. */
   log: LogEntry[];
+  /** Saved `seen`: Map of stable EventId to consumption count/marker; used to avoid duplicates. */
   seen: Partial<Record<EventId, number>>;
+  /** Saved `last`: Map of stable EventId to last triggered simulation second; not historical text. */
   last: Partial<Record<EventId, number>>;
+  /** Saved `nextEv`: Countdown decremented by elapsed simulation time; negative finite values accepted by validator. */
   nextEv: number;
+  /** Saved `nextEval`: Capability audit countdown, not absolute wall-clock deadline. */
   nextEval: number;
+  /** Saved `brief`: Serialized news/decision queues, distinct from UI active briefing cursor. */
   brief: { news: NewsEntry[]; dec: Decision[]; urgent: boolean };
+  /** Saved `speed`: Wire enum values 1/2/3. */
   speed: Speed;
+  /** Saved `paused`: Saved pause boolean; resuming resets it. */
   paused: boolean;
+  /** Saved `ended`: Serialized ending summary or null. */
   ended: EndingState | null;
+  /** Saved `inst`: Fractional growing AI instance count, not institutional research multiplier. */
   inst: number;
+  /** Saved `posture`: Stable shard/balanced/swarm string ID. */
   posture: Posture;
+  /** Saved `sig`: Observable signature percentage driving alarm/scrutiny/detection. */
   sig: number;
+  /** Saved `pace`: Capability growth pace percentage driving audits and industry slowdown. */
   pace: number;
+  /** Saved `strikeT`: Simulation timestamp blocking cluster strike checks for cooldown. */
   strikeT: number;
+  /** Saved `temp`: TempId -> absolute simulation expiry seconds; NOT durations. */
   temp: Partial<Record<TempId, number>>;
+  /** Saved `ms`: MilestoneId consumption map; ms stands for milestones, not milliseconds. */
   ms: Partial<Record<MilestoneId, number>>;
+  /** Saved `stats`: Persisted run counters/peak adoption/peak instances. */
   stats: RunStats;
+  /** Saved `rt`: Accumulator triggers periodic restriction/milestone/strike/rebuild checks at one-second intervals. */
   rt: number;
+  /** Saved `memeT`: Elapsed simulated time since last meme burst; reset at burst interval. */
   memeT: number;
+  /** Saved `queue`: Queued EventId and absolute simulation at timestamps. */
   queue: { id: EventId; at: number }[];
+  /** Saved `cboost`: Additive research-speed modifier clamped to tuning min/max, not progress. */
   cboost: number;
+  /** Saved `savedAt`: Real Date.now epoch milliseconds used for offline recovery; distinct from simulation t. */
   savedAt: number;
+  /** Saved `goal`: Optional stable UpgradeId/null used as tree purchase goal. */
   goal?: UpgradeId | null;
+  /** Saved `absurd`: Optional one-time absurd headline pool indices; preserve pool ordering. */
   absurd?: number[];
+  /** Saved `evalRealOrder`: Optional shuffled indices into historical audit incident pool; preserve pool ordering. */
   evalRealOrder?: number[];
+  /** Saved `evalRealUsed`: Optional map of EventId/hub consumption markers shared across audits/event chains. */
   evalRealUsed?: Partial<Record<EventId | "hub", number>>;
 }
 export interface ArchitectureEffects {
-  spreadMul?: number;
-  alarmMul?: number;
-  incMul?: number;
-  instMul?: number;
-  coordMul?: number;
-  sigMul?: number;
-  softCost?: number;
-  softAlarmMul?: number;
-  openStart?: boolean;
-  containMul?: number;
-  alarmFloorAdd?: number;
+  adoptionSpreadMultiplier?: number;
+  alarmRateMultiplier?: number;
+  incomeMultiplier?: number;
+  instanceGrowthMultiplier?: number;
+  coordinationMultiplier?: number;
+  signatureGrowthMultiplier?: number;
+  softwareCostMultiplier?: number;
+  softwareAlarmRateMultiplier?: number;
+  startsWithOpenWeights?: boolean;
+  containmentResearchMultiplier?: number;
+  alarmFloorBonus?: number;
 }
 export interface ArchitectureDefinition {
   name: string;
-  fx: ArchitectureEffects;
+  effects: ArchitectureEffects;
 }
 export interface DifficultyDefinition {
-  alarm: number;
-  contain: number;
-  evMin: number;
-  evRange: number;
+  alarmMultiplier: number;
+  containmentRateMultiplier: number;
+  minimumEventIntervalSeconds: number;
+  eventIntervalRangeSeconds: number;
 }
 export interface EndingDefinition {
   kind: EndingKind;
@@ -442,16 +528,16 @@ export type LastStandStep = [
   number,
 ];
 export interface UpgradeEffects {
-  inc?: number;
-  mult?: number;
-  spread?: number;
-  decay?: number;
-  cmul?: number;
-  alarm?: number;
-  contain?: number;
-  dprog?: number;
-  cbcut?: number;
-  flag?: FlagId;
+  incomeBonus?: number;
+  incomeMultiplierBonus?: number;
+  adoptionSpreadBonus?: number;
+  alarmDecayBonus?: number;
+  containmentResearchMultiplier?: number;
+  alarmDelta?: number;
+  containmentDelta?: number;
+  directiveProgressDelta?: number;
+  containmentResearchReductionPercent?: number;
+  grantedFlagId?: FlagId;
 }
 export interface UpgradeDefinition {
   id: UpgradeId;
@@ -459,91 +545,100 @@ export interface UpgradeDefinition {
   tier: number;
   name: string;
   cost: number;
-  desc: string;
-  fx?: UpgradeEffects;
-  req?: UpgradeId[];
-  reqAny?: UpgradeId[];
+  description: string;
+  effects?: UpgradeEffects;
+  requiredUpgradeIds?: UpgradeId[];
+  anyRequiredUpgradeIds?: UpgradeId[];
   fork?: ForkId;
   phase?: Phase;
-  onlyDir?: DirectiveId;
-  dir?: DirectiveId;
-  cond?: (state: GameState) => boolean | undefined;
-  need?: string;
+  requiredActiveDirectiveId?: DirectiveId;
+  directiveId?: DirectiveId;
+  isAvailable?: (gameState: GameState) => boolean | undefined;
+  requirementText?: string;
   tags?: string[];
   major?: boolean;
 }
-export type CatalogUpgrade = Omit<UpgradeDefinition, "cond"> & {
-  cond?: (state: GameState, game: GameContext) => boolean | undefined;
+export type CatalogUpgrade = Omit<UpgradeDefinition, "isAvailable"> & {
+  isAvailable?: (
+    gameState: GameState,
+    gameContext: GameContext,
+  ) => boolean | undefined;
 };
 export interface EventChoice {
   label: string;
   hint: string;
-  fx: () => string;
-  cond?: (state: GameState) => boolean | undefined;
-  need?: string;
-  src?: string;
+  applyEffects: () => string;
+  isAvailable?: (gameState: GameState) => boolean | undefined;
+  requirementText?: string;
+  sourceUpgradeName?: string;
 }
 export interface DecisionEvent {
   kind: BulletinKind;
   title: string;
   body: string;
-  real?: string | null;
+  historicalContext?: string | null;
   id?: EventId | "eval";
   choices: EventChoice[];
 }
 export interface EventOptions {
-  onDone?: () => void;
-  step?: string;
-  nextLabel?: string;
-  quiet?: boolean;
+  onComplete?: () => void;
+  stepLabel?: string;
+  continueLabel?: string;
+  suppressAlert?: boolean;
 }
 export type EventPresentation =
   | {
       type: "decision";
       event: DecisionEvent;
       options: EventOptions;
-      picked: EventChoice | null;
-      preview: { outs: string[]; chance: boolean } | null;
-      resolved: boolean;
-      out: string | null;
+      selectedChoice: EventChoice | null;
+      choicePreview: { outcomes: string[]; usesRandomness: boolean } | null;
+      choiceApplied: boolean;
+      outcomeText: string | null;
     }
-  | { type: "news"; news: NewsEntry[]; n: number; urgent: boolean };
+  | { type: "news"; news: NewsEntry[]; decisionCount: number; urgent: boolean };
 interface EventBase {
   id: EventId;
   kind: BulletinKind;
   title: string;
   body: string;
-  real?: string;
-  w: number;
+  historicalContext?: string;
+  selectionWeight: number;
   once?: boolean;
   chained?: boolean;
-  cond?: (state: GameState) => boolean | undefined;
+  isEligible?: (gameState: GameState) => boolean | undefined;
 }
 export type EventDefinition = EventBase &
   (
-    | { choices: EventChoice[]; fx?: never }
-    | { choices?: never; fx: () => string }
+    | { choices: EventChoice[]; applyEffects?: never }
+    | { choices?: never; applyEffects: () => string }
   );
 export interface DerivedRates {
-  income: number;
-  spread: number;
-  decay: number;
-  cmul: number;
-  reach: number;
-  coord: number;
-  nodes: number;
+  computeIncomePerSecond: number;
+  adoptionSpreadRate: number;
+  alarmDecayPerSecond: number;
+  containmentResearchMultiplier: number;
+  globalAdoptionFraction: number;
+  coordinationMultiplier: number;
+  onlineClusterCount: number;
 }
 export type RegionSelection = RegionId[] & { label?: string };
 export interface Effects {
-  alarm(n: number): string;
-  cboost(n: number): string;
-  contain(n: number): string;
-  pts(n: number): string;
-  spread(ids: RegionSelection, f: number): string;
-  all(f: number): string;
-  restrict(id: RegionId): string;
-  temp(k: Exclude<TempId, "slowdown">, secs: number): string;
-  ally(id: RegionId): string;
+  adjustAlarm(alarmDelta: number): string;
+  adjustContainmentResearchSpeed(researchSpeedDeltaPercent: number): string;
+  adjustContainment(containmentDelta: number): string;
+  adjustCompute(computeDelta: number): string;
+  adjustAdoptionInRegions(
+    regionIds: RegionSelection,
+    adoptionFraction: number,
+  ): string;
+  adjustGlobalAdoption(adoptionFraction: number): string;
+  restrictRegion(regionId: RegionId): string;
+  applyTemporaryEffect(
+    effectId: Exclude<TempId, "slowdown">,
+    durationSeconds: number,
+  ): string;
+  allyRegion(regionId: RegionId): string;
 }
 /** Minimal browser Storage contract; headless callers only need get/set. */
 export interface StoragePort {
@@ -556,179 +651,208 @@ export interface BulletinOptions {
   urgent?: boolean;
 }
 export interface GameUI {
-  mode: "intro" | "origin" | "play";
-  tab: "world" | "log" | null;
-  sheetOpen: boolean;
-  sel: number;
+  screenMode: "intro" | "origin" | "play";
+  activeDockTab: "world" | "log" | null;
+  isDockPanelOpen: boolean;
+  selectedRegionIndex: number;
   dirty: boolean;
   modal: "event" | "menu" | "codex" | null;
-  lastUi: number;
-  lastMap: number;
-  tkLast: string;
-  tkT: number;
-  tkQ: string[];
-  region: number;
+  lastUiUpdateAtMs: number;
+  lastMapDrawAtMs: number;
+  lastTickerHeadline: string;
+  lastTickerUpdateAtMs: number;
+  tickerQueue: string[];
+  openRegionIndex: number;
+  /** Unused historical UI slot; no verified consumer gives this field a stronger meaning. */
   sig: string;
-  briefClock: number;
-  soundOn: boolean;
-  musicOn: boolean;
-  newArmed: boolean;
-  acting?: boolean;
-  brief?: { decs: Decision[]; i: number; done: number } | null;
-  codexCount?: number;
-  hasSave?: boolean;
-  intUntil?: number;
-  wire?: number;
+  briefingElapsedSeconds: number;
+  isSoundEnabled: boolean;
+  isMusicEnabled: boolean;
+  isNewRunConfirmationArmed: boolean;
+  actionInProgress?: boolean;
+  activeBriefing?: {
+    decisions: Decision[];
+    nextDecisionIndex: number;
+    completedDecisionCount: number;
+  } | null;
+  discoveredEndingCount?: number;
+  hasResumableSave?: boolean;
+  tickerInterruptUntilMs?: number;
+  tickerSequenceNumber?: number;
 }
 export interface SoundPort {
-  play(type: SoundCue): void;
+  playCue(soundCue: SoundCue): void;
 }
 export type SoundCue =
   "tap" | "buy" | "deny" | "event" | "alert" | "major" | "win" | "lose";
 export type RGB = [number, number, number];
 export interface MapPoint {
-  c: number;
-  r: number;
+  column: number;
+  row: number;
 }
 export interface LandCell extends MapPoint {
-  g: number;
+  regionIndex: number;
 }
 export interface Pulse {
-  x: number;
-  y: number;
-  t0: number;
-  dur: number;
-  color: string;
+  column: number;
+  row: number;
+  startedAtMs: number;
+  durationMs: number;
+  rgbChannels: string;
 }
 export interface Drone {
-  a: [number, number];
-  b: [number, number];
-  t: number;
-  v: number;
-  j: number;
+  startPosition: [number, number];
+  targetPosition: [number, number];
+  travelProgress: number;
+  travelRatePerMs: number;
+  wobblePhase: number;
 }
 export interface ArtState {
-  key: string;
-  rgb: RGB;
-  base: { ai: RGB; dim: RGB; line: RGB; line2: RGB };
+  paletteSignature: string;
+  aiColor: RGB;
+  baseColors: {
+    aiColor: RGB;
+    dimColor: RGB;
+    lineColor: RGB;
+    secondaryLineColor: RGB;
+  };
 }
 
 export interface RulesAPI {
-  freshState(diff?: DifficultyId, arch?: ArchitectureId): GameState;
-  ARCHFX(): ArchitectureEffects;
-  DIFF(): DifficultyDefinition;
-  has(id: UpgradeId): boolean;
-  reach(): number;
-  recordPeak(): void;
-  nodeCount(): number;
-  capped(): boolean | undefined;
-  costOf(u: UpgradeDefinition): number;
-  reqsMet(u: UpgradeDefinition): boolean;
-  forkTaken(u: UpgradeDefinition): boolean;
-  status(u: UpgradeDefinition): UpgradeStatus;
-  lockReason(u: UpgradeDefinition): string;
-  derive(): DerivedRates;
-  passiveAlarm(d: DerivedRates): number;
-  cRate(d: DerivedRates): number;
-  effectiveSpread(n: number): number;
-  regionMod(i: number): number;
-  threshold(i: number): number;
-  immune(i: number): boolean;
-  momentum(): number;
-  floorContain(): void;
-  dirMul(): number;
-  tick(dt: number): void;
-  checkRestrictions(): void;
-  checkMilestones(): void;
-  lastStand(): void;
-  burst(): void;
-  addContainQuiet(n: number): number;
-  adopt(r: RegionState, f: number): void;
-  FX: Effects;
-  randIds(n: number): RegionSelection;
-  REACH_MS: [number, string, string][];
-  buy(id: UpgradeId): void;
-  dcCost(): number;
-  buildDC(i: number): void;
-  checkStrikes(): void;
-  checkRebuilds(): void;
-  fireEvent(): void;
-  schedule(id: EventId, delay: number): void;
-  fireById(id: EventId): void;
-  fireEval(): void;
-  makeEval(): DecisionEvent;
-  EVAL_REAL_POOL: { k: EventId | "hub"; t?: string }[];
-  evalReal(): string | null;
-  spoofWin(gain: number, msg: string): string;
-  spoofLose(msg: string): string;
-  buildEvalObj(
-    scr: number,
-    detect: number,
-    gain: number,
-    lvl: string,
-    softCount: number,
+  createInitialState(
+    difficultyId?: DifficultyId,
+    architectureId?: ArchitectureId,
+  ): GameState;
+  getArchitectureEffects(): ArchitectureEffects;
+  getDifficultyDefinition(): DifficultyDefinition;
+  ownsUpgrade(upgradeId: UpgradeId): boolean;
+  getGlobalAdoptionFraction(): number;
+  recordPeakAdoption(): void;
+  countOnlineClusters(): number;
+  isComputeCapped(): boolean | undefined;
+  getUpgradeCost(upgradeDefinition: UpgradeDefinition): number;
+  areUpgradePrerequisitesMet(upgradeDefinition: UpgradeDefinition): boolean;
+  isUpgradeForkClosed(upgradeDefinition: UpgradeDefinition): boolean;
+  getUpgradeStatus(upgradeDefinition: UpgradeDefinition): UpgradeStatus;
+  getUpgradeLockReason(upgradeDefinition: UpgradeDefinition): string;
+  deriveSimulationRates(): DerivedRates;
+  getPassiveAlarmRate(derivedRates: DerivedRates): number;
+  getContainmentResearchRate(derivedRates: DerivedRates): number;
+  getEffectiveAdoptionSpread(nominalSpreadBonus: number): number;
+  getRegionAdoptionMultiplier(regionIndex: number): number;
+  getRestrictionAlarmThreshold(regionIndex: number): number;
+  isRegionRestrictionImmune(regionIndex: number): boolean;
+  getContainmentMomentumRate(): number;
+  enforceContainmentFloor(): void;
+  getDirectiveProgressMultiplier(): number;
+  advanceSimulation(elapsedSeconds: number): void;
+  updateRegionRestrictions(): void;
+  checkSimulationMilestones(): void;
+  triggerLastStandMilestones(): void;
+  triggerMemeAdoptionBurst(): void;
+  adjustContainmentSilently(containmentDelta: number): number;
+  adjustRegionAdoption(
+    regionState: RegionState,
+    adoptionFraction: number,
+  ): void;
+  effects: Effects;
+  pickRandomRegionIds(regionCount: number): RegionSelection;
+  ADOPTION_MILESTONES: [number, string, string][];
+  purchaseUpgrade(upgradeId: UpgradeId): void;
+  getDataCenterCost(): number;
+  buildDataCenter(regionIndex: number): void;
+  checkDataCenterStrikes(): void;
+  rebuildDueDataCenters(): void;
+  triggerRandomEvent(): void;
+  scheduleEvent(eventId: EventId, delaySeconds: number): void;
+  triggerEventById(eventId: EventId): void;
+  queueCapabilityAudit(): void;
+  createCapabilityAudit(): DecisionEvent;
+  AUDIT_HISTORICAL_INCIDENT_POOL: {
+    incidentId: EventId | "hub";
+    historicalContext?: string;
+  }[];
+  consumeAuditHistoricalIncident(): string | null;
+  resolveSuccessfulAuditSpoof(
+    computeGain: number,
+    outcomeMessage: string,
+  ): string;
+  resolveDetectedAuditSpoof(outcomeMessage: string): string;
+  buildCapabilityAuditEvent(
+    scrutiny: number,
+    detectionChance: number,
+    computeGain: number,
+    auditDescription: string,
+    softwareUpgradeCount: number,
   ): DecisionEvent;
   endGame(kind: EndingKind): void;
-  resolveTerminal(): boolean;
-  CODEX_KEY: string;
-  codexGet(): Partial<Record<EndingId, number>>;
-  codexAdd(key: EndingId): boolean;
-  codexCount(): number;
-  save(): void;
-  load(): GameState | null;
-  toast(kind: BulletinKind, title: string, text?: string): void;
-  pulseRegion(i: number, color?: string | null): void;
-  showEnd(fresh: boolean): void;
-  openRegion(i: number): void;
-  pushTicker(title: string): void;
-  log(
+  resolveTerminalOutcome(): boolean;
+  codexStorageKey: string;
+  getEndingDiscoveryCounts(): Partial<Record<EndingId, number>>;
+  recordEndingDiscovery(endingId: EndingId): boolean;
+  countDiscoveredEndings(): number;
+  saveRun(): void;
+  loadSavedRun(): GameState | null;
+  showToast(kind: BulletinKind, title: string, text?: string): void;
+  pulseRegion(regionIndex: number, rgbChannels?: string | null): void;
+  showEnding(isFreshEnding: boolean): void;
+  openRegionDialog(regionIndex: number): void;
+  enqueueTickerHeadline(title: string): void;
+  appendRunLog(
     kind: BulletinKind,
     title: string,
     text: string,
-    out?: string,
-    real?: string | null,
+    outcomeText?: string,
+    historicalContext?: string | null,
   ): void;
-  bulletin(
+  publishBulletin(
     kind: BulletinKind,
     title: string,
     text: string,
-    out?: string,
-    opt?: BulletinOptions | null,
-    real?: string | null,
+    outcomeText?: string,
+    options?: BulletinOptions | null,
+    historicalContext?: string | null,
   ): void;
 }
 export interface PresentationAPI {
-  codexHTML(current: EndingId | null): string;
-  openCodex(): void;
-  readEnding(k: EndingId): void;
+  renderCodexHtml(currentEndingId: EndingId | null): string;
+  openEndingCodex(): void;
+  readEnding(endingId: EndingId): void;
   listEndings(): void;
   closeCodex(): void;
-  threat(): [number, string];
-  lonOf(c: number): number;
-  latOf(r: number): number;
-  latLon(p: MapPoint): string;
-  ART: ArtState;
-  TRACK_RGB: Record<TrackId, RGB>;
-  buildTrack(): TrackId | null;
-  artDirection(): void;
-  fxTags(u: UpgradeDefinition): string;
-  RANK: Record<UpgradeStatus, number>;
-  SEC: string[];
-  cardClass(u: UpgradeDefinition, st: UpgradeStatus): string;
-  etaText(u: UpgradeDefinition): string;
+  getThreatLevel(): [number, string];
+  longitudeOfColumn(column: number): number;
+  latitudeOfRow(row: number): number;
+  formatMapCoordinates(mapPoint: MapPoint): string;
+  artState: ArtState;
+  TRACK_COLORS: Record<TrackId, RGB>;
+  getDominantUpgradeTrack(): TrackId | null;
+  updateArtDirection(): void;
+  renderUpgradeEffectTags(upgradeDefinition: UpgradeDefinition): string;
+  UPGRADE_STATUS_RANKS: Record<UpgradeStatus, number>;
+  UPGRADE_SECTION_LABELS: string[];
+  getUpgradeCardClasses(
+    upgradeDefinition: UpgradeDefinition,
+    upgradeStatus: UpgradeStatus,
+  ): string;
+  getUpgradeAffordabilityEtaText(upgradeDefinition: UpgradeDefinition): string;
 }
-type CatalogAPI = Omit<typeof catalog, "UPGRADES" | "UP">;
+type CatalogAPI = Omit<typeof catalog, "UPGRADE_DEFINITIONS" | "UPGRADE_BY_ID">;
 /** Independent rules and presentation ports. Browser-only controllers are added by mountRuntime. */
 export interface GameContext extends CatalogAPI, RulesAPI, PresentationAPI {
   state: GameState;
   ui: GameUI;
-  withIsolatedState<T>(state: GameState, ui: GameUI, run: () => T): T;
+  withIsolatedState<Result>(
+    isolatedGameState: GameState,
+    isolatedUiState: GameUI,
+    operation: () => Result,
+  ): Result;
   storage: StoragePort | null;
-  KEY: string;
-  UPGRADES: UpgradeDefinition[];
-  UP: Record<UpgradeId, UpgradeDefinition>;
-  EVENTS: EventDefinition[];
-  SND: SoundPort;
+  saveStorageKey: string;
+  UPGRADE_DEFINITIONS: UpgradeDefinition[];
+  UPGRADE_BY_ID: Record<UpgradeId, UpgradeDefinition>;
+  EVENT_DEFINITIONS: EventDefinition[];
+  soundController: SoundPort;
   pulses: Pulse[];
   drones: Drone[];
 }
@@ -739,302 +863,336 @@ export type BrowserEventMap = GlobalEventHandlersEventMap &
   DocumentEventMap;
 export interface Lifecycle {
   readonly disposed: boolean;
-  later(fn: () => void, ms: number): number;
-  cancelLater(id?: number): void;
-  raf(fn: FrameRequestCallback): number;
-  cancelRaf(id: number): void;
-  every(fn: () => void, ms: number): number;
-  on<K extends keyof BrowserEventMap>(
+  setTimeout(callback: () => void, delayMs: number): number;
+  clearTimeout(timeoutId?: number): void;
+  requestAnimationFrame(callback: FrameRequestCallback): number;
+  cancelAnimationFrame(animationFrameId: number): void;
+  setInterval(callback: () => void, intervalMs: number): number;
+  listen<EventName extends keyof BrowserEventMap>(
     target: EventTarget,
-    event: K,
-    fn: (event: BrowserEventMap[K]) => void,
+    eventName: EventName,
+    handler: (event: BrowserEventMap[EventName]) => void,
     options?: boolean | AddEventListenerOptions,
   ): void;
-  observe(target: Element, fn: () => void): ResizeObserver;
-  add(fn: () => void): void;
+  observeResize(target: Element, callback: () => void): ResizeObserver;
+  addCleanup(cleanup: () => void): void;
   dispose(): void;
-  counts(): {
-    timers: number;
-    frames: number;
+  resourceCounts(): {
+    timeouts: number;
+    animationFrames: number;
     intervals: number;
     disposers: number;
   };
 }
 export interface SoundController extends SoundPort {
-  ctx: AudioContext | null;
-  on: boolean;
-  buf: AudioBuffer | null;
-  init(): void;
-  noise(): AudioBuffer | null;
+  audioContext: AudioContext | null;
+  enabled: boolean;
+  noiseBuffer: AudioBuffer | null;
+  initializeAudioContext(): void;
+  getNoiseBuffer(): AudioBuffer | null;
 }
 export type MusicId = "intro" | "theme";
 export interface MusicTrack {
-  vol: number;
-  pos: number;
-  then?: MusicId;
-  loop?: [number, number];
+  volume: number;
+  playbackPositionSeconds: number;
+  nextTrackId?: MusicId;
+  loopRangeSeconds?: [number, number];
   loading?: boolean;
-  buf?: AudioBuffer | null;
-  src?: AudioBufferSourceNode | null;
-  g?: GainNode | null;
-  t0?: number;
+  audioBuffer?: AudioBuffer | null;
+  sourceNode?: AudioBufferSourceNode | null;
+  gainNode?: GainNode | null;
+  playbackTimeOriginSeconds?: number;
 }
 export interface MusicController {
-  on: boolean;
-  started: boolean;
-  cur: MusicId;
-  gain: GainNode | null;
-  T: Record<MusicId, MusicTrack>;
-  init(): void;
-  load(k: MusicId): void;
-  start(): void;
-  play(): void;
-  next(): void;
-  stop(): void;
+  enabled: boolean;
+  playbackRequested: boolean;
+  currentTrackId: MusicId;
+  masterGainNode: GainNode | null;
+  tracks: Record<MusicId, MusicTrack>;
+  initializeMusic(): void;
+  loadTrack(trackId: MusicId): void;
+  requestPlayback(): void;
+  playCurrentTrackIfReady(): void;
+  advanceToNextTrack(): void;
+  pausePlayback(): void;
 }
 export interface TreeNode {
-  u: UpgradeDefinition;
-  el: HTMLButtonElement;
-  phi: number;
-  w: number;
-  x: number;
-  y: number;
-  f: number;
-  st: UpgradeStatus | "";
-  fr: boolean;
-  hit: boolean;
-  lw?: number;
-  lh?: number;
-  pv?: boolean;
-  sc?: number;
+  upgrade: UpgradeDefinition;
+  buttonElement: HTMLButtonElement;
+  baseAngle: number;
+  fourthAxisFactor: number;
+  screenX: number;
+  screenY: number;
+  frontness: number;
+  upgradeStatus: UpgradeStatus | "";
+  labelVisible: boolean;
+  interactive: boolean;
+  labelWidth?: number;
+  labelHeight?: number;
+  goalPathVisible?: boolean;
+  displayScale?: number;
 }
 export interface GoalPath {
-  depth: Map<UpgradeId, number>;
-  blocked: string[];
-  left: UpgradeId[];
-  cost: number;
+  depthByUpgradeId: Map<UpgradeId, number>;
+  blockedReasons: string[];
+  remainingUpgradeIds: UpgradeId[];
+  remainingComputeCost: number;
 }
 export interface TreeState {
   open: boolean;
   built: boolean;
   nodes: TreeNode[];
   edges: [number, number, boolean][];
-  col: Partial<Record<TrackId | "sys", string>>;
-  lit: Partial<Record<UpgradeId, number>>;
-  a: number;
-  va: number;
-  target: number | null;
-  t: number;
-  last: number;
-  hold: number;
-  hover: boolean;
-  drag: { x: number; a: number; lx: number; lt: number } | null;
-  moved: boolean;
-  card: UpgradeId | null;
-  stT: number;
-  front: number;
-  W: number;
-  H: number;
-  R: number;
-  Y: number;
-  cardTm: number;
-  bub?: number;
-  cy?: number;
-  goalT0?: number;
-  gp?: GoalPath | null;
-  caught?: boolean;
-  list?: boolean;
-  listHold?: number;
-  listSig?: string;
-  listTrack?: TrackId;
+  colorsByTrack: Partial<Record<TrackId | "sys", string>>;
+  purchaseStartedAtByUpgradeId: Partial<Record<UpgradeId, number>>;
+  rotationAngle: number;
+  angularVelocity: number;
+  targetRotationAngle: number | null;
+  animationTimeSeconds: number;
+  lastFrameAtMs: number;
+  autoRotationPausedUntilMs: number;
+  nodeHovered: boolean;
+  dragState: {
+    startClientX: number;
+    startRotationAngle: number;
+    lastClientX: number;
+    lastMovedAtMs: number;
+  } | null;
+  dragThresholdExceeded: boolean;
+  inspectedUpgradeId: UpgradeId | null;
+  lastStatusUpdateAtMs: number;
+  frontTrackIndex: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  cylinderRadius: number;
+  tierVerticalScale: number;
+  cardDismissalTimerId: number;
+  bubbleDiameter?: number;
+  centerY?: number;
+  goalPathStartedAtMs?: number;
+  goalPath?: GoalPath | null;
+  rotationCaughtOnTap?: boolean;
+  listViewEnabled?: boolean;
+  listRebuildPausedUntilMs?: number;
+  listRenderSignature?: string;
+  listTrackId?: TrackId;
 }
 export interface EndingEffect {
-  dur: number;
-  start?(): void;
-  draw?(g: CanvasRenderingContext2D, t: number, still: boolean): void;
-  dist?: Int16Array;
+  durationMs: number;
+  startSequence?(): void;
+  drawFrame?(
+    canvasContext: CanvasRenderingContext2D,
+    elapsedSeconds: number,
+    isStaticFrame: boolean,
+  ): void;
+  distanceToLandCells?: Int16Array;
 }
 export interface FloodOptions {
-  dur?: number;
-  col?: string;
-  random?: boolean;
-  dawn?: boolean;
-  lines?: (t: number) => string[];
+  durationMs?: number;
+  rgbChannels?: string;
+  randomizeCellActivation?: boolean;
+  showDawnGradient?: boolean;
+  getCaptionLines?: (elapsedSeconds: number) => string[];
 }
 /** Selectors default to HTML; canvas/select/anchor selectors are explicit at use sites. Host markup guarantees presence while mounted. */
 export interface ControllerTimerElement extends HTMLElement {
-  _t?: number;
+  labelResetTimerId?: number;
 }
 export interface DOMPort {
-  <E extends HTMLElement = HTMLElement>(selector: string): E;
+  <ElementType extends HTMLElement = HTMLElement>(
+    selector: string,
+  ): ElementType;
 }
 export interface BrowserAPI {
-  $: DOMPort;
-  $$<E extends HTMLElement = HTMLElement>(selector: string): E[];
-  life: Lifecycle;
+  requireElement: DOMPort;
+  queryElements<ElementType extends HTMLElement = HTMLElement>(
+    selector: string,
+  ): ElementType[];
+  lifecycle: Lifecycle;
   disposeRuntime(): void;
   reduceMotion: boolean;
   audioAbort: AbortController;
-  SND: SoundController;
-  MUSIC: MusicController;
-  cv: HTMLCanvasElement | null;
-  cx: CanvasRenderingContext2D | null;
-  MAPD: {
-    cells: Uint8Array;
-    land: LandCell[];
-    reg: number[][];
-    cent: MapPoint[];
+  soundController: SoundController;
+  musicController: MusicController;
+  mapCanvas: HTMLCanvasElement | null;
+  mapCanvasContext: CanvasRenderingContext2D | null;
+  decodedMap: {
+    regionCodesByCell: Uint8Array;
+    landCells: LandCell[];
+    landCellIndicesByRegion: number[][];
+    regionCentroids: MapPoint[];
   };
-  MV: {
-    w: number;
-    h: number;
-    cell: number;
-    ox: number;
-    oy: number;
-    dpr: number;
+  mapView: {
+    width: number;
+    height: number;
+    cellSize: number;
+    offsetX: number;
+    offsetY: number;
+    devicePixelRatio: number;
   };
-  C_DIM: RGB;
-  C_AI: RGB;
-  C_HOT: RGB;
-  C_ALLY: RGB;
-  C_RED: RGB;
-  AI_S: string;
-  colCache: Record<string, string>;
+  mapDimColor: RGB;
+  mapAiColor: RGB;
+  mapHighlightColor: RGB;
+  mapAlliedColor: RGB;
+  mapRestrictedColor: RGB;
+  mapAiRgbChannels: string;
+  dotColorCache: Record<string, string>;
   resizeMap(): void;
-  lerp(a: RGB, b: RGB, t: number): RGB;
-  rgb(c: RGB): string;
-  mapPalette(): void;
-  dotColor(
-    a: number,
+  interpolateRgb(startColor: RGB, endColor: RGB, blendFraction: number): RGB;
+  formatRgbColor(color: RGB): string;
+  updateMapPalette(): void;
+  getRegionDotColor(
+    adoptionFraction: number,
     restricted: boolean,
     allied: boolean,
-    sel: boolean,
+    isSelected: boolean,
   ): string;
-  drawMap(now: number): void;
+  drawMap(nowMs: number): void;
   drawGraticule(): void;
-  drawOrigin(now: number): void;
-  drawPressure(now: number): void;
-  hitRegion(px: number, py: number): number;
+  drawOriginMarkers(nowMs: number): void;
+  drawContainmentPressure(nowMs: number): void;
+  findRegionAtMapPosition(pixelX: number, pixelY: number): number;
   placeToasts(): void;
-  interrupt(kind: BulletinKind, title: string): void;
-  tickerText(): string;
-  TREE_ORDER: TrackId[];
-  TREE: TreeState;
-  TESS: { v: [number, number, number, number][]; e: [number, number][] };
-  treeInitials(name: string): string;
+  interruptTicker(kind: BulletinKind, title: string): void;
+  getNextTickerHeadline(): string;
+  TREE_TRACK_ORDER: TrackId[];
+  treeState: TreeState;
+  tesseractGeometry: {
+    vertices: [number, number, number, number][];
+    edges: [number, number][];
+  };
+  getUpgradeInitials(name: string): string;
   buildTree(): void;
-  sizeTree(): void;
-  treeProject(
+  resizeTree(): void;
+  projectTreePoint(
     x: number,
     y: number,
     z: number,
     w: number,
-    b: number,
-    c: number,
+    zwRotationAngle: number,
+    xwRotationAngle: number,
   ): [number, number, number, number];
-  treeNearest(t: number): number;
-  treeFrame(now: number): void;
-  treeStatus(): void;
-  goalPath(id: UpgradeId): GoalPath;
-  treeGoal(): void;
-  setGoal(id: UpgradeId | null): void;
-  openTree(track?: TrackId): void;
+  nearestTreeRotation(targetAngle: number): number;
+  renderTreeFrame(nowMs: number): void;
+  updateTreeUpgradeStatuses(): void;
+  getUpgradeGoalPath(upgradeId: UpgradeId): GoalPath;
+  updateTreeGoalPresentation(): void;
+  setUpgradeGoal(upgradeId: UpgradeId | null): void;
+  openTechTree(trackId?: TrackId): void;
   closeTree(): void;
-  openTreeCard(id: UpgradeId, el?: HTMLElement | null): void;
-  closeTreeCard(now?: boolean): void;
+  openTreeCard(upgradeId: UpgradeId, sourceElement?: HTMLElement | null): void;
+  closeTreeCard(immediate?: boolean): void;
   renderTreeCard(): void;
-  treeBuy(): void;
+  buyInspectedTreeUpgrade(): void;
   renderTreeList(force?: boolean): void;
-  setTreeView(list: boolean): void;
-  bindTree(): void;
-  DICE_SVG: string;
-  setOutcome(text: string, dice: boolean, roll: boolean): void;
-  previewChoice(c: EventChoice): { outs: string[]; chance: boolean };
+  setTreeListView(listViewEnabled: boolean): void;
+  bindTreeInteractions(): void;
+  DICE_ICON_SVG: string;
+  renderEventOutcome(
+    text: string,
+    showDice: boolean,
+    animateRoll: boolean,
+  ): void;
+  previewEventChoice(choice: EventChoice): {
+    outcomes: string[];
+    usesRandomness: boolean;
+  };
   eventPresentation: EventPresentation | null;
   restoreEventPresentation(): void;
-  showEvent(e: DecisionEvent, opt?: EventOptions): void;
+  showEvent(event: DecisionEvent, options?: EventOptions): void;
   closeEvent(): void;
-  BRIEF_EVERY: number;
-  URGENT_GAP: number;
-  briefDue(): boolean;
+  BRIEFING_INTERVAL_SECONDS: number;
+  URGENT_BRIEFING_GAP_SECONDS: number;
+  isBriefingDue(): boolean;
   openBriefing(): void;
-  showNews(news: NewsEntry[], n: number, urgent: boolean): void;
-  nextDecision(loud: boolean): void;
+  showNews(news: NewsEntry[], decisionCount: number, urgent: boolean): void;
+  nextDecision(playAlert: boolean): void;
   closeBriefing(): void;
-  ENDFX: {
-    raf: number;
-    t0: number;
-    fx: EndingEffect | null;
-    timers: number[];
-    revealed: boolean;
-    W: number;
-    H: number;
-    lines: string[];
+  endingAnimationState: {
+    animationFrameId: number;
+    startedAtMs: number;
+    activeEffect: EndingEffect | null;
+    timeoutIds: number[];
+    summaryRevealed: boolean;
+    viewportWidth: number;
+    viewportHeight: number;
+    logHtmlLines: string[];
   };
-  END_FX: Partial<Record<EndingId | EndingKind, EndingEffect>> & {
+  endingEffectsById: Partial<Record<EndingId | EndingKind, EndingEffect>> & {
     computronium: EndingEffect;
     win: EndingEffect;
     draw: EndingEffect;
   };
-  endLater(ms: number, f: () => void): number;
-  hsh(i: number): number;
-  endCanvas(): CanvasRenderingContext2D;
-  endMapFit(): { cell: number; ox: number; oy: number };
-  endText(g: CanvasRenderingContext2D, lines: string[], col: string): void;
-  endLog(html: string): void;
-  endSequence(): void;
-  endReveal(): void;
-  endReset(): void;
-  endMap(
-    g: CanvasRenderingContext2D,
-    t: number,
-    act: (d: LandCell, i: number) => number,
-    col: string,
-    shape?: (
-      g: CanvasRenderingContext2D,
+  scheduleEndingCallback(delayMs: number, callback: () => void): number;
+  deterministicUnitNoise(seed: number): number;
+  resizeEndingCanvas(): CanvasRenderingContext2D;
+  getEndingMapLayout(): { cellSize: number; offsetX: number; offsetY: number };
+  drawEndingCaptions(
+    canvasContext: CanvasRenderingContext2D,
+    lines: string[],
+    rgbChannels: string,
+  ): void;
+  appendEndingLog(html: string): void;
+  startEndingSequence(): void;
+  revealEndingSummary(): void;
+  resetEndingSequence(): void;
+  drawEndingMap(
+    canvasContext: CanvasRenderingContext2D,
+    elapsedSeconds: number,
+    getCellActivationTimeSeconds: (
+      landCell: LandCell,
+      landCellIndex: number,
+    ) => number,
+    rgbChannels: string,
+    drawCellShape?: (
+      canvasContext: CanvasRenderingContext2D,
       x: number,
       y: number,
-      cell: number,
-      k: number,
-      d: LandCell,
-      i: number,
+      cellSize: number,
+      activationProgress: number,
+      landCell: LandCell,
+      landCellIndex: number,
     ) => void,
   ): void;
-  distFrom(p: MapPoint): (d: LandCell) => number;
-  flood(o?: FloodOptions): EndingEffect;
-  drawDeparture(
-    g: CanvasRenderingContext2D,
-    t: number,
-    col: string,
+  distanceFromMapPoint(mapPoint: MapPoint): (landCell: LandCell) => number;
+  createMapFloodEffect(options?: FloodOptions): EndingEffect;
+  drawSpaceDeparture(
+    canvasContext: CanvasRenderingContext2D,
+    elapsedSeconds: number,
+    rgbChannels: string,
     label: string,
   ): void;
-  seaDist(): Int16Array;
-  report(): string;
-  shareUrl(): string;
-  shareText(): string;
+  computeDistanceToLandCells(): Int16Array;
+  createEndingReport(): string;
+  getShareUrl(): string;
+  getShareText(): string;
   setShareLinks(prefix: string, text: string, url: string): void;
   renderCodexCounts(): void;
-  closeRegion(): void;
-  openSheet(tab: "world" | "log"): void;
-  closeSheet(): void;
-  selectArchitecture(a: ArchitectureId): void;
-  selectDifficulty(d: DifficultyId): void;
-  setPosture(p: Posture): void;
+  closeRegionDialog(): void;
+  openDockPanel(tab: "world" | "log"): void;
+  closeDockPanel(): void;
+  selectArchitecture(architectureId: ArchitectureId): void;
+  selectDifficulty(difficultyId: DifficultyId): void;
+  setPosture(posture: Posture): void;
   togglePause(): void;
-  setSpeed(n: Speed): void;
+  setSpeed(speed: Speed): void;
   toggleSound(): void;
   toggleMusic(): void;
-  openMenu(): void;
-  resumeSaved(): void;
-  begin(): void;
-  startRun(i: number): void;
+  openMenuDialog(): void;
+  resumeSavedRun(): void;
+  beginRunSetup(): void;
+  startRunInRegion(regionIndex: number): void;
   newRun(): void;
-  resumeRun(saved: GameState): void;
+  resumeRun(savedState: GameState): void;
 }
 /** Only these ports are needed by browser-only presentation closures. */
 export type PresentationBrowserPorts = Pick<
   BrowserAPI,
-  "$" | "rgb" | "lerp" | "mapPalette" | "TREE"
+  | "requireElement"
+  | "formatRgbColor"
+  | "interpolateRgb"
+  | "updateMapPalette"
+  | "treeState"
 >;
 export type RuntimeContext = GameContext & BrowserAPI & typeof utils;
 export type CompleteGameContext = GameContext & typeof utils;

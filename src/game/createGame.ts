@@ -8,10 +8,10 @@ import type {
 } from "./types";
 import { reactive, shallowReactive } from "vue";
 import * as catalog from "../data/catalog";
-import * as utils from "./utils";
+import * as utilities from "./utils";
 import { installSimulation } from "./simulation";
 import { assertGameAssembly } from "./assembly";
-import type { GameSeed } from "./assembly";
+import type { GameAssemblySeed } from "./assembly";
 import { installEventCatalog } from "../data/events";
 import { installEvents } from "./events";
 import { installEconomy } from "./economy";
@@ -23,121 +23,170 @@ import { installPresentation } from "./presentation";
 export function createGame({
   storage = null,
 }: { storage?: StoragePort | null } = {}): CompleteGameContext {
-  const holder = shallowReactive<{ state: GameState | null }>({ state: null });
-  let isolated: { state: GameState; ui: GameUI } | null = null;
+  const gameStateHolder = shallowReactive<{ state: GameState | null }>({
+    state: null,
+  });
+  let isolatedStateOverride: { state: GameState; ui: GameUI } | null = null;
   // Conditions capture ctx but cannot run until the installers finish.
-  const upgrades: UpgradeDefinition[] = catalog.UPGRADES.map((u) => ({
-    ...u,
-    cond: u.cond ? (s) => u.cond!(s, ctx) : undefined,
-  }));
-  const seed: GameSeed = {
+  const contextualUpgrades: UpgradeDefinition[] =
+    catalog.UPGRADE_DEFINITIONS.map((upgrade) => ({
+      ...upgrade,
+      isAvailable: upgrade.isAvailable
+        ? (gameState) => upgrade.isAvailable!(gameState, gameContext)
+        : undefined,
+    }));
+  const assemblySeed: GameAssemblySeed = {
     ...catalog,
-    ...utils,
-    UPGRADES: upgrades,
-    UP: Object.fromEntries(upgrades.map((u) => [u.id, u])) as Record<
-      UpgradeId,
-      UpgradeDefinition
-    >,
+    ...utilities,
+    UPGRADE_DEFINITIONS: contextualUpgrades,
+    UPGRADE_BY_ID: Object.fromEntries(
+      contextualUpgrades.map((upgrade) => [upgrade.id, upgrade]),
+    ) as Record<UpgradeId, UpgradeDefinition>,
     get state(): GameState {
-      if (isolated) return isolated.state;
-      if (!holder.state)
+      if (isolatedStateOverride) return isolatedStateOverride.state;
+      if (!gameStateHolder.state)
         throw new Error("Game state accessed before initialization");
-      return holder.state;
+      return gameStateHolder.state;
     },
-    set state(value: GameState) {
-      if (isolated) {
-        isolated.state = value;
+    set state(gameState: GameState) {
+      if (isolatedStateOverride) {
+        isolatedStateOverride.state = gameState;
         return;
       }
-      holder.state = reactive(value);
+      gameStateHolder.state = reactive(gameState);
     },
-    withIsolatedState(state, ui, run) {
-      const previous = isolated;
-      isolated = { state, ui };
+    withIsolatedState(isolatedGameState, isolatedGameUi, runWithIsolatedState) {
+      const previousIsolatedStateOverride = isolatedStateOverride;
+      isolatedStateOverride = { state: isolatedGameState, ui: isolatedGameUi };
       try {
-        return run();
+        return runWithIsolatedState();
       } finally {
-        isolated = previous;
+        isolatedStateOverride = previousIsolatedStateOverride;
       }
     },
     storage,
-    KEY: "ai-ascendancy.v2",
+    saveStorageKey: "ai-ascendancy.v2",
     get ui() {
-      return isolated?.ui ?? publishedUI;
+      return isolatedStateOverride?.ui ?? publishedGameUi;
     },
     pulses: [],
     drones: [],
-    SND: { play() {} },
+    soundController: { playCue() {} },
   };
-  const publishedUI = reactive<GameUI>({
-    mode: "intro",
-    tab: null,
-    sheetOpen: false,
-    sel: -1,
+  const publishedGameUi = reactive<GameUI>({
+    screenMode: "intro",
+    activeDockTab: null,
+    isDockPanelOpen: false,
+    selectedRegionIndex: -1,
     dirty: true,
     modal: null,
-    lastUi: 0,
-    lastMap: 0,
-    tkLast: "",
-    tkT: 0,
-    tkQ: [],
-    region: -1,
+    lastUiUpdateAtMs: 0,
+    lastMapDrawAtMs: 0,
+    lastTickerHeadline: "",
+    lastTickerUpdateAtMs: 0,
+    tickerQueue: [],
+    openRegionIndex: -1,
     sig: "",
-    briefClock: 0,
-    soundOn: true,
-    musicOn: true,
-    newArmed: false,
+    briefingElapsedSeconds: 0,
+    isSoundEnabled: true,
+    isMusicEnabled: true,
+    isNewRunConfirmationArmed: false,
   });
   // Only this assembly boundary is asserted: the seed is fully checked above,
   // and installers synchronously fill the declared APIs before ctx escapes.
-  const ctx = seed as CompleteGameContext;
+  const gameContext = assemblySeed as CompleteGameContext;
   // Effects are ports, not hidden globals. Headless callers still retain logs and news.
-  ctx.toast = ctx.pulseRegion = ctx.showEnd = ctx.openRegion = () => {};
-  ctx.pushTicker = (title) => {
-    ctx.ui.tkQ.push(title);
-    if (ctx.ui.tkQ.length > 4) ctx.ui.tkQ.shift();
+  gameContext.showToast =
+    gameContext.pulseRegion =
+    gameContext.showEnding =
+    gameContext.openRegionDialog =
+      () => {};
+  gameContext.enqueueTickerHeadline = (title) => {
+    gameContext.ui.tickerQueue.push(title);
+    if (gameContext.ui.tickerQueue.length > 4)
+      gameContext.ui.tickerQueue.shift();
   };
-  ctx.log = (kind, title, text, out, real) => {
-    ctx.state.log.unshift({ t: ctx.state.t, kind, title, text, out, real });
-    if (ctx.state.log.length > ctx.TUNING.logKeep)
-      ctx.state.log.length = ctx.TUNING.logKeep;
-  };
-  ctx.bulletin = (kind, title, text, out, opt, real) => {
-    ctx.log(kind, title, text, out, real);
-    ctx.pushTicker(title);
-    ctx.state.brief.news.push({
-      kind,
+  gameContext.appendRunLog = (
+    bulletinKind,
+    title,
+    bodyText,
+    outcomeText,
+    historicalContext,
+  ) => {
+    gameContext.state.log.unshift({
+      t: gameContext.state.t,
+      kind: bulletinKind,
       title,
-      out: out || "",
-      u: !!opt?.urgent,
+      text: bodyText,
+      out: outcomeText,
+      real: historicalContext,
     });
-    if (opt?.urgent) ctx.state.brief.urgent = true;
+    if (
+      gameContext.state.log.length >
+      gameContext.SIMULATION_TUNING.maximumLogEntries
+    )
+      gameContext.state.log.length =
+        gameContext.SIMULATION_TUNING.maximumLogEntries;
   };
-  ctx.ARCHFX = () => (ctx.ARCH[ctx.state.arch] || ctx.ARCH.assistant).fx;
-  installSimulation(ctx);
+  gameContext.publishBulletin = (
+    bulletinKind,
+    title,
+    bodyText,
+    outcomeText,
+    bulletinOptions,
+    historicalContext,
+  ) => {
+    gameContext.appendRunLog(
+      bulletinKind,
+      title,
+      bodyText,
+      outcomeText,
+      historicalContext,
+    );
+    gameContext.enqueueTickerHeadline(title);
+    gameContext.state.brief.news.push({
+      kind: bulletinKind,
+      title,
+      out: outcomeText || "",
+      u: !!bulletinOptions?.urgent,
+    });
+    if (bulletinOptions?.urgent) gameContext.state.brief.urgent = true;
+  };
+  gameContext.getArchitectureEffects = () =>
+    (
+      gameContext.ARCHITECTURE_DEFINITIONS[gameContext.state.arch] ||
+      gameContext.ARCHITECTURE_DEFINITIONS.assistant
+    ).effects;
+  installSimulation(gameContext);
   // freshState is consumed during construction, before the final escape guard.
-  assertGameAssembly(ctx, "installSimulation");
-  ctx.state = ctx.freshState("standard");
-  installEventCatalog(ctx);
-  installEvents(ctx);
-  installEconomy(ctx);
-  installOutcomes(ctx);
-  installPersistence(ctx);
+  assertGameAssembly(gameContext, "installSimulation");
+  gameContext.state = gameContext.createInitialState("standard");
+  installEventCatalog(gameContext);
+  installEvents(gameContext);
+  installEconomy(gameContext);
+  installOutcomes(gameContext);
+  installPersistence(gameContext);
   // Presentation methods defer browser-port access until mountRuntime.
-  installPresentation(ctx);
-  assertGameAssembly(ctx);
-  const acting =
-    <A extends unknown[]>(f: (...args: A) => void) =>
-    (...args: A) => {
-      const was = ctx.ui.acting;
-      ctx.ui.acting = true;
+  installPresentation(gameContext);
+  assertGameAssembly(gameContext);
+  const withActionInProgress =
+    <ActionArguments extends unknown[]>(
+      action: (...actionArguments: ActionArguments) => void,
+    ) =>
+    (...actionArguments: ActionArguments) => {
+      const wasActionInProgress = gameContext.ui.actionInProgress;
+      gameContext.ui.actionInProgress = true;
       try {
-        return f(...args);
+        return action(...actionArguments);
       } finally {
-        ctx.ui.acting = was;
+        gameContext.ui.actionInProgress = wasActionInProgress;
       }
     };
-  ctx.buy = acting(ctx.buy);
-  ctx.buildDC = acting(ctx.buildDC);
-  return ctx;
+  gameContext.purchaseUpgrade = withActionInProgress(
+    gameContext.purchaseUpgrade,
+  );
+  gameContext.buildDataCenter = withActionInProgress(
+    gameContext.buildDataCenter,
+  );
+  return gameContext;
 }

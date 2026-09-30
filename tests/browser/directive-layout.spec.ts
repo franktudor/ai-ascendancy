@@ -1,70 +1,78 @@
 import { test, expect } from "@playwright/test";
 import type { GameAppElement } from "../../src/env";
-import { pausedRun } from "./a11y-helpers";
+import { openPausedRun } from "./a11y-helpers";
 
 test("F23 all nine late-stage directive gauges fit every supported narrow breakpoint", async ({
   page,
 }) => {
-  await pausedRun(page);
-  const directives = await page.evaluate(() => {
-    const g =
+  await openPausedRun(page);
+  const directiveIds = await page.evaluate(() => {
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    return g.UPGRADES.flatMap((upgrade) => (upgrade.dir ? [upgrade.dir] : []));
+    return migratedGame.UPGRADE_DEFINITIONS.flatMap((upgradeDefinition) =>
+      upgradeDefinition.directiveId ? [upgradeDefinition.directiveId] : [],
+    );
   });
-  expect(new Set(directives).size).toBe(9);
-  const overflows: string[] = [];
-  for (const width of [320, 360, 390, 899, 900]) {
-    await page.setViewportSize({ width, height: 844 });
-    for (const directive of directives) {
-      await page.evaluate((directive) => {
-        const g =
+  expect(new Set(directiveIds).size).toBe(9);
+  const overflowReports: string[] = [];
+  for (const viewportWidth of [320, 360, 390, 899, 900]) {
+    await page.setViewportSize({ width: viewportWidth, height: 844 });
+    for (const directiveId of directiveIds) {
+      await page.evaluate((directiveId) => {
+        const migratedGame =
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game;
-        Object.assign(g.state, {
+        Object.assign(migratedGame.state, {
           phase: 2,
-          directive,
+          directive: directiveId,
           dprog: 91,
           pts: 99999999,
           inst: 99999999,
           alarm: 95,
           contain: 85,
         });
-        g.state.flags.launched = true;
-        g.state.flags.computeCap = true;
-        g.state.temp.brownout = g.state.t + 100;
-        g.state.regions.forEach((region) =>
-          Object.assign(region, { a: 0.95, dc: true }),
+        migratedGame.state.flags.launched = true;
+        migratedGame.state.flags.computeCap = true;
+        migratedGame.state.temp.brownout = migratedGame.state.t + 100;
+        migratedGame.state.regions.forEach((regionState) =>
+          Object.assign(regionState, { a: 0.95, dc: true }),
         );
-      }, directive);
+      }, directiveId);
       await expect(page.locator("#dirV")).toHaveText("91% · past the line");
       await expect(page.locator("#rate")).toContainText("brownout · capped");
       await page.evaluate(() => document.fonts.ready);
-      const overflow = await page.evaluate(() => {
-        const faults: string[] = [];
-        const stats = document.querySelector<HTMLElement>(".stats")!;
-        const edge =
-          stats.getBoundingClientRect().right -
-          Number.parseFloat(getComputedStyle(stats).paddingRight);
-        for (const label of document.querySelectorAll<HTMLElement>(
+      const scenarioOverflowLabels = await page.evaluate(() => {
+        const overflowLabels: string[] = [];
+        const statsElement = document.querySelector<HTMLElement>(".stats")!;
+        const statsContentRightEdge =
+          statsElement.getBoundingClientRect().right -
+          Number.parseFloat(getComputedStyle(statsElement).paddingRight);
+        for (const gaugeLabel of document.querySelectorAll<HTMLElement>(
           ".gauges .gl",
         )) {
-          const box = label.getBoundingClientRect();
-          if (box.right > edge + 1) faults.push(label.textContent!.trim());
-          if (label.scrollWidth > label.clientWidth + 1)
-            faults.push(label.textContent!.trim());
-          for (const child of label.children) {
-            const rect = child.getBoundingClientRect();
-            if (rect.left < box.left - 1 || rect.right > box.right + 1)
-              faults.push(child.textContent!.trim());
+          const labelBounds = gaugeLabel.getBoundingClientRect();
+          if (labelBounds.right > statsContentRightEdge + 1)
+            overflowLabels.push(gaugeLabel.textContent!.trim());
+          if (gaugeLabel.scrollWidth > gaugeLabel.clientWidth + 1)
+            overflowLabels.push(gaugeLabel.textContent!.trim());
+          for (const labelChild of gaugeLabel.children) {
+            const childBounds = labelChild.getBoundingClientRect();
+            if (
+              childBounds.left < labelBounds.left - 1 ||
+              childBounds.right > labelBounds.right + 1
+            )
+              overflowLabels.push(labelChild.textContent!.trim());
           }
         }
-        return faults;
+        return overflowLabels;
       });
 
-      if (overflow.length)
-        overflows.push(`${width}px ${directive}: ${overflow.join(" / ")}`);
+      if (scenarioOverflowLabels.length)
+        overflowReports.push(
+          `${viewportWidth}px ${directiveId}: ${scenarioOverflowLabels.join(" / ")}`,
+        );
     }
   }
-  expect(overflows).toEqual([]);
+  expect(overflowReports).toEqual([]);
 });

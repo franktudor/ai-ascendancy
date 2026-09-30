@@ -19,447 +19,532 @@ import { captureModalFocus, installModalFocus } from "./modalFocus";
 /** Lifecycle bridge. Vue owns primary UI; controllers own only their host subtrees. */
 export function mountRuntime(game: CompleteGameContext): () => void {
   // Synchronous browser installation completes the runtime phase before returning.
-  const ctx = game as RuntimeContext;
+  const context = game as RuntimeContext;
   // Preserve data, not old DOM nodes, timers or handlers. Rebuild those below.
   const previous =
-    ctx.life && !ctx.life.disposed
+    context.lifecycle && !context.lifecycle.disposed
       ? {
-          event: ctx.eventPresentation,
-          tree: ctx.TREE.open
+          eventPresentation: context.eventPresentation,
+          treePresentation: context.treeState.open
             ? {
-                a: ctx.TREE.a,
-                list: ctx.TREE.list,
-                track: ctx.TREE.listTrack,
-                card: ctx.TREE.card,
+                rotationAngle: context.treeState.rotationAngle,
+                listViewEnabled: context.treeState.listViewEnabled,
+                listTrackId: context.treeState.listTrackId,
+                inspectedUpgradeId: context.treeState.inspectedUpgradeId,
               }
             : null,
-          revealed: ctx.ENDFX.revealed,
-          more: !ctx.$("#endMore").hidden,
+          endingSummaryRevealed: context.endingAnimationState.summaryRevealed,
+          endingDetailsExpanded: !context.requireElement("#endMore").hidden,
         }
       : null;
   const previousFocus =
-    ctx.life && !ctx.life.disposed ? captureModalFocus(ctx.life) : undefined;
-  ctx.disposeRuntime?.();
-  const life = (ctx.life = createLifecycle()),
-    $ = (ctx.$ = <E extends HTMLElement = HTMLElement>(s: string): E => {
-      const el = document.querySelector<E>(s);
-      if (!el) throw new Error("Missing controller host: " + s);
-      return el;
+    context.lifecycle && !context.lifecycle.disposed
+      ? captureModalFocus(context.lifecycle)
+      : undefined;
+  context.disposeRuntime?.();
+  const lifecycle = (context.lifecycle = createLifecycle()),
+    requireElement = (context.requireElement = <
+      ElementType extends HTMLElement = HTMLElement,
+    >(
+      selector: string,
+    ): ElementType => {
+      const element = document.querySelector<ElementType>(selector);
+      if (!element) throw new Error("Missing controller host: " + selector);
+      return element;
     });
-  ctx.$$ = <E extends HTMLElement = HTMLElement>(s: string) =>
-    Array.from(document.querySelectorAll<E>(s));
-  ctx.reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  installFeedback(ctx);
-  installTree(ctx);
-  installMap(ctx);
-  installPresentation(ctx, ctx);
-  installEventController(ctx);
-  installEndingController(ctx);
-  installAudio(ctx);
-  installRunActions(ctx);
-  ctx.renderCodexCounts = () => {
-    const n = ctx.codexCount();
-    ctx.ui.codexCount = n;
-    $("#menuCodex").textContent = n + " / " + ctx.END_ORDER.length + " found.";
+  context.queryElements = <ElementType extends HTMLElement = HTMLElement>(
+    selector: string,
+  ) => Array.from(document.querySelectorAll<ElementType>(selector));
+  context.reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  installFeedback(context);
+  installTree(context);
+  installMap(context);
+  installPresentation(context, context);
+  installEventController(context);
+  installEndingController(context);
+  installAudio(context);
+  installRunActions(context);
+  context.renderCodexCounts = () => {
+    const discoveredCount = context.countDiscoveredEndings();
+    context.ui.discoveredEndingCount = discoveredCount;
+    requireElement("#menuCodex").textContent =
+      discoveredCount + " / " + context.ENDING_DISPLAY_ORDER.length + " found.";
   };
-  ctx.openRegion = (i) => {
-    if (!ctx.REGIONS[i]) return;
-    ctx.ui.region = i;
-    ctx.ui.sel = i;
-    ctx.SND.play("tap");
+  context.openRegionDialog = (regionIndex) => {
+    if (!context.REGION_DEFINITIONS[regionIndex]) return;
+    context.ui.openRegionIndex = regionIndex;
+    context.ui.selectedRegionIndex = regionIndex;
+    context.soundController.playCue("tap");
   };
-  ctx.closeRegion = () => {
-    ctx.ui.region = -1;
-    ctx.ui.sel = -1;
+  context.closeRegionDialog = () => {
+    context.ui.openRegionIndex = -1;
+    context.ui.selectedRegionIndex = -1;
   };
-  ctx.openSheet = (tab) => {
-    if (ctx.ui.tab === tab && ctx.ui.sheetOpen && innerWidth < 900) {
-      ctx.closeSheet();
+  context.openDockPanel = (tab) => {
+    if (
+      context.ui.activeDockTab === tab &&
+      context.ui.isDockPanelOpen &&
+      innerWidth < 900
+    ) {
+      context.closeDockPanel();
       return;
     }
-    if (ctx.ui.tab !== tab) $("#sheetBody").scrollTop = 0;
-    ctx.ui.tab = tab;
-    ctx.ui.sheetOpen = true;
-    ctx.SND.play("tap");
+    if (context.ui.activeDockTab !== tab)
+      requireElement("#sheetBody").scrollTop = 0;
+    context.ui.activeDockTab = tab;
+    context.ui.isDockPanelOpen = true;
+    context.soundController.playCue("tap");
   };
-  ctx.closeSheet = () => {
-    ctx.ui.sheetOpen = false;
+  context.closeDockPanel = () => {
+    context.ui.isDockPanelOpen = false;
   };
-  const select = <K extends keyof GameState>(key: K, value: GameState[K]) => {
-    ctx.state[key] = value;
-    ctx.SND.play("tap");
+  const setStateSelection = <StateKey extends keyof GameState>(
+    key: StateKey,
+    value: GameState[StateKey],
+  ) => {
+    context.state[key] = value;
+    context.soundController.playCue("tap");
   };
-  ctx.selectArchitecture = (a) => select("arch", a);
-  ctx.selectDifficulty = (d) => select("diff", d);
-  ctx.setPosture = (p) => select("posture", p);
-  ctx.togglePause = () => select("paused", !ctx.state.paused);
-  ctx.setSpeed = (n) => {
-    select("speed", n);
-    ctx.state.paused = false;
+  context.selectArchitecture = (architecture) =>
+    setStateSelection("arch", architecture);
+  context.selectDifficulty = (difficulty) =>
+    setStateSelection("diff", difficulty);
+  context.setPosture = (posture) => setStateSelection("posture", posture);
+  context.togglePause = () =>
+    setStateSelection("paused", !context.state.paused);
+  context.setSpeed = (speed) => {
+    setStateSelection("speed", speed);
+    context.state.paused = false;
   };
-  const audioLabels = () => {
-    ctx.ui.soundOn = ctx.SND.on;
-    ctx.ui.musicOn = ctx.MUSIC.on;
-    $("#menuSound").setAttribute("aria-pressed", String(ctx.SND.on));
-    $("#menuSound").textContent = "Sound: " + (ctx.SND.on ? "on" : "off");
-    $("#menuMusic").setAttribute("aria-pressed", String(ctx.MUSIC.on));
-    $("#menuMusic").textContent = "Music: " + (ctx.MUSIC.on ? "on" : "off");
+  const updateAudioLabels = () => {
+    context.ui.isSoundEnabled = context.soundController.enabled;
+    context.ui.isMusicEnabled = context.musicController.enabled;
+    requireElement("#menuSound").setAttribute(
+      "aria-pressed",
+      String(context.soundController.enabled),
+    );
+    requireElement("#menuSound").textContent =
+      "Sound: " + (context.soundController.enabled ? "on" : "off");
+    requireElement("#menuMusic").setAttribute(
+      "aria-pressed",
+      String(context.musicController.enabled),
+    );
+    requireElement("#menuMusic").textContent =
+      "Music: " + (context.musicController.enabled ? "on" : "off");
   };
-  ctx.toggleSound = () => {
-    ctx.SND.init();
-    ctx.SND.on = !ctx.SND.on;
+  context.toggleSound = () => {
+    context.soundController.initializeAudioContext();
+    context.soundController.enabled = !context.soundController.enabled;
     try {
-      ctx.storage?.setItem(ctx.KEY + ".snd", ctx.SND.on ? "1" : "0");
+      context.storage?.setItem(
+        context.saveStorageKey + ".snd",
+        context.soundController.enabled ? "1" : "0",
+      );
     } catch {}
-    audioLabels();
-    if (ctx.SND.on) ctx.SND.play("buy");
+    updateAudioLabels();
+    if (context.soundController.enabled) context.soundController.playCue("buy");
   };
-  ctx.toggleMusic = () => {
-    ctx.MUSIC.init();
-    ctx.MUSIC.on = !ctx.MUSIC.on;
+  context.toggleMusic = () => {
+    context.musicController.initializeMusic();
+    context.musicController.enabled = !context.musicController.enabled;
     try {
-      ctx.storage?.setItem(ctx.KEY + ".music", ctx.MUSIC.on ? "1" : "0");
+      context.storage?.setItem(
+        context.saveStorageKey + ".music",
+        context.musicController.enabled ? "1" : "0",
+      );
     } catch {}
-    audioLabels();
-    if (ctx.MUSIC.on) ctx.MUSIC.start();
-    else ctx.MUSIC.stop();
+    updateAudioLabels();
+    if (context.musicController.enabled)
+      context.musicController.requestPlayback();
+    else context.musicController.pausePlayback();
   };
   try {
-    ctx.SND.on = ctx.storage?.getItem(ctx.KEY + ".snd") !== "0";
-    ctx.MUSIC.on = ctx.storage?.getItem(ctx.KEY + ".music") !== "0";
+    context.soundController.enabled =
+      context.storage?.getItem(context.saveStorageKey + ".snd") !== "0";
+    context.musicController.enabled =
+      context.storage?.getItem(context.saveStorageKey + ".music") !== "0";
   } catch {}
-  audioLabels();
-  ctx.renderCodexCounts();
-  ctx.openMenu = () => {
-    ctx.ui.modal = "menu";
-    ctx.renderCodexCounts();
-    $("#menuRun").textContent = ctx.state.started
+  updateAudioLabels();
+  context.renderCodexCounts();
+  context.openMenuDialog = () => {
+    context.ui.modal = "menu";
+    context.renderCodexCounts();
+    requireElement("#menuRun").textContent = context.state.started
       ? "Origin " +
-        ctx.REGIONS[ctx.RI[ctx.state.origin!]].name +
+        context.REGION_DEFINITIONS[
+          context.REGION_INDEX_BY_ID[context.state.origin!]
+        ].name +
         " · " +
-        ctx.state.diff +
+        context.state.diff +
         " · phase " +
-        (ctx.state.phase === 0
+        (context.state.phase === 0
           ? "Contained"
-          : ctx.state.phase === 1
+          : context.state.phase === 1
             ? "Loose"
             : "Ascendant") +
         " · " +
-        ctx.state.owned.length +
+        context.state.owned.length +
         " upgrades."
       : "Not started.";
-    $("#menuModal").hidden = false;
+    requireElement("#menuModal").hidden = false;
   };
   const closeMenu = () => {
-    $("#menuModal").hidden = true;
-    if (ctx.ui.modal === "menu") ctx.ui.modal = null;
+    requireElement("#menuModal").hidden = true;
+    if (context.ui.modal === "menu") context.ui.modal = null;
   };
-  const saved = ctx.load();
-  ctx.ui.hasSave = !!(saved && !saved.ended);
-  ctx.resumeSaved = () => {
+  const saved = context.loadSavedRun();
+  context.ui.hasResumableSave = !!(saved && !saved.ended);
+  context.resumeSavedRun = () => {
     if (saved) {
-      ctx.SND.init();
-      ctx.MUSIC.init();
-      ctx.resumeRun(saved);
+      context.soundController.initializeAudioContext();
+      context.musicController.initializeMusic();
+      context.resumeRun(saved);
     }
   };
-  ctx.begin = () => {
-    if (ctx.ui.hasSave && !ctx.ui.newArmed) {
-      ctx.ui.newArmed = true;
-      life.later(() => {
-        ctx.ui.newArmed = false;
+  context.beginRunSetup = () => {
+    if (context.ui.hasResumableSave && !context.ui.isNewRunConfirmationArmed) {
+      context.ui.isNewRunConfirmationArmed = true;
+      lifecycle.setTimeout(() => {
+        context.ui.isNewRunConfirmationArmed = false;
       }, 3000);
       return;
     }
-    ctx.ui.newArmed = false;
-    ctx.SND.init();
-    ctx.MUSIC.init();
-    ctx.SND.play("major");
-    ctx.newRun();
+    context.ui.isNewRunConfirmationArmed = false;
+    context.soundController.initializeAudioContext();
+    context.musicController.initializeMusic();
+    context.soundController.playCue("major");
+    context.newRun();
   };
-  const act = ctx.startRun;
-  ctx.startRun = (i) => {
-    const was = ctx.ui.acting;
-    ctx.ui.acting = true;
+  const startRun = context.startRunInRegion;
+  context.startRunInRegion = (regionIndex) => {
+    const previousActionInProgress = context.ui.actionInProgress;
+    context.ui.actionInProgress = true;
     try {
-      act(i);
+      startRun(regionIndex);
     } finally {
-      ctx.ui.acting = was;
+      context.ui.actionInProgress = previousActionInProgress;
     }
   };
-  const click = (id: string, fn: (e: MouseEvent) => void) =>
-    life.on($(id), "click", fn);
-  click("#menuCodexBtn", ctx.openCodex);
-  click("#codexClose", ctx.closeCodex);
-  life.on($("#codexModal"), "click", (e) => {
-    if ((e.target as HTMLElement).id === "codexModal") ctx.closeCodex();
+  const listenForClick = (
+    selector: string,
+    handler: (event: MouseEvent) => void,
+  ) => lifecycle.listen(requireElement(selector), "click", handler);
+  listenForClick("#menuCodexBtn", context.openEndingCodex);
+  listenForClick("#codexClose", context.closeCodex);
+  lifecycle.listen(requireElement("#codexModal"), "click", (event) => {
+    if ((event.target as HTMLElement).id === "codexModal") context.closeCodex();
   });
   for (const id of ["#endCodex", "#codexFull"]) {
-    life.on($(id), "click", (e) => {
-      const t = (e.target as HTMLElement).closest<HTMLElement>(".cxi.rd");
-      if (t) ctx.readEnding(t.dataset.k as EndingId);
+    lifecycle.listen(requireElement(id), "click", (event) => {
+      const card = (event.target as HTMLElement).closest<HTMLElement>(
+        ".cxi.rd",
+      );
+      if (card) context.readEnding(card.dataset.k as EndingId);
     });
-    life.on($(id), "keydown", (e) => {
-      const t = (e.target as HTMLElement).closest<HTMLElement>(".cxi.rd");
-      if (t && (e.key === "Enter" || e.key === " ")) {
-        e.preventDefault();
-        ctx.readEnding(t.dataset.k as EndingId);
+    lifecycle.listen(requireElement(id), "keydown", (event) => {
+      const card = (event.target as HTMLElement).closest<HTMLElement>(
+        ".cxi.rd",
+      );
+      if (card && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        context.readEnding(card.dataset.k as EndingId);
       }
     });
   }
-  click("#crBack", ctx.listEndings);
-  click("#endSkip", ctx.endReveal);
-  life.on($("#endFx"), "pointerdown", () => {
-    if (!ctx.ENDFX.revealed) ctx.endReveal();
+  listenForClick("#crBack", context.listEndings);
+  listenForClick("#endSkip", context.revealEndingSummary);
+  lifecycle.listen(requireElement("#endFx"), "pointerdown", () => {
+    if (!context.endingAnimationState.summaryRevealed)
+      context.revealEndingSummary();
   });
-  click("#btnEndNext", () => {
-    $("#endNextRow").hidden = true;
-    $("#endMore").hidden = false;
-    $("#endStats").scrollIntoView({ behavior: "smooth", block: "start" });
-    ctx.SND.play("tap");
+  listenForClick("#btnEndNext", () => {
+    requireElement("#endNextRow").hidden = true;
+    requireElement("#endMore").hidden = false;
+    requireElement("#endStats").scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+    context.soundController.playCue("tap");
   });
-  ctx.bindTree();
-  click("#menuSound", ctx.toggleSound);
-  click("#menuMusic", ctx.toggleMusic);
-  click("#menuClose", closeMenu);
-  click("#menuResume", closeMenu);
-  click("#menuRestart", () => {
-    const b = $("#menuRestart");
-    if (b.dataset.arm) {
-      delete b.dataset.arm;
-      b.textContent = "Restart run";
-      ctx.newRun();
+  context.bindTreeInteractions();
+  listenForClick("#menuSound", context.toggleSound);
+  listenForClick("#menuMusic", context.toggleMusic);
+  listenForClick("#menuClose", closeMenu);
+  listenForClick("#menuResume", closeMenu);
+  listenForClick("#menuRestart", () => {
+    const restartButton = requireElement("#menuRestart");
+    if (restartButton.dataset.arm) {
+      delete restartButton.dataset.arm;
+      restartButton.textContent = "Restart run";
+      context.newRun();
     } else {
-      b.dataset.arm = "1";
-      b.textContent = "Tap again to confirm";
-      life.later(() => {
-        delete b.dataset.arm;
-        b.textContent = "Restart run";
+      restartButton.dataset.arm = "1";
+      restartButton.textContent = "Tap again to confirm";
+      lifecycle.setTimeout(() => {
+        delete restartButton.dataset.arm;
+        restartButton.textContent = "Restart run";
       }, 3000);
     }
   });
-  click("#btnAgain", ctx.newRun);
-  click("#btnCopy", () => {
-    const txt = ctx.report(),
-      box = $("#endReport"),
-      b = $<ControllerTimerElement>("#btnCopy");
-    box.textContent = txt;
-    box.hidden = false;
-    const said = (t: string) => {
-      if (life.disposed) return;
-      b.textContent = t;
-      life.cancelLater(b._t);
-      b._t = life.later(() => {
-        b.textContent = "Copy report";
+  listenForClick("#btnAgain", context.newRun);
+  listenForClick("#btnCopy", () => {
+    const reportText = context.createEndingReport(),
+      reportElement = requireElement("#endReport"),
+      copyButton = requireElement<ControllerTimerElement>("#btnCopy");
+    reportElement.textContent = reportText;
+    reportElement.hidden = false;
+    const showCopyStatus = (label: string) => {
+      if (lifecycle.disposed) return;
+      copyButton.textContent = label;
+      lifecycle.clearTimeout(copyButton.labelResetTimerId);
+      copyButton.labelResetTimerId = lifecycle.setTimeout(() => {
+        copyButton.textContent = "Copy report";
       }, 2500);
     };
     if (navigator.clipboard?.writeText)
-      navigator.clipboard.writeText(txt).then(
-        () => said("Copied ✓"),
-        () => said("Select the text below"),
+      navigator.clipboard.writeText(reportText).then(
+        () => showCopyStatus("Copied ✓"),
+        () => showCopyStatus("Select the text below"),
       );
-    else said("Select the text below");
+    else showCopyStatus("Select the text below");
   });
-  const copyLink = (e: MouseEvent) => {
-    const b = e.currentTarget as ControllerTimerElement,
-      orig = b.textContent,
-      txt = ctx.shareUrl();
-    const said = (t: string) => {
-      if (life.disposed) return;
-      b.textContent = t;
-      life.cancelLater(b._t);
-      b._t = life.later(() => {
-        b.textContent = orig;
+  const copyLink = (event: MouseEvent) => {
+    const copyButton = event.currentTarget as ControllerTimerElement,
+      originalLabel = copyButton.textContent,
+      shareUrl = context.getShareUrl();
+    const showCopyStatus = (label: string) => {
+      if (lifecycle.disposed) return;
+      copyButton.textContent = label;
+      lifecycle.clearTimeout(copyButton.labelResetTimerId);
+      copyButton.labelResetTimerId = lifecycle.setTimeout(() => {
+        copyButton.textContent = originalLabel;
       }, 2500);
     };
     if (navigator.clipboard?.writeText)
-      navigator.clipboard.writeText(txt).then(
-        () => said("Link copied ✓"),
-        () => said(txt),
+      navigator.clipboard.writeText(shareUrl).then(
+        () => showCopyStatus("Link copied ✓"),
+        () => showCopyStatus(shareUrl),
       );
-    else said(txt);
+    else showCopyStatus(shareUrl);
   };
-  click("#shareCopyLink", copyLink);
-  click("#menuCopyLink", copyLink);
-  ctx.setShareLinks("menuShare", ctx.shareText(), ctx.shareUrl());
-  let pd: { x: number; y: number } | null = null;
-  life.on(ctx.cv!, "pointerdown", (e) => {
-    pd = { x: e.clientX, y: e.clientY };
+  listenForClick("#shareCopyLink", copyLink);
+  listenForClick("#menuCopyLink", copyLink);
+  context.setShareLinks(
+    "menuShare",
+    context.getShareText(),
+    context.getShareUrl(),
+  );
+  let pointerDownPosition: { x: number; y: number } | null = null;
+  lifecycle.listen(context.mapCanvas!, "pointerdown", (event) => {
+    pointerDownPosition = { x: event.clientX, y: event.clientY };
   });
-  life.on(ctx.cv!, "click", (e) => {
-    if (!pd) return;
-    const dx = e.clientX - pd.x,
-      dy = e.clientY - pd.y;
-    pd = null;
+  lifecycle.listen(context.mapCanvas!, "click", (event) => {
+    if (!pointerDownPosition) return;
+    const dx = event.clientX - pointerDownPosition.x,
+      dy = event.clientY - pointerDownPosition.y;
+    pointerDownPosition = null;
     if (dx * dx + dy * dy > 100) return;
-    const b = ctx.cv!.getBoundingClientRect(),
-      i = ctx.hitRegion(e.clientX - b.left, e.clientY - b.top);
-    if (i >= 0) ctx.openRegion(i);
+    const canvasBounds = context.mapCanvas!.getBoundingClientRect(),
+      regionIndex = context.findRegionAtMapPosition(
+        event.clientX - canvasBounds.left,
+        event.clientY - canvasBounds.top,
+      );
+    if (regionIndex >= 0) context.openRegionDialog(regionIndex);
   });
-  life.on(ctx.cv!, "pointercancel", () => {
-    pd = null;
+  lifecycle.listen(context.mapCanvas!, "pointercancel", () => {
+    pointerDownPosition = null;
   });
   const unlockAudio = () => {
-    ctx.SND.init();
-    if (ctx.SND.ctx && ctx.SND.ctx.state !== "running")
-      ctx.SND.ctx.resume().catch(() => {});
-    ctx.MUSIC.init();
-    if (ctx.MUSIC.on) ctx.MUSIC.start();
+    context.soundController.initializeAudioContext();
+    if (
+      context.soundController.audioContext &&
+      context.soundController.audioContext.state !== "running"
+    )
+      context.soundController.audioContext.resume().catch(() => {});
+    context.musicController.initializeMusic();
+    if (context.musicController.enabled)
+      context.musicController.requestPlayback();
   };
-  for (const t of ["pointerdown", "pointerup", "click"] as const)
-    life.on(document, t, unlockAudio);
-  life.on(document, "keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") unlockAudio();
+  for (const eventType of ["pointerdown", "pointerup", "click"] as const)
+    lifecycle.listen(document, eventType, unlockAudio);
+  lifecycle.listen(document, "keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") unlockAudio();
   });
-  life.on(document, "keydown", (e) => {
-    const T = ctx.TREE;
-    const target = e.target instanceof HTMLElement ? e.target : null;
+  lifecycle.listen(document, "keydown", (event) => {
+    const tree = context.treeState;
+    const target = event.target instanceof HTMLElement ? event.target : null;
     const activeDialog = target?.closest('[role="dialog"]');
     if (
-      T.open &&
-      $("#eventModal").hidden &&
+      tree.open &&
+      requireElement("#eventModal").hidden &&
       (activeDialog?.id === "treeModal" || activeDialog?.id === "tcard")
     ) {
-      if (e.key === "Escape") {
-        if (T.card) ctx.closeTreeCard();
-        else ctx.closeTree();
+      if (event.key === "Escape") {
+        if (tree.inspectedUpgradeId) context.closeTreeCard();
+        else context.closeTree();
         return;
       }
       if (
-        (e.key === "ArrowLeft" || e.key === "ArrowRight") &&
-        !T.card &&
-        !T.list &&
-        !(e.target as HTMLElement).matches("select,input,textarea")
+        (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+        !tree.inspectedUpgradeId &&
+        !tree.listViewEnabled &&
+        !(event.target as HTMLElement).matches("select,input,textarea")
       ) {
-        T.target = ctx.treeNearest(
-          (Math.round(T.a / (Math.PI / 2)) * Math.PI) / 2 +
-            ((e.key === "ArrowLeft" ? 1 : -1) * Math.PI) / 2,
+        tree.targetRotationAngle = context.nearestTreeRotation(
+          (Math.round(tree.rotationAngle / (Math.PI / 2)) * Math.PI) / 2 +
+            ((event.key === "ArrowLeft" ? 1 : -1) * Math.PI) / 2,
         );
-        T.hold = performance.now() + 6000;
+        tree.autoRotationPausedUntilMs = performance.now() + 6000;
         return;
       }
     }
-    if (e.key === "Escape") {
-      if (target?.closest("#codexModal")) ctx.closeCodex();
-      else if (target?.closest("#regionModal")) ctx.closeRegion();
+    if (event.key === "Escape") {
+      if (target?.closest("#codexModal")) context.closeCodex();
+      else if (target?.closest("#regionModal")) context.closeRegionDialog();
       else if (target?.closest("#menuModal")) closeMenu();
-      else if (ctx.ui.sheetOpen && innerWidth < 900) ctx.closeSheet();
+      else if (context.ui.isDockPanelOpen && innerWidth < 900)
+        context.closeDockPanel();
     }
     if (
-      e.key === " " &&
-      ctx.ui.mode === "play" &&
-      !ctx.ui.modal &&
-      !T.open &&
-      !(e.target as HTMLElement).closest<HTMLElement>(
+      event.key === " " &&
+      context.ui.screenMode === "play" &&
+      !context.ui.modal &&
+      !tree.open &&
+      !(event.target as HTMLElement).closest<HTMLElement>(
         "button,a,input,select,textarea,[role=button]",
       )
     ) {
-      e.preventDefault();
-      ctx.state.paused = !ctx.state.paused;
+      event.preventDefault();
+      context.state.paused = !context.state.paused;
     }
   });
-  let lastF = performance.now(),
-    acc = 0;
-  life.on(document, "visibilitychange", () => {
-    if (document.hidden) ctx.save();
-    else lastF = performance.now();
+  let lastFrameAtMs = performance.now(),
+    accumulatorSeconds = 0;
+  lifecycle.listen(document, "visibilitychange", () => {
+    if (document.hidden) context.saveRun();
+    else lastFrameAtMs = performance.now();
   });
-  life.on(window, "pagehide", ctx.save);
-  life.every(() => {
-    if (ctx.state.started && !ctx.state.ended) ctx.save();
+  lifecycle.listen(window, "pagehide", context.saveRun);
+  lifecycle.setInterval(() => {
+    if (context.state.started && !context.state.ended) context.saveRun();
   }, 5000);
-  life.observe($("#mapwrap"), () => {
-    ctx.resizeMap();
-    ctx.placeToasts();
+  lifecycle.observeResize(requireElement("#mapwrap"), () => {
+    context.resizeMap();
+    context.placeToasts();
   });
-  life.on(window, "scroll", ctx.placeToasts, true);
-  life.on(window, "resize", () => {
-    if (innerWidth >= 900 && !ctx.ui.sheetOpen && ctx.ui.mode !== "intro")
-      ctx.openSheet(ctx.ui.tab || "world");
+  lifecycle.listen(window, "scroll", context.placeToasts, true);
+  lifecycle.listen(window, "resize", () => {
+    if (
+      innerWidth >= 900 &&
+      !context.ui.isDockPanelOpen &&
+      context.ui.screenMode !== "intro"
+    )
+      context.openDockPanel(context.ui.activeDockTab || "world");
   });
   const setAppHeight = () => {
-    const h = Math.round(window.visualViewport?.height || innerHeight);
-    if (h > 0) $("#app").style.height = h + "px";
+    const viewportHeight = Math.round(
+      window.visualViewport?.height || innerHeight,
+    );
+    if (viewportHeight > 0)
+      requireElement("#app").style.height = viewportHeight + "px";
   };
-  life.on(window, "resize", setAppHeight);
-  life.on(window, "orientationchange", () => life.later(setAppHeight, 60));
+  lifecycle.listen(window, "resize", setAppHeight);
+  lifecycle.listen(window, "orientationchange", () =>
+    lifecycle.setTimeout(setAppHeight, 60),
+  );
   if (window.visualViewport)
-    life.on(window.visualViewport, "resize", setAppHeight);
-  ctx.resizeMap();
+    lifecycle.listen(window.visualViewport, "resize", setAppHeight);
+  context.resizeMap();
   setAppHeight();
   if (innerWidth >= 900) {
-    ctx.ui.tab = "world";
-    ctx.ui.sheetOpen = true;
+    context.ui.activeDockTab = "world";
+    context.ui.isDockPanelOpen = true;
   }
   const frame = (now: number) => {
-    const rdt = Math.min((now - lastF) / 1000, 1);
-    lastF = now;
-    ctx.state.up += rdt;
-    acc += rdt;
-    while (acc >= ctx.TUNING.step) {
-      acc -= ctx.TUNING.step;
-      if (ctx.state.ended || ctx.state.paused || ctx.ui.modal) continue;
-      ctx.tick(ctx.TUNING.step * (ctx.state.started ? ctx.state.speed : 1));
-      if (ctx.state.started && ctx.ui.mode === "play" && !ctx.state.ended) {
-        ctx.ui.briefClock += ctx.TUNING.step;
-        if (ctx.briefDue()) ctx.openBriefing();
+    const elapsedSeconds = Math.min((now - lastFrameAtMs) / 1000, 1);
+    lastFrameAtMs = now;
+    context.state.up += elapsedSeconds;
+    accumulatorSeconds += elapsedSeconds;
+    while (
+      accumulatorSeconds >= context.SIMULATION_TUNING.simulationStepSeconds
+    ) {
+      accumulatorSeconds -= context.SIMULATION_TUNING.simulationStepSeconds;
+      if (context.state.ended || context.state.paused || context.ui.modal)
+        continue;
+      context.advanceSimulation(
+        context.SIMULATION_TUNING.simulationStepSeconds *
+          (context.state.started ? context.state.speed : 1),
+      );
+      if (
+        context.state.started &&
+        context.ui.screenMode === "play" &&
+        !context.state.ended
+      ) {
+        context.ui.briefingElapsedSeconds +=
+          context.SIMULATION_TUNING.simulationStepSeconds;
+        if (context.isBriefingDue()) context.openBriefing();
       }
     }
-    if (now - ctx.ui.lastUi > 100) {
-      ctx.ui.lastUi = now;
-      ctx.artDirection();
-      if (ctx.ui.intUntil && now > ctx.ui.intUntil) {
-        ctx.ui.intUntil = 0;
-        $("#ticker").className = "ticker";
-        $("#tkLive").textContent = "Live";
-        ctx.ui.tkT = 0;
+    if (now - context.ui.lastUiUpdateAtMs > 100) {
+      context.ui.lastUiUpdateAtMs = now;
+      context.updateArtDirection();
+      if (
+        context.ui.tickerInterruptUntilMs &&
+        now > context.ui.tickerInterruptUntilMs
+      ) {
+        context.ui.tickerInterruptUntilMs = 0;
+        requireElement("#ticker").className = "ticker";
+        requireElement("#tkLive").textContent = "Live";
+        context.ui.lastTickerUpdateAtMs = 0;
       }
       if (
-        ctx.state.started &&
-        !ctx.state.ended &&
-        !ctx.ui.intUntil &&
-        now - ctx.ui.tkT > 7000
+        context.state.started &&
+        !context.state.ended &&
+        !context.ui.tickerInterruptUntilMs &&
+        now - context.ui.lastTickerUpdateAtMs > 7000
       ) {
-        ctx.ui.tkT = now;
-        const el = $("#tkText"),
-          t = ctx.tickerText();
-        if (t !== ctx.ui.tkLast) {
-          el.style.opacity = "0";
-          life.later(() => {
-            el.textContent = t;
-            el.style.opacity = "1";
+        context.ui.lastTickerUpdateAtMs = now;
+        const headlineElement = requireElement("#tkText"),
+          headline = context.getNextTickerHeadline();
+        if (headline !== context.ui.lastTickerHeadline) {
+          headlineElement.style.opacity = "0";
+          lifecycle.setTimeout(() => {
+            headlineElement.textContent = headline;
+            headlineElement.style.opacity = "1";
           }, 300);
-          ctx.ui.tkLast = t;
-          ctx.ui.wire = (ctx.ui.wire || 0) + 1;
-          $("#tkWire").innerHTML =
+          context.ui.lastTickerHeadline = headline;
+          context.ui.tickerSequenceNumber =
+            (context.ui.tickerSequenceNumber || 0) + 1;
+          requireElement("#tkWire").innerHTML =
             "WIRE " +
-            String(ctx.ui.wire).padStart(4, "0") +
+            String(context.ui.tickerSequenceNumber).padStart(4, "0") +
             "<i> · T+" +
-            ctx.fmtT(ctx.state.t) +
+            context.formatElapsedTime(context.state.t) +
             "</i>";
         }
-        $("#ticker").classList.toggle(
+        requireElement("#ticker").classList.toggle(
           "hot",
-          ctx.state.alarm >= 70 || ctx.state.phase === 2,
+          context.state.alarm >= 70 || context.state.phase === 2,
         );
       }
     }
-    if (now - ctx.ui.lastMap > 50) {
-      ctx.ui.lastMap = now;
-      ctx.drawMap(now);
+    if (now - context.ui.lastMapDrawAtMs > 50) {
+      context.ui.lastMapDrawAtMs = now;
+      context.drawMap(now);
     }
-    if (ctx.TREE.open) ctx.treeFrame(now);
-    life.raf(frame);
+    if (context.treeState.open) context.renderTreeFrame(now);
+    lifecycle.requestAnimationFrame(frame);
   };
-  if (ctx.MUSIC.on) ctx.MUSIC.init();
-  life.raf(frame);
+  if (context.musicController.enabled)
+    context.musicController.initializeMusic();
+  lifecycle.requestAnimationFrame(frame);
   // on* properties belong only to imperative host descendants; Vue never binds them.
-  const dispose = (ctx.disposeRuntime = () => {
-    if (life.disposed) return;
-    ctx.save();
-    ctx.endReset();
-    ctx.closeTreeCard(true);
-    life.dispose();
+  const dispose = (context.disposeRuntime = () => {
+    if (lifecycle.disposed) return;
+    context.saveRun();
+    context.resetEndingSequence();
+    context.closeTreeCard(true);
+    lifecycle.dispose();
     for (const host of [
       "#treeModal",
       "#eventModal",
@@ -467,48 +552,56 @@ export function mountRuntime(game: CompleteGameContext): () => void {
       "#menuModal",
       "#endModal",
     ]) {
-      const root = $(host);
+      const root = requireElement(host);
       if (!root) continue;
-      for (const el of [root, ...root.querySelectorAll<HTMLElement>("*")])
+      for (const element of [root, ...root.querySelectorAll<HTMLElement>("*")])
         for (const key of ["onclick", "onchange", "onkeydown"] as const)
-          el[key] = null;
+          element[key] = null;
     }
-    ctx.TREE.nodes.forEach((n) => n.el.remove());
-    ctx.TREE.nodes = [];
-    ctx.TREE.edges = [];
-    ctx.TREE.open = false;
-    ctx.eventPresentation = null;
-    ctx.pulses = [];
-    ctx.drones.length = 0;
-    ctx.cv = ctx.cx = null;
-    ctx.$ = () => {
+    context.treeState.nodes.forEach((node) => node.buttonElement.remove());
+    context.treeState.nodes = [];
+    context.treeState.edges = [];
+    context.treeState.open = false;
+    context.eventPresentation = null;
+    context.pulses = [];
+    context.drones.length = 0;
+    context.mapCanvas = context.mapCanvasContext = null;
+    context.requireElement = () => {
       throw new Error("Runtime has been disposed");
     };
-    ctx.$$ = () => [];
-    for (const n of ["--ai", "--ai2", "--ai-dim", "--line", "--line2"])
-      document.documentElement.style.removeProperty(n);
+    context.queryElements = () => [];
+    for (const propertyName of [
+      "--ai",
+      "--ai2",
+      "--ai-dim",
+      "--line",
+      "--line2",
+    ])
+      document.documentElement.style.removeProperty(propertyName);
     delete document.body.dataset.phase;
     delete document.body.dataset.build;
   });
-  ctx.eventPresentation = previous?.event ?? null;
-  if (ctx.state.ended) {
-    ctx.showEnd(false);
-    if (previous?.revealed) ctx.endReveal();
-    if (previous?.more) {
-      $("#endNextRow").hidden = true;
-      $("#endMore").hidden = false;
+  context.eventPresentation = previous?.eventPresentation ?? null;
+  if (context.state.ended) {
+    context.showEnding(false);
+    if (previous?.endingSummaryRevealed) context.revealEndingSummary();
+    if (previous?.endingDetailsExpanded) {
+      requireElement("#endNextRow").hidden = true;
+      requireElement("#endMore").hidden = false;
     }
   } else {
-    if (previous?.tree) {
-      ctx.TREE.a = previous.tree.a;
-      ctx.TREE.list = previous.tree.list;
-      ctx.TREE.listTrack = previous.tree.track;
-      ctx.openTree(previous.tree.track);
-      if (previous.tree.card) ctx.openTreeCard(previous.tree.card);
+    if (previous?.treePresentation) {
+      context.treeState.rotationAngle = previous.treePresentation.rotationAngle;
+      context.treeState.listViewEnabled =
+        previous.treePresentation.listViewEnabled;
+      context.treeState.listTrackId = previous.treePresentation.listTrackId;
+      context.openTechTree(previous.treePresentation.listTrackId);
+      if (previous.treePresentation.inspectedUpgradeId)
+        context.openTreeCard(previous.treePresentation.inspectedUpgradeId);
     }
-    ctx.restoreEventPresentation();
+    context.restoreEventPresentation();
   }
   // Reconcile focus only after F03 has rebuilt the active presentation.
-  installModalFocus(life, previousFocus);
+  installModalFocus(lifecycle, previousFocus);
   return dispose;
 }

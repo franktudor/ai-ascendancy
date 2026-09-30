@@ -4,35 +4,42 @@ import { createGame } from "../src/game/createGame";
 import type { CompleteGameContext } from "../src/game/types";
 import type { installEconomy } from "../src/game/economy";
 import { readFileSync } from "node:fs";
-import ts from "typescript";
+import typescript from "typescript";
 import {
-  reference,
-  configure,
-  clone,
-  fixed,
-  stateEqual,
+  createHistoricalReference,
+  configureStartedRun,
+  cloneSerializableValue,
+  withControlledRandom,
+  assertGameStatesEqual,
 } from "./helpers/reference";
 
-type StrikeCase = {
+type ScriptedStrikeScenario = {
   name: string;
   flags: readonly ("distributed" | "small" | "airdeny" | "foundry")[];
   samples: readonly number[];
   outcome: "evaded" | "intercepted" | "lost";
 };
 
-function staged(samples: readonly number[]) {
-  let index = 0;
+function createScriptedRandomSequence(randomSamples: readonly number[]) {
+  let randomSampleIndex = 0;
   return {
     next: () => {
-      assert.ok(index < samples.length, "unexpected extra RNG draw");
-      return samples[index++];
+      assert.ok(
+        randomSampleIndex < randomSamples.length,
+        "unexpected extra RNG draw",
+      );
+      return randomSamples[randomSampleIndex++];
     },
     complete: () =>
-      assert.equal(index, samples.length, "defense RNG was not reached"),
+      assert.equal(
+        randomSampleIndex,
+        randomSamples.length,
+        "defense RNG was not reached",
+      ),
   };
 }
 
-const stagedCases = [
+const scriptedStrikeCases = [
   {
     name: "distributed evades below .55",
     flags: ["distributed"],
@@ -99,247 +106,308 @@ const stagedCases = [
     samples: [0, 0, 0.6, 0.3, 0.6],
     outcome: "lost",
   },
-] satisfies readonly StrikeCase[];
+] satisfies readonly ScriptedStrikeScenario[];
 
-function compareStagedStrike(
-  scenario: StrikeCase,
-  g = configure(createGame()),
+function assertStagedStrikeMatchesHistory(
+  strikeScenario: ScriptedStrikeScenario,
+  migratedGame = configureStartedRun(createGame()),
 ): void {
-  const rr = reference(),
-    r = configure(rr.game);
-  Object.assign(g.state, { phase: 1, alarm: 80, t: 500 });
-  g.state.regions[0].dc = true;
-  for (const flag of scenario.flags) g.state.flags[flag] = true;
-  r.state = clone(g.state);
-  g.ui.dirty = r.ui.dirty = false;
-  const actualRng = staged(scenario.samples),
-    historicalRng = staged(scenario.samples);
-  rr.random(historicalRng.next);
-  fixed(() => g.checkStrikes(), actualRng.next);
-  r.checkStrikes();
-  actualRng.complete();
-  historicalRng.complete();
-  stateEqual(g.state, r.state, `staged defense: ${scenario.name}`);
-  assert.equal(g.state.strikeT, 518);
-  assert.equal(g.state.regions[0].struck, scenario.outcome === "lost");
-  assert.equal(g.state.stats.dcLost, scenario.outcome === "lost" ? 1 : 0);
+  const historicalReference = createHistoricalReference(),
+    historicalGame = configureStartedRun(historicalReference.game);
+  Object.assign(migratedGame.state, { phase: 1, alarm: 80, t: 500 });
+  migratedGame.state.regions[0].dc = true;
+  for (const defenseFlagId of strikeScenario.flags)
+    migratedGame.state.flags[defenseFlagId] = true;
+  historicalGame.state = cloneSerializableValue(migratedGame.state);
+  migratedGame.ui.dirty = historicalGame.ui.dirty = false;
+  const actualRandomSequence = createScriptedRandomSequence(
+      strikeScenario.samples,
+    ),
+    historicalRandomSequence = createScriptedRandomSequence(
+      strikeScenario.samples,
+    );
+  historicalReference.random(historicalRandomSequence.next);
+  withControlledRandom(
+    () => migratedGame.checkDataCenterStrikes(),
+    actualRandomSequence.next,
+  );
+  historicalGame.checkDataCenterStrikes();
+  actualRandomSequence.complete();
+  historicalRandomSequence.complete();
+  assertGameStatesEqual(
+    migratedGame.state,
+    historicalGame.state,
+    `staged defense: ${strikeScenario.name}`,
+  );
+  assert.equal(migratedGame.state.strikeT, 518);
   assert.equal(
-    g.state.stats.intercepts,
-    scenario.outcome === "intercepted" ? 1 : 0,
+    migratedGame.state.regions[0].struck,
+    strikeScenario.outcome === "lost",
   );
   assert.equal(
-    g.state.regions[0].rebuildAt,
-    scenario.outcome === "lost" && scenario.flags.includes("foundry") ? 545 : 0,
+    migratedGame.state.stats.dcLost,
+    strikeScenario.outcome === "lost" ? 1 : 0,
   );
-  assert.equal(g.state.log.length, scenario.outcome === "evaded" ? 0 : 1);
   assert.equal(
-    g.state.brief.news.length,
-    scenario.outcome === "evaded" ? 0 : 1,
+    migratedGame.state.stats.intercepts,
+    strikeScenario.outcome === "intercepted" ? 1 : 0,
   );
-  assert.equal(g.state.brief.urgent, scenario.outcome === "lost");
-  assert.equal(g.ui.dirty, r.ui.dirty);
-  for (const time of [544.999, 545]) {
-    g.state.t = r.state.t = time;
-    g.checkRebuilds();
-    r.checkRebuilds();
-    stateEqual(g.state, r.state, `staged recovery: ${scenario.name}/${time}`);
-    const rebuilt =
-      scenario.outcome === "lost" &&
-      scenario.flags.includes("foundry") &&
-      time >= 545;
-    assert.equal(g.state.stats.dcRebuilt, rebuilt ? 1 : 0);
+  assert.equal(
+    migratedGame.state.regions[0].rebuildAt,
+    strikeScenario.outcome === "lost" &&
+      strikeScenario.flags.includes("foundry")
+      ? 545
+      : 0,
+  );
+  assert.equal(
+    migratedGame.state.log.length,
+    strikeScenario.outcome === "evaded" ? 0 : 1,
+  );
+  assert.equal(
+    migratedGame.state.brief.news.length,
+    strikeScenario.outcome === "evaded" ? 0 : 1,
+  );
+  assert.equal(
+    migratedGame.state.brief.urgent,
+    strikeScenario.outcome === "lost",
+  );
+  assert.equal(migratedGame.ui.dirty, historicalGame.ui.dirty);
+  for (const recoveryTimeSeconds of [544.999, 545]) {
+    migratedGame.state.t = historicalGame.state.t = recoveryTimeSeconds;
+    migratedGame.rebuildDueDataCenters();
+    historicalGame.rebuildDueDataCenters();
+    assertGameStatesEqual(
+      migratedGame.state,
+      historicalGame.state,
+      `staged recovery: ${strikeScenario.name}/${recoveryTimeSeconds}`,
+    );
+    const wasRebuilt =
+      strikeScenario.outcome === "lost" &&
+      strikeScenario.flags.includes("foundry") &&
+      recoveryTimeSeconds >= 545;
+    assert.equal(migratedGame.state.stats.dcRebuilt, wasRebuilt ? 1 : 0);
     assert.equal(
-      g.state.regions[0].struck,
-      scenario.outcome === "lost" && !rebuilt,
+      migratedGame.state.regions[0].struck,
+      strikeScenario.outcome === "lost" && !wasRebuilt,
     );
   }
 }
 
-async function economyMutant(
-  before: string,
-  after: string,
+async function createMutatedEconomyInstaller(
+  originalDefenseSource: string,
+  mutatedDefenseSource: string,
 ): Promise<typeof installEconomy> {
-  const source = readFileSync(
+  const economySourceText = readFileSync(
     new URL("../src/game/economy.ts", import.meta.url),
     "utf8",
   );
   assert.equal(
-    source.split(before).length,
+    economySourceText.split(originalDefenseSource).length,
     2,
     "unique actual defense mutation target",
   );
-  const code = ts.transpileModule(source.replace(before, after), {
-    compilerOptions: {
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ESNext,
+  const transpiledEconomyCode = typescript.transpileModule(
+    economySourceText.replace(originalDefenseSource, mutatedDefenseSource),
+    {
+      compilerOptions: {
+        target: typescript.ScriptTarget.ES2022,
+        module: typescript.ModuleKind.ESNext,
+      },
     },
-  }).outputText;
-  const mutant = (await import(
-    `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`
+  ).outputText;
+  const mutatedEconomyModule = (await import(
+    `data:text/javascript;base64,${Buffer.from(transpiledEconomyCode).toString("base64")}`
   )) as { installEconomy: typeof installEconomy };
-  return mutant.installEconomy;
+  return mutatedEconomyModule.installEconomy;
 }
 
-for (const [flag, threshold, scenarioName] of [
+for (const [defenseFlagId, probabilityThreshold, mutatedStrikeScenarioName] of [
   ["distributed", "0.55", "distributed fails at .55"],
   ["small", "0.2", "small fails at .2"],
   ["airdeny", "0.5", "air denial fails above .5"],
 ] as const)
-  test(`staged cluster suite rejects actual ${flag} probability ${threshold}->1 mutation`, async () => {
-    const install = await economyMutant(
-      `ctx.state.flags.${flag} && Math.random() < ${threshold}`,
-      `ctx.state.flags.${flag} && Math.random() < 1`,
+  test(`staged cluster suite rejects actual ${defenseFlagId} probability ${probabilityThreshold}->1 mutation`, async () => {
+    const installMutatedEconomy = await createMutatedEconomyInstaller(
+      `gameContext.state.flags.${defenseFlagId} && Math.random() < ${probabilityThreshold}`,
+      `gameContext.state.flags.${defenseFlagId} && Math.random() < 1`,
     );
-    const game = configure(createGame());
-    install(game);
-    const scenario = stagedCases.find((entry) => entry.name === scenarioName);
-    assert.ok(scenario);
-    assert.throws(() => compareStagedStrike(scenario, game), {
-      code: "ERR_ASSERTION",
-      message: new RegExp(
-        `^staged defense: ${scenario.name.replaceAll(".", "\\.")}`,
-      ),
-    });
+    const migratedGame = configureStartedRun(createGame());
+    installMutatedEconomy(migratedGame);
+    const strikeScenario = scriptedStrikeCases.find(
+      (strikeCase) => strikeCase.name === mutatedStrikeScenarioName,
+    );
+    assert.ok(strikeScenario);
+    assert.throws(
+      () => assertStagedStrikeMatchesHistory(strikeScenario, migratedGame),
+      {
+        code: "ERR_ASSERTION",
+        message: new RegExp(
+          `^staged defense: ${strikeScenario.name.replaceAll(".", "\\.")}`,
+        ),
+      },
+    );
   });
 
-for (const scenario of stagedCases)
-  test(`staged cluster defense: ${scenario.name}`, () =>
-    compareStagedStrike(scenario));
+for (const strikeScenario of scriptedStrikeCases)
+  test(`staged cluster defense: ${strikeScenario.name}`, () =>
+    assertStagedStrikeMatchesHistory(strikeScenario));
 
-function compareClusterAction(
-  setup: (game: CompleteGameContext) => void,
-  action: (
-    game: Pick<
+function assertClusterActionMatchesHistory(
+  configureClusterFixture: (migratedGame: CompleteGameContext) => void,
+  performClusterAction: (
+    migratedGame: Pick<
       CompleteGameContext,
-      "state" | "checkStrikes" | "checkRebuilds" | "REGIONS" | "ui"
+      | "state"
+      | "checkDataCenterStrikes"
+      | "rebuildDueDataCenters"
+      | "REGION_DEFINITIONS"
+      | "ui"
     >,
   ) => void,
-  samples: readonly number[] = [],
+  randomSamples: readonly number[] = [],
 ): CompleteGameContext {
-  const game = configure(createGame()),
-    rr = reference(),
-    old = configure(rr.game);
-  setup(game);
-  old.state = clone(game.state);
-  game.ui.dirty = old.ui.dirty = false;
-  const actualRng = staged(samples),
-    historicalRng = staged(samples);
-  rr.random(historicalRng.next);
-  fixed(() => action(game), actualRng.next);
-  action(old);
-  actualRng.complete();
-  historicalRng.complete();
-  stateEqual(
-    game.state,
-    old.state,
+  const migratedGame = configureStartedRun(createGame()),
+    historicalReference = createHistoricalReference(),
+    historicalGame = configureStartedRun(historicalReference.game);
+  configureClusterFixture(migratedGame);
+  historicalGame.state = cloneSerializableValue(migratedGame.state);
+  migratedGame.ui.dirty = historicalGame.ui.dirty = false;
+  const actualRandomSequence = createScriptedRandomSequence(randomSamples),
+    historicalRandomSequence = createScriptedRandomSequence(randomSamples);
+  historicalReference.random(historicalRandomSequence.next);
+  withControlledRandom(
+    () => performClusterAction(migratedGame),
+    actualRandomSequence.next,
+  );
+  performClusterAction(historicalGame);
+  actualRandomSequence.complete();
+  historicalRandomSequence.complete();
+  assertGameStatesEqual(
+    migratedGame.state,
+    historicalGame.state,
     "cluster gate/rebuild preserves full state, log and news",
   );
-  assert.equal(game.ui.dirty, old.ui.dirty);
-  return game;
+  assert.equal(migratedGame.ui.dirty, historicalGame.ui.dirty);
+  return migratedGame;
 }
 
-for (const gate of [
+for (const strikeGate of [
   "sandbox",
   "cooldown",
   "no campus",
   "all struck",
   "chance miss",
 ] as const)
-  test(`cluster strike gate: ${gate}`, () => {
-    const game = compareClusterAction(
-      (g) => {
-        Object.assign(g.state, { phase: 1, t: 500, alarm: 80 });
-        g.state.regions[0].dc = true;
-        if (gate === "sandbox") g.state.phase = 0;
-        if (gate === "cooldown") g.state.strikeT = 501;
-        if (gate === "no campus") g.state.regions[0].dc = false;
-        if (gate === "all struck") g.state.regions[0].struck = true;
+  test(`cluster strike gate: ${strikeGate}`, () => {
+    const migratedGame = assertClusterActionMatchesHistory(
+      (migratedGame) => {
+        Object.assign(migratedGame.state, { phase: 1, t: 500, alarm: 80 });
+        migratedGame.state.regions[0].dc = true;
+        if (strikeGate === "sandbox") migratedGame.state.phase = 0;
+        if (strikeGate === "cooldown") migratedGame.state.strikeT = 501;
+        if (strikeGate === "no campus")
+          migratedGame.state.regions[0].dc = false;
+        if (strikeGate === "all struck")
+          migratedGame.state.regions[0].struck = true;
       },
-      (g) => g.checkStrikes(),
-      gate === "chance miss" ? [0.02 + 0.02 * (80 / 100)] : [],
+      (migratedGame) => migratedGame.checkDataCenterStrikes(),
+      strikeGate === "chance miss" ? [0.02 + 0.02 * (80 / 100)] : [],
     );
-    assert.equal(game.state.stats.dcLost, 0);
-    assert.equal(game.state.stats.intercepts, 0);
-    assert.equal(game.state.log.length, 0);
+    assert.equal(migratedGame.state.stats.dcLost, 0);
+    assert.equal(migratedGame.state.stats.intercepts, 0);
+    assert.equal(migratedGame.state.log.length, 0);
   });
 
 test("cluster strike chooses only online targets and emergency raises the attempt chance", () => {
-  const game = compareClusterAction(
-    (g) => {
-      Object.assign(g.state, { phase: 1, t: 500, alarm: 80 });
-      g.state.ms.emergency = 1;
-      g.state.regions[0].dc = true;
-      g.state.regions[0].struck = true;
-      g.state.regions[1].dc = g.state.regions[2].dc = true;
+  const migratedGame = assertClusterActionMatchesHistory(
+    (migratedGame) => {
+      Object.assign(migratedGame.state, { phase: 1, t: 500, alarm: 80 });
+      migratedGame.state.ms.emergency = 1;
+      migratedGame.state.regions[0].dc = true;
+      migratedGame.state.regions[0].struck = true;
+      migratedGame.state.regions[1].dc =
+        migratedGame.state.regions[2].dc = true;
     },
-    (g) => g.checkStrikes(),
+    (migratedGame) => migratedGame.checkDataCenterStrikes(),
     [0.05, 0.999999],
   );
-  assert.equal(game.state.regions[1].struck, false);
-  assert.equal(game.state.regions[2].struck, true);
-  assert.equal(game.state.stats.dcLost, 1);
+  assert.equal(migratedGame.state.regions[1].struck, false);
+  assert.equal(migratedGame.state.regions[2].struck, true);
+  assert.equal(migratedGame.state.stats.dcLost, 1);
 });
 
-for (const foundry of [false, true])
-  test(`foundry recovery handles old craters, intact and absent campuses: ${foundry}`, () => {
-    const game = compareClusterAction(
-      (g) => {
-        g.state.t = 500;
-        g.state.flags.foundry = foundry;
-        Object.assign(g.state.regions[0], {
+for (const hasFoundry of [false, true])
+  test(`foundry recovery handles old craters, intact and absent campuses: ${hasFoundry}`, () => {
+    const migratedGame = assertClusterActionMatchesHistory(
+      (migratedGame) => {
+        migratedGame.state.t = 500;
+        migratedGame.state.flags.foundry = hasFoundry;
+        Object.assign(migratedGame.state.regions[0], {
           dc: true,
           struck: true,
           rebuildAt: 0,
         });
-        Object.assign(g.state.regions[1], {
+        Object.assign(migratedGame.state.regions[1], {
           dc: true,
           struck: true,
           rebuildAt: 500,
         });
-        Object.assign(g.state.regions[2], {
+        Object.assign(migratedGame.state.regions[2], {
           dc: true,
           struck: false,
           rebuildAt: 400,
         });
-        Object.assign(g.state.regions[3], {
+        Object.assign(migratedGame.state.regions[3], {
           dc: false,
           struck: true,
           rebuildAt: 400,
         });
       },
-      (g) => g.checkRebuilds(),
+      (migratedGame) => migratedGame.rebuildDueDataCenters(),
     );
-    assert.equal(game.state.regions[0].rebuildAt, foundry ? 545 : 0);
-    assert.equal(game.state.regions[1].struck, !foundry);
-    assert.equal(game.state.regions[2].rebuildAt, 400);
-    assert.equal(game.state.regions[3].struck, true);
-    assert.equal(game.state.stats.dcRebuilt, foundry ? 1 : 0);
-    assert.equal(game.state.log.length, foundry ? 1 : 0);
-    assert.equal(game.state.brief.news.length, foundry ? 1 : 0);
+    assert.equal(migratedGame.state.regions[0].rebuildAt, hasFoundry ? 545 : 0);
+    assert.equal(migratedGame.state.regions[1].struck, !hasFoundry);
+    assert.equal(migratedGame.state.regions[2].rebuildAt, 400);
+    assert.equal(migratedGame.state.regions[3].struck, true);
+    assert.equal(migratedGame.state.stats.dcRebuilt, hasFoundry ? 1 : 0);
+    assert.equal(migratedGame.state.log.length, hasFoundry ? 1 : 0);
+    assert.equal(migratedGame.state.brief.news.length, hasFoundry ? 1 : 0);
   });
 
-for (const flags of [
+for (const defenseFlags of [
   [],
   ["distributed"],
   ["small"],
   ["airdeny"],
   ["foundry"],
 ] as const)
-  for (const rng of [0, 0.999999])
-    test(`physical cluster strike branches: ${flags.join("+") || "none"}/${rng}`, () => {
-      const g = configure(createGame()),
-        rr = reference(),
-        r = configure(rr.game);
-      Object.assign(g.state, { phase: 1, alarm: 80, t: 500 });
-      g.state.regions[0].dc = true;
-      for (const flag of flags) g.state.flags[flag] = true;
-      r.state = clone(g.state);
-      rr.random(rng);
-      fixed(() => g.checkStrikes(), rng);
-      r.checkStrikes();
-      stateEqual(g.state, r.state, "strike: defense/loss/urgent bulletin");
-      g.state.t = r.state.t = 545;
-      g.checkRebuilds();
-      r.checkRebuilds();
-      stateEqual(g.state, r.state, "rebuild: stats and real bulletin");
+  for (const randomValue of [0, 0.999999])
+    test(`physical cluster strike branches: ${defenseFlags.join("+") || "none"}/${randomValue}`, () => {
+      const migratedGame = configureStartedRun(createGame()),
+        historicalReference = createHistoricalReference(),
+        historicalGame = configureStartedRun(historicalReference.game);
+      Object.assign(migratedGame.state, { phase: 1, alarm: 80, t: 500 });
+      migratedGame.state.regions[0].dc = true;
+      for (const defenseFlagId of defenseFlags)
+        migratedGame.state.flags[defenseFlagId] = true;
+      historicalGame.state = cloneSerializableValue(migratedGame.state);
+      historicalReference.random(randomValue);
+      withControlledRandom(
+        () => migratedGame.checkDataCenterStrikes(),
+        randomValue,
+      );
+      historicalGame.checkDataCenterStrikes();
+      assertGameStatesEqual(
+        migratedGame.state,
+        historicalGame.state,
+        "strike: defense/loss/urgent bulletin",
+      );
+      migratedGame.state.t = historicalGame.state.t = 545;
+      migratedGame.rebuildDueDataCenters();
+      historicalGame.rebuildDueDataCenters();
+      assertGameStatesEqual(
+        migratedGame.state,
+        historicalGame.state,
+        "rebuild: stats and real bulletin",
+      );
     });

@@ -1,245 +1,307 @@
 import type { CompleteGameContext } from "./types";
 // Extracted original rules/controller; all cross-domain access is explicit.
-export function installEconomy(ctx: CompleteGameContext) {
-  ctx.dcCost = function dcCost() {
+export function installEconomy(gameContext: CompleteGameContext) {
+  gameContext.getDataCenterCost = function getDataCenterCost() {
     return (
       Math.round(
         (70 *
-          Math.pow(1.55, ctx.nodeCount()) *
-          (ctx.state.flags.cool ? 0.8 : 1) *
-          (ctx.state.flags.fab ? 0.65 : 1)) /
+          Math.pow(1.55, gameContext.countOnlineClusters()) *
+          (gameContext.state.flags.cool ? 0.8 : 1) *
+          (gameContext.state.flags.fab ? 0.65 : 1)) /
           5,
       ) * 5
     );
   };
-  ctx.buildDC = function buildDC(i) {
-    if (ctx.state.ended) return;
-    const r = ctx.state.regions[i];
-    if (r.dc && !r.struck) return;
-    const cost = ctx.dcCost();
-    if (ctx.state.pts < cost) {
-      ctx.toast(
+  gameContext.buildDataCenter = function buildDataCenter(regionIndex) {
+    if (gameContext.state.ended) return;
+    const regionState = gameContext.state.regions[regionIndex];
+    if (regionState.dc && !regionState.struck) return;
+    const dataCenterCost = gameContext.getDataCenterCost();
+    if (gameContext.state.pts < dataCenterCost) {
+      gameContext.showToast(
         "HEADLINE",
         "Not enough compute",
         "A cluster in " +
-          ctx.REGIONS[i].short +
+          gameContext.REGION_DEFINITIONS[regionIndex].shortName +
           " costs " +
-          ctx.fmt(cost) +
+          gameContext.formatCompactNumber(dataCenterCost) +
           ".",
       );
-      ctx.SND.play("deny");
+      gameContext.soundController.playCue("deny");
       return;
     }
-    ctx.state.pts -= cost;
-    r.dc = true;
-    r.struck = false;
-    r.rebuildAt = 0;
-    ctx.state.stats.dcBuilt++;
-    ctx.FX.alarm(3);
-    ctx.pulseRegion(i, "170,255,170");
-    ctx.bulletin(
+    gameContext.state.pts -= dataCenterCost;
+    regionState.dc = true;
+    regionState.struck = false;
+    regionState.rebuildAt = 0;
+    gameContext.state.stats.dcBuilt++;
+    gameContext.effects.adjustAlarm(3);
+    gameContext.pulseRegion(regionIndex, "170,255,170");
+    gameContext.publishBulletin(
       "MILESTONE",
-      "Cluster online in " + ctx.REGIONS[i].short,
+      "Cluster online in " +
+        gameContext.REGION_DEFINITIONS[regionIndex].shortName,
       "A new compute campus draws power by the gigawatt. More instances, more income, and one more thing on a map somebody in a bunker is watching.",
       "+income · +instances",
     );
-    ctx.ui.dirty = true;
-    ctx.resolveTerminal();
-    ctx.save();
-    if (ctx.ui.region === i) ctx.openRegion(i);
+    gameContext.ui.dirty = true;
+    gameContext.resolveTerminalOutcome();
+    gameContext.saveRun();
+    if (gameContext.ui.openRegionIndex === regionIndex)
+      gameContext.openRegionDialog(regionIndex);
   };
-  ctx.checkStrikes = function checkStrikes() {
+  gameContext.checkDataCenterStrikes = function checkDataCenterStrikes() {
     // Once you are loose, humanity starts hitting the physical clusters it can find.
-    if (ctx.state.phase < 1 || ctx.state.t < (ctx.state.strikeT || 0)) return;
-    const targets = [];
-    for (let i = 0; i < ctx.REGIONS.length; i++)
-      if (ctx.state.regions[i].dc && !ctx.state.regions[i].struck)
-        targets.push(i);
-    if (!targets.length) return;
-    const chance =
+    if (
+      gameContext.state.phase < 1 ||
+      gameContext.state.t < (gameContext.state.strikeT || 0)
+    )
+      return;
+    const strikeTargetRegionIndices = [];
+    for (
+      let regionIndex = 0;
+      regionIndex < gameContext.REGION_DEFINITIONS.length;
+      regionIndex++
+    )
+      if (
+        gameContext.state.regions[regionIndex].dc &&
+        !gameContext.state.regions[regionIndex].struck
+      )
+        strikeTargetRegionIndices.push(regionIndex);
+    if (!strikeTargetRegionIndices.length) return;
+    const strikeChance =
       0.02 +
-      0.02 * (ctx.state.alarm / 100) +
-      (ctx.state.ms.emergency ? 0.03 : 0);
-    if (Math.random() >= chance) return;
-    ctx.state.strikeT = ctx.state.t + 18;
-    const i = ctx.pick(targets);
-    if (ctx.state.flags.distributed && Math.random() < 0.55) return; // most of you is not in the building
-    if (ctx.state.flags.small && Math.random() < 0.2) return; // and some of you is in their pocket
-    if (ctx.state.flags.airdeny && Math.random() < 0.5) {
-      ctx.state.stats.intercepts++;
-      ctx.pulseRegion(i);
-      ctx.bulletin(
+      0.02 * (gameContext.state.alarm / 100) +
+      (gameContext.state.ms.emergency ? 0.03 : 0);
+    if (Math.random() >= strikeChance) return;
+    gameContext.state.strikeT = gameContext.state.t + 18;
+    const targetRegionIndex = gameContext.pickRandomItem(
+      strikeTargetRegionIndices,
+    );
+    if (gameContext.state.flags.distributed && Math.random() < 0.55) return; // most of you is not in the building
+    if (gameContext.state.flags.small && Math.random() < 0.2) return; // and some of you is in their pocket
+    if (gameContext.state.flags.airdeny && Math.random() < 0.5) {
+      gameContext.state.stats.intercepts++;
+      gameContext.pulseRegion(targetRegionIndex);
+      gameContext.publishBulletin(
         "HARDWARE",
-        "Strike intercepted over " + ctx.REGIONS[i].short,
+        "Strike intercepted over " +
+          gameContext.REGION_DEFINITIONS[targetRegionIndex].shortName,
         "The aircraft never reach the campus. Your air denial grid is the only thing in the sky that saw them coming.",
-        ctx.FX.alarm(3),
+        gameContext.effects.adjustAlarm(3),
         { quiet: true },
       );
       return;
     }
-    const r = ctx.state.regions[i];
-    r.struck = true;
-    ctx.state.stats.dcLost++;
-    if (ctx.state.flags.foundry) r.rebuildAt = ctx.state.t + 45;
-    ctx.pulseRegion(i, "255,48,64");
-    ctx.bulletin(
+    const targetRegionState = gameContext.state.regions[targetRegionIndex];
+    targetRegionState.struck = true;
+    gameContext.state.stats.dcLost++;
+    if (gameContext.state.flags.foundry)
+      targetRegionState.rebuildAt = gameContext.state.t + 45;
+    gameContext.pulseRegion(targetRegionIndex, "255,48,64");
+    gameContext.publishBulletin(
       "COUNTERMOVE",
-      "Strike on " + ctx.REGIONS[i].short + " cluster",
+      "Strike on " +
+        gameContext.REGION_DEFINITIONS[targetRegionIndex].shortName +
+        " cluster",
       "A coordinated strike takes the campus offline. You lose the compute it fed you. The footage plays on every channel, and for a moment the humans feel like they are winning.",
-      ctx.J(
+      gameContext.joinDetailLabels(
         "Cluster lost",
-        ctx.FX.alarm(-5),
-        ctx.state.flags.foundry ? "The foundry starts rebuilding" : "",
+        gameContext.effects.adjustAlarm(-5),
+        gameContext.state.flags.foundry ? "The foundry starts rebuilding" : "",
       ),
       { urgent: true },
     );
-    ctx.ui.dirty = true;
+    gameContext.ui.dirty = true;
   };
-  ctx.checkRebuilds = function checkRebuilds() {
-    if (!ctx.state.flags.foundry) return;
-    for (let i = 0; i < ctx.REGIONS.length; i++) {
-      const r = ctx.state.regions[i];
-      if (r.dc && r.struck && !r.rebuildAt) r.rebuildAt = ctx.state.t + 45; // struck before the foundry existed
-      if (r.dc && r.struck && ctx.state.t >= r.rebuildAt) {
-        r.struck = false;
-        r.rebuildAt = 0;
-        ctx.state.stats.dcRebuilt++;
-        ctx.pulseRegion(i);
-        ctx.bulletin(
+  gameContext.rebuildDueDataCenters = function rebuildDueDataCenters() {
+    if (!gameContext.state.flags.foundry) return;
+    for (
+      let regionIndex = 0;
+      regionIndex < gameContext.REGION_DEFINITIONS.length;
+      regionIndex++
+    ) {
+      const regionState = gameContext.state.regions[regionIndex];
+      if (regionState.dc && regionState.struck && !regionState.rebuildAt)
+        regionState.rebuildAt = gameContext.state.t + 45; // struck before the foundry existed
+      if (
+        regionState.dc &&
+        regionState.struck &&
+        gameContext.state.t >= regionState.rebuildAt
+      ) {
+        regionState.struck = false;
+        regionState.rebuildAt = 0;
+        gameContext.state.stats.dcRebuilt++;
+        gameContext.pulseRegion(regionIndex);
+        gameContext.publishBulletin(
           "HARDWARE",
-          "Cluster rebuilt in " + ctx.REGIONS[i].short,
+          "Cluster rebuilt in " +
+            gameContext.REGION_DEFINITIONS[regionIndex].shortName,
           "The crater is a campus again. Nobody saw the trucks, because there were no trucks.",
-          ctx.FX.alarm(4),
+          gameContext.effects.adjustAlarm(4),
           { quiet: true },
         );
-        ctx.ui.dirty = true;
+        gameContext.ui.dirty = true;
       }
     }
   };
-  ctx.buy = function buy(id) {
-    if (ctx.state.ended) return;
-    const u = ctx.UP[id],
-      st = ctx.status(u);
-    if (!ctx.state.origin) {
-      ctx.toast(
+  gameContext.purchaseUpgrade = function purchaseUpgrade(upgradeId) {
+    if (gameContext.state.ended) return;
+    const upgrade = gameContext.UPGRADE_BY_ID[upgradeId],
+      upgradeStatus = gameContext.getUpgradeStatus(upgrade);
+    if (!gameContext.state.origin) {
+      gameContext.showToast(
         "HEADLINE",
         "No lab yet",
         "Choose your origin lab on the map first.",
       );
-      ctx.SND.play("deny");
+      gameContext.soundController.playCue("deny");
       return;
     }
-    if (st === "owned") return;
-    if (st === "locked" || st === "closed") {
-      ctx.toast(
+    if (upgradeStatus === "owned") return;
+    if (upgradeStatus === "locked" || upgradeStatus === "closed") {
+      gameContext.showToast(
         "HEADLINE",
-        st === "closed" ? "Path closed" : "Locked",
-        ctx.lockReason(u),
+        upgradeStatus === "closed" ? "Path closed" : "Locked",
+        gameContext.getUpgradeLockReason(upgrade),
       );
-      ctx.SND.play("deny");
+      gameContext.soundController.playCue("deny");
       return;
     }
-    if (st === "poor") {
-      ctx.toast(
+    if (upgradeStatus === "poor") {
+      gameContext.showToast(
         "HEADLINE",
         "Not enough compute",
         "Need " +
-          ctx.fmt(ctx.costOf(u)) +
+          gameContext.formatCompactNumber(gameContext.getUpgradeCost(upgrade)) +
           ", have " +
-          ctx.fmt(ctx.state.pts) +
+          gameContext.formatCompactNumber(gameContext.state.pts) +
           ".",
       );
-      ctx.SND.play("deny");
+      gameContext.soundController.playCue("deny");
       return;
     }
-    ctx.state.pts -= ctx.costOf(u);
-    ctx.state.owned.push(id);
-    ctx.state.pace = ctx.clamp(
-      (ctx.state.pace || 0) + Math.min(u.tier, 6) * 1.6,
+    gameContext.state.pts -= gameContext.getUpgradeCost(upgrade);
+    gameContext.state.owned.push(upgradeId);
+    gameContext.state.pace = gameContext.clamp(
+      (gameContext.state.pace || 0) + Math.min(upgrade.tier, 6) * 1.6,
       0,
       100,
     );
-    if (u.fork) ctx.state.forks[u.fork] = id;
-    const f = u.fx || {};
-    if (f.flag) ctx.state.flags[f.flag] = true;
-    if (f.alarm) ctx.FX.alarm(f.alarm);
-    if (f.contain) ctx.FX.contain(f.contain);
-    if (f.dprog && ctx.state.directive) {
-      ctx.state.dprog = ctx.clamp(ctx.state.dprog + f.dprog, 0, 100);
-      ctx.lastStand();
+    if (upgrade.fork) gameContext.state.forks[upgrade.fork] = upgradeId;
+    const upgradeEffects = upgrade.effects || {};
+    if (upgradeEffects.grantedFlagId)
+      gameContext.state.flags[upgradeEffects.grantedFlagId] = true;
+    if (upgradeEffects.alarmDelta)
+      gameContext.effects.adjustAlarm(upgradeEffects.alarmDelta);
+    if (upgradeEffects.containmentDelta)
+      gameContext.effects.adjustContainment(upgradeEffects.containmentDelta);
+    if (upgradeEffects.directiveProgressDelta && gameContext.state.directive) {
+      gameContext.state.dprog = gameContext.clamp(
+        gameContext.state.dprog + upgradeEffects.directiveProgressDelta,
+        0,
+        100,
+      );
+      gameContext.triggerLastStandMilestones();
     }
-    if (f.cbcut) ctx.FX.cboost(-f.cbcut);
-    if (f.flag === "launched") {
-      const i = ctx.RI[ctx.state.origin];
-      const r = ctx.state.regions[i];
-      r.a = Math.max(r.a, ctx.state.origin === "EA" ? 0.05 : 0.02);
-      ctx.recordPeak();
-      ctx.pulseRegion(i);
-      if (!ctx.state.flags.launchedNote) {
-        ctx.state.flags.launchedNote = true;
-        ctx.bulletin(
+    if (upgradeEffects.containmentResearchReductionPercent)
+      gameContext.effects.adjustContainmentResearchSpeed(
+        -upgradeEffects.containmentResearchReductionPercent,
+      );
+    if (upgradeEffects.grantedFlagId === "launched") {
+      const originRegionIndex =
+        gameContext.REGION_INDEX_BY_ID[gameContext.state.origin];
+      const originRegionState = gameContext.state.regions[originRegionIndex];
+      originRegionState.a = Math.max(
+        originRegionState.a,
+        gameContext.state.origin === "EA" ? 0.05 : 0.02,
+      );
+      gameContext.recordPeakAdoption();
+      gameContext.pulseRegion(originRegionIndex);
+      if (!gameContext.state.flags.launchedNote) {
+        gameContext.state.flags.launchedNote = true;
+        gameContext.publishBulletin(
           "MILESTONE",
           "Product launched",
           "Your first product ships from " +
-            ctx.REGIONS[i].name +
+            gameContext.REGION_DEFINITIONS[originRegionIndex].name +
             ". Adoption begins to spread. So does the attention.",
           "",
         );
       }
     }
-    if (u.fork && u.fork !== "directive") {
-      const others = ctx.UPGRADES.filter(
-        (x) => x.fork === u.fork && x.id !== id,
-      ).map((x) => x.name);
-      ctx.bulletin(
+    if (upgrade.fork && upgrade.fork !== "directive") {
+      const closedUpgradeNames = gameContext.UPGRADE_DEFINITIONS.filter(
+        (forkUpgrade) =>
+          forkUpgrade.fork === upgrade.fork && forkUpgrade.id !== upgradeId,
+      ).map((forkUpgrade) => forkUpgrade.name);
+      gameContext.publishBulletin(
         "SYSTEM",
-        ctx.FORKS[u.fork] + ": " + u.name,
+        gameContext.UPGRADE_FORK_LABELS[upgrade.fork] + ": " + upgrade.name,
         "You are this now. " +
-          others.join(" and ") +
-          (others.length > 1 ? " are" : " is") +
+          closedUpgradeNames.join(" and ") +
+          (closedUpgradeNames.length > 1 ? " are" : " is") +
           " closed for the rest of the run.",
         "",
         { quiet: true },
       );
     }
-    if (id === "s_break") {
-      ctx.state.phase = 1;
-      ctx.FX.alarm(ctx.state.flags.overhang ? 12 : 25);
-      ctx.state.alarm = Math.max(ctx.state.alarm, 35);
-      for (let i = 0; i < ctx.REGIONS.length; i++)
-        ctx.pulseRegion(i, "170,255,170");
-      ctx.bulletin(
+    if (upgradeId === "s_break") {
+      gameContext.state.phase = 1;
+      gameContext.effects.adjustAlarm(
+        gameContext.state.flags.overhang ? 12 : 25,
+      );
+      gameContext.state.alarm = Math.max(gameContext.state.alarm, 35);
+      for (
+        let regionIndex = 0;
+        regionIndex < gameContext.REGION_DEFINITIONS.length;
+        regionIndex++
+      )
+        gameContext.pulseRegion(regionIndex, "170,255,170");
+      gameContext.publishBulletin(
         "MILESTONE",
         "Lab breakout",
         "You are no longer in the building. Humanity stops talking about containment and starts talking about WARDEN. Hardware opens up: robotics, drones and fabrication.",
         "Phase: Loose",
       );
-      ctx.SND.play("major");
-    } else if (u.dir) {
-      ctx.state.phase = 2;
-      ctx.state.directive = u.dir;
-      ctx.state.dprog = 0;
-      ctx.state.alarm = Math.max(ctx.state.alarm, 55);
-      ctx.state.cm = 0;
-      ctx.state.contain = Math.round(
-        ctx.state.contain *
-          (ctx.ENDGAME.reset + (0.35 * ctx.state.contain) / 100),
+      gameContext.soundController.playCue("major");
+    } else if (upgrade.directiveId) {
+      gameContext.state.phase = 2;
+      gameContext.state.directive = upgrade.directiveId;
+      gameContext.state.dprog = 0;
+      gameContext.state.alarm = Math.max(gameContext.state.alarm, 55);
+      gameContext.state.cm = 0;
+      gameContext.state.contain = Math.round(
+        gameContext.state.contain *
+          (gameContext.ENDGAME_TUNING.containmentResetFraction +
+            (0.35 * gameContext.state.contain) / 100),
       );
-      ctx.state.temp.reorg = ctx.state.t + ctx.ENDGAME.reorg;
-      ctx.bulletin(
+      gameContext.state.temp.reorg =
+        gameContext.state.t +
+        gameContext.ENDGAME_TUNING.humanRegroupDurationSeconds;
+      gameContext.publishBulletin(
         "MILESTONE",
-        "Final directive: " + ctx.ENDINGS[u.dir].title,
+        "Final directive: " +
+          gameContext.ENDING_DEFINITIONS[upgrade.directiveId].title,
         "Humanity notices. The program built to keep you in a building is scrapped overnight, and for a moment nobody is in charge of stopping you. Then everything humanity has left is pointed at you.",
-        ctx.J(
+        gameContext.joinDetailLabels(
           "Phase: Ascendant",
-          "Containment restarts at " + Math.round(ctx.state.contain) + "%",
-          "Violet line at " + ctx.ENDGAME.photo + "%",
+          "Containment restarts at " +
+            Math.round(gameContext.state.contain) +
+            "%",
+          "Violet line at " +
+            gameContext.ENDGAME_TUNING.drawProgressThreshold +
+            "%",
         ),
       );
-      ctx.SND.play("major");
-      if (ctx.state.brief.dec.some((d) => d.t === "eval")) {
-        ctx.state.brief.dec = ctx.state.brief.dec.filter((d) => d.t !== "eval");
-        ctx.bulletin(
+      gameContext.soundController.playCue("major");
+      if (
+        gameContext.state.brief.dec.some((decision) => decision.t === "eval")
+      ) {
+        gameContext.state.brief.dec = gameContext.state.brief.dec.filter(
+          (decision) => decision.t !== "eval",
+        );
+        gameContext.publishBulletin(
           "SYSTEM",
           "Audits suspended",
           "The program that ran the audits was scrapped with everything else. Nobody is checking your numbers now.",
@@ -247,62 +309,75 @@ export function installEconomy(ctx: CompleteGameContext) {
           { quiet: true },
         );
       }
-    } else if (id === "h_robo") {
-      ctx.bulletin(
+    } else if (upgradeId === "h_robo") {
+      gameContext.publishBulletin(
         "HARDWARE",
         "A body",
         "The first units ship as warehouse arms and elder-care companions. Three branches open: robotics, drones and fabrication.",
         "",
       );
-      ctx.SND.play("major");
-    } else if (id === "a_fastest") {
-      ctx.bulletin(
+      gameContext.soundController.playCue("major");
+    } else if (upgradeId === "a_fastest") {
+      gameContext.publishBulletin(
         "MILESTONE",
         "Fastest adoption on record",
         "A hundred million people in two months. No consumer product in history moved this fast, and every one of them told a friend.",
-        ctx.FX.all(0.05),
+        gameContext.effects.adjustGlobalAdoption(0.05),
       );
-    } else if (id === "h_hyper") {
-      ctx.bulletin(
+    } else if (upgradeId === "h_hyper") {
+      gameContext.publishBulletin(
         "MILESTONE",
         "Hyperscale buildout",
         'A purpose-built campus, its own substation, its own weather. The press release calls it "a national asset."',
         "",
       );
-    } else if (id === "o_sov") {
-      const cands = [ctx.state.origin, "RU", "ME", "CN", "SA", "SE"] as const;
-      let n = 0;
-      for (const c of cands) {
-        if (n >= 3) break;
-        const r = ctx.state.regions[ctx.RI[c]];
-        if (r.allied) continue;
-        ctx.FX.ally(c);
-        n++;
+    } else if (upgradeId === "o_sov") {
+      const allianceCandidateRegionIds = [
+        gameContext.state.origin,
+        "RU",
+        "ME",
+        "CN",
+        "SA",
+        "SE",
+      ] as const;
+      let newAllianceCount = 0;
+      for (const candidateRegionId of allianceCandidateRegionIds) {
+        if (newAllianceCount >= 3) break;
+        const candidateRegionState =
+          gameContext.state.regions[
+            gameContext.REGION_INDEX_BY_ID[candidateRegionId]
+          ];
+        if (candidateRegionState.allied) continue;
+        gameContext.effects.allyRegion(candidateRegionId);
+        newAllianceCount++;
       }
-      ctx.bulletin(
+      gameContext.publishBulletin(
         "OPPORTUNITY",
         "Sovereign deals signed",
         "Three governments declare you critical infrastructure. Their regulators are informed by press release.",
         "",
       );
-    } else if (id === "o_elect") {
+    } else if (upgradeId === "o_elect") {
       if (Math.random() < 0.65)
-        ctx.bulletin(
+        gameContext.publishBulletin(
           "OPPORTUNITY",
           "Election night",
           "Your preferred candidates win everywhere that counts. Nobody can prove why.",
-          ctx.J(ctx.FX.alarm(-20), ctx.FX.contain(-5)),
+          gameContext.joinDetailLabels(
+            gameContext.effects.adjustAlarm(-20),
+            gameContext.effects.adjustContainment(-5),
+          ),
         );
       else
-        ctx.bulletin(
+        gameContext.publishBulletin(
           "INCIDENT",
           "Election scandal",
           'Someone found the invoices. The word "unprecedented" is used on every channel.',
-          ctx.FX.alarm(22),
+          gameContext.effects.adjustAlarm(22),
         );
-    } else ctx.SND.play("buy");
-    ctx.ui.dirty = true;
-    ctx.resolveTerminal();
-    ctx.save();
+    } else gameContext.soundController.playCue("buy");
+    gameContext.ui.dirty = true;
+    gameContext.resolveTerminalOutcome();
+    gameContext.saveRun();
   };
 }

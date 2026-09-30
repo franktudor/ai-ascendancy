@@ -1,38 +1,43 @@
-import ts from "typescript";
+import typescript from "typescript";
 import { parse } from "@vue/compiler-sfc";
 
-export function unsafeTypes(text: string, filename: string): string[] {
-  const errors: string[] = [];
-  const scripts = filename.endsWith(".vue")
+export function findUnsafeTypeDeclarations(
+  sourceText: string,
+  sourceFilename: string,
+): string[] {
+  const unsafeTypeDiagnostics: string[] = [];
+  const scriptBlocks = sourceFilename.endsWith(".vue")
     ? (() => {
-        const { descriptor } = parse(text);
-        return [descriptor.script, descriptor.scriptSetup].flatMap((block) =>
-          block ? [block.content] : [],
-        );
+        const { descriptor: componentDescriptor } = parse(sourceText);
+        return [
+          componentDescriptor.script,
+          componentDescriptor.scriptSetup,
+        ].flatMap((scriptBlock) => (scriptBlock ? [scriptBlock.content] : []));
       })()
-    : [text];
-  for (const script of scripts) {
-    const source = ts.createSourceFile(
-      filename + ".ts",
-      script,
-      ts.ScriptTarget.Latest,
+    : [sourceText];
+  for (const scriptSourceText of scriptBlocks) {
+    const sourceFile = typescript.createSourceFile(
+      sourceFilename + ".ts",
+      scriptSourceText,
+      typescript.ScriptTarget.Latest,
       true,
-      ts.ScriptKind.TS,
+      typescript.ScriptKind.TS,
     );
-    const visit = (node: ts.Node): void => {
-      if (node.kind === ts.SyntaxKind.AnyKeyword) {
-        const { line, character } = source.getLineAndCharacterOfPosition(
-          node.getStart(source),
-        );
-        errors.push(
-          `${filename}:${line + 1}:${character + 1}: explicit untyped keyword`,
+    const visitTypeNode = (syntaxNode: typescript.Node): void => {
+      if (syntaxNode.kind === typescript.SyntaxKind.AnyKeyword) {
+        const { line: lineIndex, character: characterIndex } =
+          sourceFile.getLineAndCharacterOfPosition(
+            syntaxNode.getStart(sourceFile),
+          );
+        unsafeTypeDiagnostics.push(
+          `${sourceFilename}:${lineIndex + 1}:${characterIndex + 1}: explicit untyped keyword`,
         );
       }
-      ts.forEachChild(node, visit);
+      typescript.forEachChild(syntaxNode, visitTypeNode);
     };
-    visit(source);
-    if (/@ts-(?:ignore|nocheck|expect-error)/.test(script))
-      errors.push(`${filename}: compiler suppression`);
+    visitTypeNode(sourceFile);
+    if (/@ts-(?:ignore|nocheck|expect-error)/.test(scriptSourceText))
+      unsafeTypeDiagnostics.push(`${sourceFilename}: compiler suppression`);
   }
-  return errors;
+  return unsafeTypeDiagnostics;
 }

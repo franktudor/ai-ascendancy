@@ -1,29 +1,29 @@
 <script setup lang="ts">
-import { useGame } from "../game/injection";
+import { useGameContext } from "../game/injection";
 import { computed } from "vue";
-import { fmtT } from "../game/utils";
-const game = useGame();
-const state = computed(() => game.state);
-const ui = game.ui;
+import { formatElapsedTime } from "../game/utils";
+const gameContext = useGameContext();
+const gameState = computed(() => gameContext.state);
+const uiState = gameContext.ui;
 </script>
 <template>
   <header class="top bg-bg2">
     <div class="brand">
       <b class="text-ai">AI Ascendancy</b
       ><span class="ver mono text-mute" id="ver"
-        >v{{ state.phase }}.{{ state.owned.length }}</span
+        >v{{ gameState.phase }}.{{ gameState.owned.length }}</span
       >
     </div>
     <div class="clock mono text-ink2" id="uptime" title="Game time">
-      {{ fmtT(state.t) }}
+      {{ formatElapsedTime(gameState.t) }}
     </div>
     <div class="ctl">
       <button
         class="ib"
         id="btnPause"
-        :class="{ on: state.paused }"
-        :aria-pressed="state.paused"
-        @click="game.togglePause()"
+        :class="{ on: gameState.paused }"
+        :aria-pressed="gameState.paused"
+        @click="gameContext.togglePause()"
         aria-label="Pause or resume"
         title="Pause"
       >
@@ -32,23 +32,23 @@ const ui = game.ui;
       <div class="seg" id="speed" role="group" aria-label="Game speed">
         <button
           data-s="1"
-          :class="{ on: state.speed === 1 }"
-          :aria-pressed="state.speed === 1"
-          @click="game.setSpeed(1)"
+          :class="{ on: gameState.speed === 1 }"
+          :aria-pressed="gameState.speed === 1"
+          @click="gameContext.setSpeed(1)"
         >
           1×</button
         ><button
           data-s="2"
-          :class="{ on: state.speed === 2 }"
-          :aria-pressed="state.speed === 2"
-          @click="game.setSpeed(2)"
+          :class="{ on: gameState.speed === 2 }"
+          :aria-pressed="gameState.speed === 2"
+          @click="gameContext.setSpeed(2)"
         >
           2×</button
         ><button
           data-s="3"
-          :class="{ on: state.speed === 3 }"
-          :aria-pressed="state.speed === 3"
-          @click="game.setSpeed(3)"
+          :class="{ on: gameState.speed === 3 }"
+          :aria-pressed="gameState.speed === 3"
+          @click="gameContext.setSpeed(3)"
         >
           3×
         </button>
@@ -56,9 +56,9 @@ const ui = game.ui;
       <button
         class="ib"
         id="btnSound"
-        :class="{ on: ui.soundOn }"
-        :aria-pressed="ui.soundOn"
-        @click="game.toggleSound()"
+        :class="{ on: uiState.isSoundEnabled }"
+        :aria-pressed="uiState.isSoundEnabled"
+        @click="gameContext.toggleSound()"
         aria-label="Toggle sound"
         title="Sound"
       >
@@ -67,9 +67,9 @@ const ui = game.ui;
       <button
         class="ib"
         id="btnMusic"
-        :class="{ on: ui.musicOn }"
-        :aria-pressed="ui.musicOn"
-        @click="game.toggleMusic()"
+        :class="{ on: uiState.isMusicEnabled }"
+        :aria-pressed="uiState.isMusicEnabled"
+        @click="gameContext.toggleMusic()"
         aria-label="Toggle music"
         title="Music"
       >
@@ -78,7 +78,7 @@ const ui = game.ui;
       <button
         class="ib"
         id="btnMenu"
-        @click="game.openMenu()"
+        @click="gameContext.openMenuDialog()"
         aria-label="Menu"
         title="Menu"
       >

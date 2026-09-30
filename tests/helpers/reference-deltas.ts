@@ -267,24 +267,31 @@ function fireEvent(){`,
       "    if(S.evalRealUsed[c.k])continue;\n    if(c.k==='hub'&&S.seen.h_spoof)continue;\n    if(c.k!=='hub'&&S.seen[c.k])continue;",
   },
 ];
-export function applyVerifiedDeltas(
-  source: string,
-  deltas: readonly VerifiedDelta[],
+export function applyVerifiedHistoricalDeltas(
+  historicalSource: string,
+  historicalDeltas: readonly VerifiedDelta[],
 ): string {
-  for (const delta of deltas) {
-    assert.match(delta.finding, /^F\d{2}$/);
+  for (const historicalDelta of historicalDeltas) {
+    assert.match(historicalDelta.finding, /^F\d{2}$/);
     assert.ok(
-      delta.reason.length > 10,
+      historicalDelta.reason.length > 10,
       "delta requires independent regression rationale",
     );
-    assert.notEqual(delta.before, delta.after, "delta changes behavior");
-    assert.ok(delta.before.length > 0);
-    assert.equal(
-      source.split(delta.before).length - 1,
-      1,
-      `${delta.finding}: exact unique historical target required`,
+    assert.notEqual(
+      historicalDelta.before,
+      historicalDelta.after,
+      "delta changes behavior",
     );
-    source = source.replace(delta.before, delta.after);
+    assert.ok(historicalDelta.before.length > 0);
+    assert.equal(
+      historicalSource.split(historicalDelta.before).length - 1,
+      1,
+      `${historicalDelta.finding}: exact unique historical target required`,
+    );
+    historicalSource = historicalSource.replace(
+      historicalDelta.before,
+      historicalDelta.after,
+    );
   }
-  return source;
+  return historicalSource;
 }

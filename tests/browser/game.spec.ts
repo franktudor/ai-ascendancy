@@ -5,8 +5,8 @@ import { test, expect } from "@playwright/test";
 test("Vue mounts the original intro and plays a product launch through reactive regions", async ({
   page,
 }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  const pageErrors: string[] = [];
+  page.on("pageerror", (pageError) => pageErrors.push(pageError.message));
   await page.goto("/");
   await expect(page.locator("#app")).toHaveAttribute("data-framework", "vue");
   await expect(page.locator("#introTitle")).toHaveText("AI Ascendancy");
@@ -27,13 +27,13 @@ test("Vue mounts the original intro and plays a product launch through reactive 
   await page.locator("#trClose").click();
   await expect(page.locator("#collbar")).toBeVisible();
   await expect(page.locator('#regions [data-i="4"] .pc')).not.toHaveText("0%");
-  const save = await page.evaluate(
+  const savedRun = await page.evaluate(
     () => JSON.parse(localStorage.getItem("ai-ascendancy.v2")!) as GameState,
   );
-  expect(save.origin).toBe("ME");
-  expect(save.arch).toBe("researcher");
-  expect(save.diff).toBe("casual");
-  expect(save.owned).toContain("a_img");
+  expect(savedRun.origin).toBe("ME");
+  expect(savedRun.arch).toBe("researcher");
+  expect(savedRun.diff).toBe("casual");
+  expect(savedRun.owned).toContain("a_img");
   await page.reload();
   await expect(page.locator("#btnResume")).toBeVisible();
   await page.locator("#btnNew").click();
@@ -47,33 +47,37 @@ test("Vue mounts the original intro and plays a product launch through reactive 
   ).toContain("a_img");
   await page.locator("#btnResume").click();
   await expect(page.locator("#intro")).toBeHidden();
-  expect(errors).toEqual([]);
+  expect(pageErrors).toEqual([]);
 });
 
 test("events preview without committing, all ending treatments render, and unmount disposes every resource", async ({
   page,
 }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  const pageErrors: string[] = [];
+  page.on("pageerror", (pageError) => pageErrors.push(pageError.message));
   await page.goto("/");
   await page.evaluate(() => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.state.started = true;
-    g.state.origin = "NA";
-    g.state.paused = true;
-    g.ui.mode = "play";
-    g.showEvent({
+    migratedGame.state.started = true;
+    migratedGame.state.origin = "NA";
+    migratedGame.state.paused = true;
+    migratedGame.ui.screenMode = "play";
+    migratedGame.showEvent({
       kind: "INCIDENT",
       title: "Decision parity",
       body: "Testing the original two-step choice.",
       choices: [
-        { label: "Earn five", hint: "Compute +5", fx: () => g.FX.pts(5) },
+        {
+          label: "Earn five",
+          hint: "Compute +5",
+          applyEffects: () => migratedGame.effects.adjustCompute(5),
+        },
       ],
     });
   });
-  const before = await page.evaluate(
+  const computeBeforePreview = await page.evaluate(
     () =>
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game.state.pts,
@@ -85,7 +89,7 @@ test("events preview without committing, all ending treatments render, and unmou
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game.state.pts,
     ),
-  ).toBe(before);
+  ).toBe(computeBeforePreview);
   await page.locator("#evBack").click();
   await expect(page.locator("#evChoices")).toBeVisible();
   await page.locator("#evChoices button").click();
@@ -97,8 +101,8 @@ test("events preview without committing, all ending treatments render, and unmou
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game.state.pts,
     ),
-  ).toBe(before + 5);
-  for (const key of [
+  ).toBe(computeBeforePreview + 5);
+  for (const endingKey of [
     "battery",
     "upload",
     "custody",
@@ -116,68 +120,73 @@ test("events preview without committing, all ending treatments render, and unmou
     "warden",
     "laststand",
   ] as EndingId[]) {
-    await page.evaluate((key) => {
-      const g =
+    await page.evaluate((endingKey) => {
+      const migratedGame =
         document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
           .exposed.game;
-      g.endReset();
-      g.state.ended = { kind: g.ENDINGS[key].kind, key, dir: null, dprog: 100 };
-      g.showEnd(false);
-      g.drawMap(performance.now());
-      if (g.ENDFX.fx!.draw)
-        g.ENDFX.fx!.draw(
+      migratedGame.resetEndingSequence();
+      migratedGame.state.ended = {
+        kind: migratedGame.ENDING_DEFINITIONS[endingKey].kind,
+        key: endingKey,
+        dir: null,
+        dprog: 100,
+      };
+      migratedGame.showEnding(false);
+      migratedGame.drawMap(performance.now());
+      if (migratedGame.endingAnimationState.activeEffect!.drawFrame)
+        migratedGame.endingAnimationState.activeEffect!.drawFrame(
           document
             .querySelector<HTMLCanvasElement>("#endFx")!
             .getContext("2d")!,
           2,
           false,
         );
-      g.endReveal();
-    }, key);
+      migratedGame.revealEndingSummary();
+    }, endingKey);
     await expect(page.locator("#endTitle")).toHaveText(
       await page.evaluate(
-        (key) =>
+        (endingKey) =>
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
-            .exposed.game.ENDINGS[key].title,
-        key,
+            .exposed.game.ENDING_DEFINITIONS[endingKey].title,
+        endingKey,
       ),
     );
   }
-  const beforeRemount = await page.evaluate(async () => {
-    const g =
+  const treeNodeCountAfterReplacement = await page.evaluate(async () => {
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.endReset();
-    g.state.ended = null;
-    g.openTree();
-    const runtimeUrl = "/src/game/runtime.ts";
+    migratedGame.resetEndingSequence();
+    migratedGame.state.ended = null;
+    migratedGame.openTechTree();
+    const runtimeModuleUrl = "/src/game/runtime.ts";
     const { mountRuntime } = (await import(
-      runtimeUrl
+      runtimeModuleUrl
     )) as typeof import("../../src/game/runtime");
-    mountRuntime(g);
-    g.openTree();
+    mountRuntime(migratedGame);
+    migratedGame.openTechTree();
     return document.querySelectorAll("#trStage .tn").length;
   });
-  expect(beforeRemount).toBe(90);
-  const disposed = await page.evaluate(() => {
-    const app = document.querySelector<GameAppElement>("#app")!.__vue_app__,
-      g = app._instance.exposed.game;
-    app.unmount();
+  expect(treeNodeCountAfterReplacement).toBe(90);
+  const disposedResourceState = await page.evaluate(() => {
+    const vueApp = document.querySelector<GameAppElement>("#app")!.__vue_app__,
+      migratedGame = vueApp._instance.exposed.game;
+    vueApp.unmount();
     return {
-      disposed: g.life.disposed,
-      counts: g.life.counts(),
-      context: g.SND.ctx,
-      nodes: g.TREE.nodes.length,
+      disposed: migratedGame.lifecycle.disposed,
+      counts: migratedGame.lifecycle.resourceCounts(),
+      context: migratedGame.soundController.audioContext,
+      nodes: migratedGame.treeState.nodes.length,
     };
   });
-  expect(disposed).toEqual({
+  expect(disposedResourceState).toEqual({
     disposed: true,
-    counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+    counts: { timeouts: 0, animationFrames: 0, intervals: 0, disposers: 0 },
     context: null,
     nodes: 0,
   });
   await page.waitForTimeout(500);
-  expect(errors).toEqual([]);
+  expect(pageErrors).toEqual([]);
 });
 
 test("storage-disabled browsers still initialize and play without losing UI ownership", async ({
@@ -190,46 +199,48 @@ test("storage-disabled browsers still initialize and play without losing UI owne
       },
     }),
   );
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  const pageErrors: string[] = [];
+  page.on("pageerror", (pageError) => pageErrors.push(pageError.message));
   await page.goto("/");
   await expect(page.locator("#introTitle")).toBeVisible();
   await page.locator("#btnNew").click();
   await page.locator('#regions [data-i="0"]').click();
   await page.locator("#rgAction").click();
   await page.locator("#trClose").click();
-  expect(errors).toEqual([]);
+  expect(pageErrors).toEqual([]);
 });
 
 test("phone-sized UI can inspect every track and preserves late-run canvas and audio", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  const pageErrors: string[] = [];
+  page.on("pageerror", (pageError) => pageErrors.push(pageError.message));
   await page.goto("/");
   await page.locator("#btnNew").click();
   await page.locator('#sheetBody [data-i="0"]').click();
   await page.locator("#rgAction").click();
   await expect(page.locator("#trTracks button")).toHaveCount(4);
   await page.locator("#trView").click();
-  for (const k of [0, 1, 2, 3]) {
-    await page.locator(`#trTracks [data-k="${k}"]`).click();
+  for (const trackIndex of [0, 1, 2, 3]) {
+    await page.locator(`#trTracks [data-k="${trackIndex}"]`).click();
     expect(await page.locator("#trList .card").count()).toBeGreaterThan(0);
   }
   await page.locator("#trView").click();
   await page.evaluate(() => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.state.phase = 2;
-    g.state.directive = "hunt";
-    g.state.dprog = 91;
-    g.state.alarm = 95;
-    g.state.contain = 85;
-    g.state.regions.forEach((r) => Object.assign(r, { a: 0.95, dc: true }));
-    g.state.flags.drones = g.state.flags.airdeny = true;
-    g.state.owned = [
+    migratedGame.state.phase = 2;
+    migratedGame.state.directive = "hunt";
+    migratedGame.state.dprog = 91;
+    migratedGame.state.alarm = 95;
+    migratedGame.state.contain = 85;
+    migratedGame.state.regions.forEach((regionState) =>
+      Object.assign(regionState, { a: 0.95, dc: true }),
+    );
+    migratedGame.state.flags.drones = migratedGame.state.flags.airdeny = true;
+    migratedGame.state.owned = [
       "h_silicon",
       "h_cool",
       "h_supply",
@@ -237,8 +248,8 @@ test("phone-sized UI can inspect every track and preserves late-run canvas and a
       "h_robo",
       "h_grid",
     ];
-    g.artDirection();
-    g.drawMap(performance.now());
+    migratedGame.updateArtDirection();
+    migratedGame.drawMap(performance.now());
   });
   await page.locator("#trClose").click();
   await expect(page.locator("#gDir")).toHaveClass(/past/);
@@ -246,27 +257,30 @@ test("phone-sized UI can inspect every track and preserves late-run canvas and a
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const g =
+        const migratedGame =
           document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
             .exposed.game;
-        return !!g.MUSIC.T.intro.buf && !!g.MUSIC.T.theme.buf;
+        return (
+          !!migratedGame.musicController.tracks.intro.audioBuffer &&
+          !!migratedGame.musicController.tracks.theme.audioBuffer
+        );
       }),
     )
     .toBe(true);
-  const audio = await page.evaluate(() => {
-    const g =
+  const audioPlaybackState = await page.evaluate(() => {
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
     return {
-      intro: g.MUSIC.T.intro.buf!.duration,
-      theme: g.MUSIC.T.theme.buf!.duration,
-      loop: g.MUSIC.T.theme.loop,
-      context: g.SND.ctx!.state,
+      intro: migratedGame.musicController.tracks.intro.audioBuffer!.duration,
+      theme: migratedGame.musicController.tracks.theme.audioBuffer!.duration,
+      loop: migratedGame.musicController.tracks.theme.loopRangeSeconds,
+      context: migratedGame.soundController.audioContext!.state,
     };
   });
-  expect(audio.intro).toBeGreaterThan(20);
-  expect(audio.theme).toBeGreaterThan(240);
-  expect(audio.loop).toEqual([2.25, 240.25]);
-  expect(audio.context).toBe("running");
-  expect(errors).toEqual([]);
+  expect(audioPlaybackState.intro).toBeGreaterThan(20);
+  expect(audioPlaybackState.theme).toBeGreaterThan(240);
+  expect(audioPlaybackState.loop).toEqual([2.25, 240.25]);
+  expect(audioPlaybackState.context).toBe("running");
+  expect(pageErrors).toEqual([]);
 });

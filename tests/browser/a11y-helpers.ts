@@ -2,39 +2,47 @@ import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import type { GameAppElement } from "../../src/env";
 
-export async function pausedRun(page: Page): Promise<void> {
+export async function openPausedRun(page: Page): Promise<void> {
   await page.goto("/");
   await page.evaluate(() => {
-    const game =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    game.state.started = true;
-    game.state.origin = "NA";
-    game.state.paused = true;
-    game.ui.mode = "play";
+    migratedGame.state.started = true;
+    migratedGame.state.origin = "NA";
+    migratedGame.state.paused = true;
+    migratedGame.ui.screenMode = "play";
   });
   await expect(page.locator("#intro")).toBeHidden();
 }
 
-export async function focusInside(page: Page, selector: string): Promise<void> {
+export async function expectFocusInside(
+  page: Page,
+  focusContainerSelector: string,
+): Promise<void> {
   await expect
     .poll(() =>
       page.evaluate(
-        (selector) =>
-          document.querySelector(selector)?.contains(document.activeElement) ??
-          false,
-        selector,
+        (focusContainerSelector) =>
+          document
+            .querySelector(focusContainerSelector)
+            ?.contains(document.activeElement) ?? false,
+        focusContainerSelector,
       ),
     )
     .toBe(true);
 }
 
-export async function tabStaysInside(
+export async function expectTabNavigationStaysInside(
   page: Page,
-  selector: string,
+  focusContainerSelector: string,
 ): Promise<void> {
-  for (const key of ["Tab", "Shift+Tab", ...Array<string>(12).fill("Tab")]) {
-    await page.keyboard.press(key);
-    await focusInside(page, selector);
+  for (const navigationKey of [
+    "Tab",
+    "Shift+Tab",
+    ...Array<string>(12).fill("Tab"),
+  ]) {
+    await page.keyboard.press(navigationKey);
+    await expectFocusInside(page, focusContainerSelector);
   }
 }

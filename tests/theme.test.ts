@@ -3,57 +3,76 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import {
-  applyStyleUtilityMoves,
+  applyAuthorizedStyleUtilityMoves,
   styleUtilityMoves,
 } from "./helpers/style-utility-migration";
 
-const read = (path: string) =>
-  readFileSync(new URL("../" + path, import.meta.url), "utf8");
-const baselineCSS = execFileSync(
+const readRepositoryText = (repositoryRelativePath: string) =>
+  readFileSync(
+    new URL("../" + repositoryRelativePath, import.meta.url),
+    "utf8",
+  );
+const baselineStylesheet = execFileSync(
   "git",
   ["show", "affb670:src/styles/game.css"],
   { maxBuffer: 1_000_000 },
 ).toString("utf8");
 
 test("Tailwind v4 uses its Vite plugin and inline aliases for every live game colour", () => {
-  const pkg = JSON.parse(read("package.json")) as {
+  const packageManifest = JSON.parse(readRepositoryText("package.json")) as {
     devDependencies: Record<string, string>;
   };
-  assert.match(pkg.devDependencies.tailwindcss, /^4\./);
+  assert.match(packageManifest.devDependencies.tailwindcss, /^4\./);
   assert.equal(
-    pkg.devDependencies["@tailwindcss/vite"],
-    pkg.devDependencies.tailwindcss,
+    packageManifest.devDependencies["@tailwindcss/vite"],
+    packageManifest.devDependencies.tailwindcss,
   );
-  const config = read("vite.config.ts");
-  assert.match(config, /import tailwindcss from "@tailwindcss\/vite"/);
-  assert.match(config, /plugins: \[vue\(\), tailwindcss\(\)\]/);
-  assert.match(read("src/main.ts"), /import "\.\/styles\/tailwind\.css"/);
-  const theme = read("src/styles/tailwind.css");
-  assert.match(theme, /@theme inline\s*\{/);
-  assert.match(theme, /--color-\*: initial;/);
+  const viteConfigSource = readRepositoryText("vite.config.ts");
+  assert.match(
+    viteConfigSource,
+    /import tailwindcss from "@tailwindcss\/vite"/,
+  );
+  assert.match(viteConfigSource, /plugins: \[vue\(\), tailwindcss\(\)\]/);
+  assert.match(
+    readRepositoryText("src/main.ts"),
+    /import "\.\/styles\/tailwind\.css"/,
+  );
+  const themeStylesheet = readRepositoryText("src/styles/tailwind.css");
+  assert.match(themeStylesheet, /@theme inline\s*\{/);
+  assert.match(themeStylesheet, /--color-\*: initial;/);
   assert.doesNotMatch(
-    theme,
+    themeStylesheet,
     /@import\s+["'](?:tailwindcss|tailwindcss\/preflight\.css)["']/,
   );
-  const root = baselineCSS.slice(0, baselineCSS.indexOf("--glow:"));
-  const colours = [...root.matchAll(/(--[\w-]+):#[\da-f]+/gi)];
-  assert.equal(colours.length, 21);
-  for (const [, token] of colours)
+  const historicalThemeRoot = baselineStylesheet.slice(
+    0,
+    baselineStylesheet.indexOf("--glow:"),
+  );
+  const historicalColorMatches = [
+    ...historicalThemeRoot.matchAll(/(--[\w-]+):#[\da-f]+/gi),
+  ];
+  assert.equal(historicalColorMatches.length, 21);
+  for (const [, colorToken] of historicalColorMatches)
     assert.ok(
-      theme.includes(`--color-${token.slice(2)}: var(${token});`),
-      token,
+      themeStylesheet.includes(
+        `--color-${colorToken.slice(2)}: var(${colorToken});`,
+      ),
+      colorToken,
     );
 });
 
 test("CSS utility moves preserve every unlisted rule and reject ambiguous targets", () => {
   assert.equal(styleUtilityMoves.length, 23);
   assert.equal(
-    applyStyleUtilityMoves(baselineCSS).replace(/\s/g, ""),
-    read("src/styles/game.css").replace(/\s/g, ""),
+    applyAuthorizedStyleUtilityMoves(baselineStylesheet).replace(/\s/g, ""),
+    readRepositoryText("src/styles/game.css").replace(/\s/g, ""),
   );
-  assert.throws(() => applyStyleUtilityMoves(""), /not unique/);
+  assert.throws(() => applyAuthorizedStyleUtilityMoves(""), /not unique/);
   assert.throws(
-    () => applyStyleUtilityMoves(baselineCSS + styleUtilityMoves[0][0]),
+    () =>
+      applyAuthorizedStyleUtilityMoves(
+        baselineStylesheet + styleUtilityMoves[0][0],
+      ),
     /not unique/,
   );
 });

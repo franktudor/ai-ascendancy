@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 import type { GameAppElement } from "../../src/env";
-import { pausedRun } from "./a11y-helpers";
+import { openPausedRun } from "./a11y-helpers";
 
 test("F22 closed phone sheets leave keyboard navigation and return focus to their tab", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await pausedRun(page);
+  await openPausedRun(page);
   await expect(page.locator("#sheet")).toHaveAttribute("inert", "");
   await expect(page.locator("#sheet")).toHaveAttribute("aria-hidden", "true");
   await page.locator('[data-tab="world"]').click();
@@ -30,10 +30,10 @@ test("F22 closed phone sheets leave keyboard navigation and return focus to thei
   await expect(page.locator("#regionModal")).toBeVisible();
   await page.locator("#rgClose").click();
   await page.evaluate(() => {
-    const g =
+    const migratedGame =
       document.querySelector<GameAppElement>("#app")!.__vue_app__._instance
         .exposed.game;
-    g.ui.mode = "origin";
+    migratedGame.ui.screenMode = "origin";
   });
   await page.locator('#sheetBody [data-i="0"]').click();
   await page.locator("#rgAction").click();
@@ -45,10 +45,10 @@ test("F22 closed phone sheets leave keyboard navigation and return focus to thei
 test("F22 breakpoint changes preserve visible desktop keyboard controls even with sheetOpen false", async ({
   page,
 }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const pageErrors: string[] = [];
+  page.on("pageerror", (pageError) => pageErrors.push(pageError.message));
   await page.setViewportSize({ width: 899, height: 844 });
-  await pausedRun(page);
+  await openPausedRun(page);
   await expect(page.locator("#sheet")).toHaveAttribute("inert", "");
   await page.setViewportSize({ width: 900, height: 844 });
   // Wait for the retained resize handler before deliberately closing its state.
@@ -56,7 +56,7 @@ test("F22 breakpoint changes preserve visible desktop keyboard controls even wit
   await page.evaluate(() =>
     document
       .querySelector<GameAppElement>("#app")!
-      .__vue_app__._instance.exposed.game.closeSheet(),
+      .__vue_app__._instance.exposed.game.closeDockPanel(),
   );
   await expect(page.locator("#sheet")).not.toHaveAttribute("inert", "");
   await expect(page.locator("#sheet")).not.toHaveAttribute(
@@ -76,5 +76,5 @@ test("F22 breakpoint changes preserve visible desktop keyboard controls even wit
     document.querySelector<GameAppElement>("#app")!.__vue_app__.unmount(),
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  expect(errors).toEqual([]);
+  expect(pageErrors).toEqual([]);
 });

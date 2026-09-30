@@ -1,55 +1,80 @@
 import type { CompleteGameContext, EndingId } from "./types";
-import { validateSave } from "./saveValidation";
-export function installPersistence(ctx: CompleteGameContext) {
-  const storage = ctx.storage;
-  ctx.CODEX_KEY = ctx.KEY + ".codex";
-  ctx.codexGet = () => {
+import { validateSavedRun } from "./saveValidation";
+export function installPersistence(gameContext: CompleteGameContext) {
+  const storage = gameContext.storage;
+  gameContext.codexStorageKey = gameContext.saveStorageKey + ".codex";
+  gameContext.getEndingDiscoveryCounts = () => {
     try {
-      const parsed: unknown = JSON.parse(
-        storage?.getItem(ctx.CODEX_KEY) ?? "null",
+      const parsedCodex: unknown = JSON.parse(
+        storage?.getItem(gameContext.codexStorageKey) ?? "null",
       );
-      const counts: Partial<Record<EndingId, number>> = {};
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        for (const key of ctx.END_ORDER) {
-          const value = (parsed as Record<string, unknown>)[key];
-          if (typeof value === "number" && Number.isFinite(value) && value >= 0)
-            counts[key] = Math.floor(value);
+      const endingDiscoveryCounts: Partial<Record<EndingId, number>> = {};
+      if (
+        parsedCodex &&
+        typeof parsedCodex === "object" &&
+        !Array.isArray(parsedCodex)
+      ) {
+        for (const endingId of gameContext.ENDING_DISPLAY_ORDER) {
+          const storedCount = (parsedCodex as Record<string, unknown>)[
+            endingId
+          ];
+          if (
+            typeof storedCount === "number" &&
+            Number.isFinite(storedCount) &&
+            storedCount >= 0
+          )
+            endingDiscoveryCounts[endingId] = Math.floor(storedCount);
         }
       }
-      return counts;
+      return endingDiscoveryCounts;
     } catch {
       return {};
     }
   };
-  ctx.codexAdd = (k) => {
+  gameContext.recordEndingDiscovery = (endingId) => {
     try {
-      const c = ctx.codexGet(),
-        fresh = !c[k];
-      c[k] = (c[k] || 0) + 1;
-      storage?.setItem(ctx.CODEX_KEY, JSON.stringify(c));
-      return fresh;
+      const endingDiscoveryCounts = gameContext.getEndingDiscoveryCounts(),
+        isNewEndingDiscovery = !endingDiscoveryCounts[endingId];
+      endingDiscoveryCounts[endingId] =
+        (endingDiscoveryCounts[endingId] || 0) + 1;
+      storage?.setItem(
+        gameContext.codexStorageKey,
+        JSON.stringify(endingDiscoveryCounts),
+      );
+      return isNewEndingDiscovery;
     } catch {
       return false;
     }
   };
-  ctx.codexCount = () => ctx.END_ORDER.filter((k) => ctx.codexGet()[k]).length;
-  ctx.save = () => {
-    if (!ctx.state.started) return;
-    const B = ctx.ui.brief,
-      dec = ctx.state.brief.dec;
-    if (B) ctx.state.brief.dec = B.decs.slice(B.done).concat(dec);
+  gameContext.countDiscoveredEndings = () =>
+    gameContext.ENDING_DISPLAY_ORDER.filter(
+      (endingId) => gameContext.getEndingDiscoveryCounts()[endingId],
+    ).length;
+  gameContext.saveRun = () => {
+    if (!gameContext.state.started) return;
+    const activeBriefing = gameContext.ui.activeBriefing,
+      queuedDecisions = gameContext.state.brief.dec;
+    if (activeBriefing)
+      gameContext.state.brief.dec = activeBriefing.decisions
+        .slice(activeBriefing.completedDecisionCount)
+        .concat(queuedDecisions);
     try {
-      ctx.state.savedAt = Date.now();
-      storage?.setItem(ctx.KEY, JSON.stringify(ctx.state));
+      gameContext.state.savedAt = Date.now();
+      storage?.setItem(
+        gameContext.saveStorageKey,
+        JSON.stringify(gameContext.state),
+      );
     } catch {
     } finally {
-      ctx.state.brief.dec = dec;
+      gameContext.state.brief.dec = queuedDecisions;
     }
   };
-  ctx.load = () => {
+  gameContext.loadSavedRun = () => {
     try {
-      const parsed: unknown = JSON.parse(storage?.getItem(ctx.KEY) ?? "null");
-      return validateSave(ctx, parsed);
+      const parsedSave: unknown = JSON.parse(
+        storage?.getItem(gameContext.saveStorageKey) ?? "null",
+      );
+      return validateSavedRun(gameContext, parsedSave);
     } catch {}
     return null;
   };

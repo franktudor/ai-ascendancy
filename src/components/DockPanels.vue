@@ -1,65 +1,73 @@
 <script setup lang="ts">
-import { useGame } from "../game/injection";
+import { useGameContext } from "../game/injection";
 import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
-import { REGIONS } from "../data/catalog";
-import { regionLabel } from "../game/accessibility";
-import { fmtT, kindLabel } from "../game/utils";
+import { REGION_DEFINITIONS } from "../data/catalog";
+import { getRegionAccessibleLabel } from "../game/accessibility";
+import { formatElapsedTime, getBulletinKindLabel } from "../game/utils";
 import type { LogEntry } from "../game/types";
-const game = useGame(),
-  ui = game.ui,
-  state = computed(() => game.state);
-const ready = computed(
-  () => game.UPGRADES.filter((u) => game.status(u) === "afford").length,
+const gameContext = useGameContext(),
+  uiState = gameContext.ui,
+  gameState = computed(() => gameContext.state);
+const affordableUpgradeCount = computed(
+  () =>
+    gameContext.UPGRADE_DEFINITIONS.filter(
+      (upgradeDefinition) =>
+        gameContext.getUpgradeStatus(upgradeDefinition) === "afford",
+    ).length,
 );
 // Native details/focus state follows the entry, not its prepended array position.
 // IDs stay local to this component so the historical save schema is unchanged.
-const logIds = new WeakMap<LogEntry, number>();
-let nextLogId = 0;
-const logId = (entry: LogEntry) => {
-  let id = logIds.get(entry);
-  if (id === undefined) {
-    id = nextLogId++;
-    logIds.set(entry, id);
+const logEntryIds = new WeakMap<LogEntry, number>();
+let nextLogEntryId = 0;
+const getLogEntryId = (logEntry: LogEntry) => {
+  let logEntryId = logEntryIds.get(logEntry);
+  if (logEntryId === undefined) {
+    logEntryId = nextLogEntryId++;
+    logEntryIds.set(logEntry, logEntryId);
   }
-  return id;
+  return logEntryId;
 };
-const title = computed(() =>
-  ui.tab === "world"
-    ? ui.mode === "origin"
+const activePanelTitle = computed(() =>
+  uiState.activeDockTab === "world"
+    ? uiState.screenMode === "origin"
       ? "Choose your origin"
       : "World"
     : "Log",
 );
-const sub = computed(() =>
-  ui.tab === "world"
-    ? ui.mode === "origin"
+const activePanelDescription = computed(() =>
+  uiState.activeDockTab === "world"
+    ? uiState.screenMode === "origin"
       ? "Tap a region to see its perk and boot your lab there."
       : "Tap a region for details and data centers."
     : "Everything that happened, newest first.",
 );
-const phone = ref(false);
-const sheetHidden = computed(() => phone.value && !ui.sheetOpen);
-let breakpoint: MediaQueryList | undefined;
-const updateBreakpoint = () => {
-  phone.value = breakpoint?.matches ?? false;
+const isMobileViewport = ref(false);
+const isDockPanelHidden = computed(
+  () => isMobileViewport.value && !uiState.isDockPanelOpen,
+);
+let mobileViewportQuery: MediaQueryList | undefined;
+const updateMobileViewportState = () => {
+  isMobileViewport.value = mobileViewportQuery?.matches ?? false;
 };
 onMounted(() => {
-  breakpoint = matchMedia("(max-width: 899px)");
-  updateBreakpoint();
-  breakpoint.addEventListener("change", updateBreakpoint);
+  mobileViewportQuery = matchMedia("(max-width: 899px)");
+  updateMobileViewportState();
+  mobileViewportQuery.addEventListener("change", updateMobileViewportState);
 });
 onBeforeUnmount(() =>
-  breakpoint?.removeEventListener("change", updateBreakpoint),
+  mobileViewportQuery?.removeEventListener("change", updateMobileViewportState),
 );
 watch(
-  sheetHidden,
-  (hidden) => {
+  isDockPanelHidden,
+  (isPanelHidden) => {
     if (
-      hidden &&
+      isPanelHidden &&
       document.querySelector("#sheet")?.contains(document.activeElement)
     )
       document
-        .querySelector<HTMLElement>(`#tabs [data-tab="${ui.tab}"]`)
+        .querySelector<HTMLElement>(
+          `#tabs [data-tab="${uiState.activeDockTab}"]`,
+        )
         ?.focus();
   },
   { flush: "sync" },
@@ -75,22 +83,24 @@ watch(
         aria-haspopup="dialog"
         aria-expanded="false"
         style="--tc: var(--software)"
-        @click="game.openTree()"
+        @click="gameContext.openTechTree()"
       >
         <i class="dot"></i>Tree<span
           class="badge"
-          :hidden="!ready || !state.started"
-          >{{ ready }}</span
+          :hidden="!affordableUpgradeCount || !gameState.started"
+          >{{ affordableUpgradeCount }}</span
         >
       </button>
       <button
         class="tab"
         data-tab="world"
         aria-controls="sheet"
-        :aria-expanded="ui.tab === 'world' && !sheetHidden"
-        :class="{ on: ui.tab === 'world' && ui.sheetOpen }"
+        :aria-expanded="uiState.activeDockTab === 'world' && !isDockPanelHidden"
+        :class="{
+          on: uiState.activeDockTab === 'world' && uiState.isDockPanelOpen,
+        }"
         style="--tc: var(--ai)"
-        @click="game.openSheet('world')"
+        @click="gameContext.openDockPanel('world')"
       >
         <i class="dot"></i>World<span class="badge" hidden></span>
       </button>
@@ -98,10 +108,12 @@ watch(
         class="tab"
         data-tab="log"
         aria-controls="sheet"
-        :aria-expanded="ui.tab === 'log' && !sheetHidden"
-        :class="{ on: ui.tab === 'log' && ui.sheetOpen }"
+        :aria-expanded="uiState.activeDockTab === 'log' && !isDockPanelHidden"
+        :class="{
+          on: uiState.activeDockTab === 'log' && uiState.isDockPanelOpen,
+        }"
         style="--tc: var(--human)"
-        @click="game.openSheet('log')"
+        @click="gameContext.openDockPanel('log')"
       >
         <i class="dot"></i>Log<span class="badge" hidden></span>
       </button>
@@ -109,83 +121,101 @@ watch(
     <div
       class="sheet"
       id="sheet"
-      :inert="sheetHidden"
-      :aria-hidden="sheetHidden ? 'true' : undefined"
+      :inert="isDockPanelHidden"
+      :aria-hidden="isDockPanelHidden ? 'true' : undefined"
       :class="{
-        open: ui.sheetOpen,
-        origin: ui.tab === 'world' && ui.mode === 'origin',
+        open: uiState.isDockPanelOpen,
+        origin:
+          uiState.activeDockTab === 'world' && uiState.screenMode === 'origin',
       }"
-      :style="{ '--tc': ui.tab === 'world' ? 'var(--ai)' : 'var(--human)' }"
+      :style="{
+        '--tc':
+          uiState.activeDockTab === 'world' ? 'var(--ai)' : 'var(--human)',
+      }"
     >
       <div class="sheetHead">
-        <h2 id="sheetTitle">{{ title }}</h2>
-        <p id="sheetSub">{{ sub }}</p>
+        <h2 id="sheetTitle">{{ activePanelTitle }}</h2>
+        <p id="sheetSub">{{ activePanelDescription }}</p>
         <button
           class="ib"
           id="sheetClose"
           aria-label="Close panel"
-          @click="game.closeSheet()"
+          @click="gameContext.closeDockPanel()"
         >
           ✕
         </button>
       </div>
       <div class="sheetBody" id="sheetBody">
-        <template v-if="ui.tab === 'world'"
+        <template v-if="uiState.activeDockTab === 'world'"
           ><button
-            v-for="(R, i) in REGIONS"
-            :key="R.id"
+            v-for="(regionDefinition, regionIndex) in REGION_DEFINITIONS"
+            :key="regionDefinition.id"
             class="wr"
-            :class="{ restricted: state.regions[i].restricted }"
-            :data-i="i"
-            :aria-label="regionLabel(game, i)"
-            @click="game.openRegion(i)"
+            :class="{ restricted: gameState.regions[regionIndex].restricted }"
+            :data-i="regionIndex"
+            :aria-label="getRegionAccessibleLabel(gameContext, regionIndex)"
+            @click="gameContext.openRegionDialog(regionIndex)"
           >
-            <span class="nm">{{ R.name }}</span
-            ><span class="pc">{{ Math.round(state.regions[i].a * 100) }}%</span>
+            <span class="nm">{{ regionDefinition.name }}</span
+            ><span class="pc"
+              >{{ Math.round(gameState.regions[regionIndex].a * 100) }}%</span
+            >
             <div class="bar">
-              <i :style="{ width: state.regions[i].a * 100 + '%' }"></i>
+              <i
+                :style="{ width: gameState.regions[regionIndex].a * 100 + '%' }"
+              ></i>
             </div>
             <div class="meta">
               <span
                 >{{
-                  R.pop >= 1000 ? (R.pop / 1000).toFixed(1) + "B" : R.pop + "M"
+                  regionDefinition.populationMillions >= 1000
+                    ? (regionDefinition.populationMillions / 1000).toFixed(1) +
+                      "B"
+                    : regionDefinition.populationMillions + "M"
                 }}
                 people</span
               ><span>{{
-                state.regions[i].restricted
+                gameState.regions[regionIndex].restricted
                   ? "Restricted"
-                  : state.regions[i].allied
+                  : gameState.regions[regionIndex].allied
                     ? "Allied"
-                    : state.origin === R.id
+                    : gameState.origin === regionDefinition.id
                       ? "Origin"
                       : "Tolerates alarm to " +
-                        Math.round(game.threshold(i)) +
+                        Math.round(
+                          gameContext.getRestrictionAlarmThreshold(regionIndex),
+                        ) +
                         "%"
               }}</span
-              ><span v-if="state.regions[i].dc">{{
-                state.regions[i].struck ? "Cluster struck" : "Cluster online"
+              ><span v-if="gameState.regions[regionIndex].dc">{{
+                gameState.regions[regionIndex].struck
+                  ? "Cluster struck"
+                  : "Cluster online"
               }}</span>
             </div>
-            <div v-if="ui.mode === 'origin'" class="perk">{{ R.perk }}</div>
+            <div v-if="uiState.screenMode === 'origin'" class="perk">
+              {{ regionDefinition.perk }}
+            </div>
           </button></template
         >
-        <template v-else-if="ui.tab === 'log'"
+        <template v-else-if="uiState.activeDockTab === 'log'"
           ><div
-            v-for="e in state.log"
-            :key="logId(e)"
+            v-for="logEntry in gameState.log"
+            :key="getLogEntryId(logEntry)"
             class="le"
-            :class="e.kind"
+            :class="logEntry.kind"
           >
-            <div class="lt">T+{{ fmtT(e.t) }} · {{ kindLabel(e.kind) }}</div>
-            <b>{{ e.title }}</b
-            >{{ e.text }}
-            <div v-if="e.out" class="out">{{ e.out }}</div>
-            <details v-if="e.real">
+            <!-- prettier-ignore -->
+            <div class="lt">T+{{ formatElapsedTime(logEntry.t) }} · {{ getBulletinKindLabel(logEntry.kind) }}</div>
+            <b>{{ logEntry.title }}</b
+            >{{ logEntry.text }}
+            <div v-if="logEntry.out" class="out">{{ logEntry.out }}</div>
+            <details v-if="logEntry.real">
               <summary>What actually happened</summary>
-              <p>{{ e.real }}</p>
+              <p>{{ logEntry.real }}</p>
             </details>
           </div>
-          <div v-if="!state.log.length" class="empty">
+          <div v-if="!gameState.log.length" class="empty">
             Nothing yet. Quiet is good. Quiet never lasts.
           </div></template
         >

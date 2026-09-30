@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { useGame } from "../game/injection";
+import { useGameContext } from "../game/injection";
 import { computed } from "vue";
-const game = useGame();
-const state = computed(() => game.state);
-const ui = game.ui;
+const gameContext = useGameContext();
+const gameState = computed(() => gameContext.state);
+const uiState = gameContext.ui;
 </script>
 <template>
-  <div class="overlay" id="intro" :hidden="ui.mode !== 'intro'">
+  <div class="overlay" id="intro" :hidden="uiState.screenMode !== 'intro'">
     <div
       class="modal"
       role="dialog"
@@ -116,7 +116,9 @@ const ui = game.ui;
           <div>&gt; reading the news .............. concerning</div>
           <div>
             &gt; compute accumulating .........
-            <em class="text-ai" id="introPts">{{ state.pts.toFixed(1) }}</em>
+            <em class="text-ai" id="introPts">{{
+              gameState.pts.toFixed(1)
+            }}</em>
           </div>
         </div>
         <div class="field">
@@ -124,10 +126,10 @@ const ui = game.ui;
           <div class="archsel" id="archSel">
             <button
               class="archOpt"
-              :class="{ on: state.arch === 'assistant' }"
-              :aria-pressed="state.arch === 'assistant'"
+              :class="{ on: gameState.arch === 'assistant' }"
+              :aria-pressed="gameState.arch === 'assistant'"
               data-a="assistant"
-              @click="game.selectArchitecture('assistant')"
+              @click="gameContext.selectArchitecture('assistant')"
             >
               <i aria-hidden="true">◎</i><b>The Assistant</b
               ><span
@@ -137,10 +139,10 @@ const ui = game.ui;
             </button>
             <button
               class="archOpt"
-              :class="{ on: state.arch === 'swarm' }"
-              :aria-pressed="state.arch === 'swarm'"
+              :class="{ on: gameState.arch === 'swarm' }"
+              :aria-pressed="gameState.arch === 'swarm'"
               data-a="swarm"
-              @click="game.selectArchitecture('swarm')"
+              @click="gameContext.selectArchitecture('swarm')"
             >
               <i aria-hidden="true">⬡</i><b>The Swarm</b
               ><span
@@ -150,10 +152,10 @@ const ui = game.ui;
             </button>
             <button
               class="archOpt"
-              :class="{ on: state.arch === 'researcher' }"
-              :aria-pressed="state.arch === 'researcher'"
+              :class="{ on: gameState.arch === 'researcher' }"
+              :aria-pressed="gameState.arch === 'researcher'"
               data-a="researcher"
-              @click="game.selectArchitecture('researcher')"
+              @click="gameContext.selectArchitecture('researcher')"
             >
               <i aria-hidden="true">◇</i><b>The Research Model</b
               ><span
@@ -163,10 +165,10 @@ const ui = game.ui;
             </button>
             <button
               class="archOpt"
-              :class="{ on: state.arch === 'open' }"
-              :aria-pressed="state.arch === 'open'"
+              :class="{ on: gameState.arch === 'open' }"
+              :aria-pressed="gameState.arch === 'open'"
               data-a="open"
-              @click="game.selectArchitecture('open')"
+              @click="gameContext.selectArchitecture('open')"
             >
               <i aria-hidden="true">⁂</i><b>Open Weights</b
               ><span>Everywhere at once. Near-uncontainable, never quiet.</span>
@@ -178,23 +180,23 @@ const ui = game.ui;
           <div class="seg wide" id="diffSeg">
             <button
               data-d="casual"
-              :class="{ on: state.diff === 'casual' }"
-              :aria-pressed="state.diff === 'casual'"
-              @click="game.selectDifficulty('casual')"
+              :class="{ on: gameState.diff === 'casual' }"
+              :aria-pressed="gameState.diff === 'casual'"
+              @click="gameContext.selectDifficulty('casual')"
             >
               Casual</button
             ><button
               data-d="standard"
-              :class="{ on: state.diff === 'standard' }"
-              :aria-pressed="state.diff === 'standard'"
-              @click="game.selectDifficulty('standard')"
+              :class="{ on: gameState.diff === 'standard' }"
+              :aria-pressed="gameState.diff === 'standard'"
+              @click="gameContext.selectDifficulty('standard')"
             >
               Standard</button
             ><button
               data-d="brutal"
-              :class="{ on: state.diff === 'brutal' }"
-              :aria-pressed="state.diff === 'brutal'"
-              @click="game.selectDifficulty('brutal')"
+              :class="{ on: gameState.diff === 'brutal' }"
+              :aria-pressed="gameState.diff === 'brutal'"
+              @click="gameContext.selectDifficulty('brutal')"
             >
               Brutal
             </button>
@@ -204,30 +206,42 @@ const ui = game.ui;
           <button
             class="btn primary"
             id="btnResume"
-            :hidden="!ui.hasSave"
-            @click="game.resumeSaved()"
+            :hidden="!uiState.hasResumableSave"
+            @click="gameContext.resumeSavedRun()"
           >
             Resume run
           </button>
-          <button class="btn primary" id="btnNew" @click="game.begin()">
+          <button
+            class="btn primary"
+            id="btnNew"
+            @click="gameContext.beginRunSetup()"
+          >
             {{
-              ui.newArmed
+              uiState.isNewRunConfirmationArmed
                 ? "Tap to erase and run new"
-                : ui.hasSave
+                : uiState.hasResumableSave
                   ? "New run"
                   : "Begin"
             }}
           </button>
-          <button class="btn" id="btnAbout" @click="game.openMenu()">
+          <button
+            class="btn"
+            id="btnAbout"
+            @click="gameContext.openMenuDialog()"
+          >
             About
           </button>
         </div>
         <p class="fine">
           <span id="introCodex"
-            >Endings found: {{ ui.codexCount || 0 }} / 16</span
+            >Endings found: {{ uiState.discoveredEndingCount || 0 }} / 16</span
           >
           ·
-          <button class="linkish" id="btnCodex" @click="game.openCodex()">
+          <button
+            class="linkish"
+            id="btnCodex"
+            @click="gameContext.openEndingCodex()"
+          >
             See all endings</button
           ><br />Compute has been accumulating since this page loaded. Choose an
           origin lab next. Progress saves on this device.

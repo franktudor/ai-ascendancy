@@ -18,9 +18,9 @@ const presentations = new WeakMap<Lifecycle, () => ModalFocusPresentation>();
 
 /** Capture stable identities only; the retiring lifecycle still owns all resources. */
 export function captureModalFocus(
-  life: Lifecycle,
+  lifecycle: Lifecycle,
 ): ModalFocusPresentation | undefined {
-  return presentations.get(life)?.();
+  return presentations.get(lifecycle)?.();
 }
 
 interface ModalEntry {
@@ -30,7 +30,7 @@ interface ModalEntry {
 
 /** One focus owner for Vue overlays, imperative/nested dialogs and body teleports. */
 export function installModalFocus(
-  life: Lifecycle,
+  lifecycle: Lifecycle,
   previous?: ModalFocusPresentation,
 ): void {
   const selector = '[role="dialog"][aria-modal],#endSkip';
@@ -58,27 +58,27 @@ export function installModalFocus(
         ]
       : [];
   });
-  const rememberFocus = (el: HTMLElement): FocusTarget => {
+  const rememberFocus = (element: HTMLElement): FocusTarget => {
     // Keep direct-child keys distinct from nested clones in the same host.
     const key = ["data-id", "data-i", "data-tab", "data-k"].find((name) =>
-      el.hasAttribute(name),
+      element.hasAttribute(name),
     );
-    const host = el.parentElement?.closest<HTMLElement>("[id]");
-    const selector = el.id
-      ? "#" + CSS.escape(el.id)
+    const host = element.parentElement?.closest<HTMLElement>("[id]");
+    const selector = element.id
+      ? "#" + CSS.escape(element.id)
       : key && host
-        ? `#${CSS.escape(host.id)}${host === el.parentElement ? " > " : " "}[${key}="${CSS.escape(el.getAttribute(key)!)}"]`
+        ? `#${CSS.escape(host.id)}${host === element.parentElement ? " > " : " "}[${key}="${CSS.escape(element.getAttribute(key)!)}"]`
         : null;
-    const panel = el.closest("#sheet")
+    const panel = element.closest("#sheet")
       ? document.querySelector('#tabs [data-tab="log"].on')
         ? "log"
         : "world"
-      : el.closest("#treeModal")
+      : element.closest("#treeModal")
         ? "tree"
         : null;
-    const dialog = el.closest<HTMLElement>('[role="dialog"],#endSkip');
+    const dialog = element.closest<HTMLElement>('[role="dialog"],#endSkip');
     return {
-      element: el,
+      element: element,
       selector,
       // Capture ownership while attached: Vue may detach the control before
       // the next observer delivery, leaving no DOM ancestry to inspect.
@@ -92,9 +92,9 @@ export function installModalFocus(
       : null;
   let syncing = false;
 
-  const visible = (el: HTMLElement): boolean => {
-    if (!el.isConnected || el.closest("[hidden]")) return false;
-    const style = getComputedStyle(el);
+  const visible = (element: HTMLElement): boolean => {
+    if (!element.isConnected || element.closest("[hidden]")) return false;
+    const style = getComputedStyle(element);
     return style.display !== "none" && style.visibility !== "hidden";
   };
   const roots = (entry: ModalEntry): HTMLElement[] => {
@@ -110,15 +110,18 @@ export function installModalFocus(
       ];
     return [entry.dialog.closest<HTMLElement>(".overlay") || entry.dialog];
   };
-  const usable = (el: HTMLElement): boolean =>
-    visible(el) &&
-    !el.closest('[inert],[aria-hidden="true"]') &&
-    !el.matches(":disabled");
+  const usable = (element: HTMLElement): boolean =>
+    visible(element) &&
+    !element.closest('[inert],[aria-hidden="true"]') &&
+    !element.matches(":disabled");
   const controls = (entry: ModalEntry): HTMLElement[] =>
     [
       entry.dialog,
       ...entry.dialog.querySelectorAll<HTMLElement>(focusable),
-    ].filter((el) => el.matches(focusable) && el.tabIndex >= 0 && usable(el));
+    ].filter(
+      (element) =>
+        element.matches(focusable) && element.tabIndex >= 0 && usable(element),
+    );
   const focusEntry = (entry: ModalEntry): void => {
     const first = controls(entry)[0];
     if (first) first.focus({ preventScroll: true });
@@ -155,15 +158,15 @@ export function installModalFocus(
         }
       }
     }
-    for (const [el, original] of inert) {
-      if (!wanted.has(el)) {
-        el.inert = original;
-        inert.delete(el);
+    for (const [element, original] of inert) {
+      if (!wanted.has(element)) {
+        element.inert = original;
+        inert.delete(element);
       }
     }
-    for (const el of wanted) {
-      if (!inert.has(el)) inert.set(el, el.inert);
-      if (!el.inert) el.inert = true;
+    for (const element of wanted) {
+      if (!inert.has(element)) inert.set(element, element.inert);
+      if (!element.inert) element.inert = true;
     }
     for (const item of stack) {
       if (item.dialog.id === "endSkip") continue;
@@ -173,7 +176,7 @@ export function installModalFocus(
     }
   };
   const sync = (): void => {
-    if (life.disposed || syncing) return;
+    if (lifecycle.disposed || syncing) return;
     syncing = true;
     try {
       const oldTop = stack.at(-1);
@@ -201,11 +204,11 @@ export function installModalFocus(
         const layers = (entry: ModalEntry): number[] => {
           const values: number[] = [];
           for (
-            let el: HTMLElement | null = entry.dialog;
-            el;
-            el = el.parentElement
+            let element: HTMLElement | null = entry.dialog;
+            element;
+            element = element.parentElement
           ) {
-            const value = Number.parseInt(getComputedStyle(el).zIndex);
+            const value = Number.parseInt(getComputedStyle(element).zIndex);
             if (Number.isFinite(value)) values.unshift(value);
           }
           return values;
@@ -236,7 +239,12 @@ export function installModalFocus(
                 target?.fallback ?? "#btnMenu",
               )
             : null,
-        ].find((el) => el && usable(el) && (!top || top.dialog.contains(el)));
+        ].find(
+          (element) =>
+            element &&
+            usable(element) &&
+            (!top || top.dialog.contains(element)),
+        );
         if (opener) opener.focus({ preventScroll: true });
         else if (top) focusEntry(top);
       }
@@ -251,7 +259,7 @@ export function installModalFocus(
       syncing = false;
     }
   };
-  presentations.set(life, () => {
+  presentations.set(lifecycle, () => {
     sync();
     return {
       entries: stack.flatMap(({ dialog, opener }) => {
@@ -272,7 +280,7 @@ export function installModalFocus(
       }),
     };
   });
-  life.on(
+  lifecycle.listen(
     document,
     "focusin",
     (event) => {
@@ -282,7 +290,7 @@ export function installModalFocus(
     },
     true,
   );
-  life.on(
+  lifecycle.listen(
     document,
     "keydown",
     (event) => {
@@ -316,15 +324,16 @@ export function installModalFocus(
     attributes: true,
     attributeFilter: ["hidden", "disabled"],
   });
-  life.add(() => {
-    presentations.delete(life);
+  lifecycle.addCleanup(() => {
+    presentations.delete(lifecycle);
     observer.disconnect();
-    for (const [el, original] of inert) el.inert = original;
-    for (const [el, original] of modal) {
-      if (original === null) el.removeAttribute("aria-modal");
-      else el.setAttribute("aria-modal", original);
+    for (const [element, original] of inert) element.inert = original;
+    for (const [element, original] of modal) {
+      if (original === null) element.removeAttribute("aria-modal");
+      else element.setAttribute("aria-modal", original);
     }
-    for (const el of temporaryTabindex) el.removeAttribute("tabindex");
+    for (const element of temporaryTabindex)
+      element.removeAttribute("tabindex");
     stack = [];
     inert.clear();
     modal.clear();

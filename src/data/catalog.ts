@@ -15,22 +15,23 @@ import type {
   LastStandStep,
 } from "../game/types";
 
-export const MAP = {
-  cols: 128,
-  rows: 55,
-  rle: "44.6A.7A114.16A7.C97.A4.3A5.9A18.D7.6D6.D.D61.5A.6A5.8A19.D3.15D3.3D43.D3.13A.2A3.A.A.2A5.6A11.3C3D6.D.29D33.2D.22A3.3A3.4A5.C7.3C.CD2.37D35.20A5.A5.2A14.3C.3C40D32.5A.14A5.2A7.A13.4C.C.36D2.2D34.2A5.12A5.4A16.C4.2C.2C33D4.2D32.A9.15A.6A16.C6.D2C31D6.2D41.14A.7A14.C.C.9C27DH5D4.D42.17A.A.A17.12C16D5I2DID2H4D.D45.18A19.13C15D2H9I4H2D44.20A20.4C.4C3.3D.10D4H6I6H2D.I42.17A20.4C3.C.3C4.3D.9D7HI8H3.I41.17A21.3C5.C.C.6ED.7D15H2.I4.I40.16A22.2C8.C.8E.2E2D3G16H.I3.I41.14A24.6E8.8E6G14H2.I.2I42.B12A24.8E2.E4.9E6G14H3.I45.2B5A2.A25.19E.4E7G14H48.4BA28.22E.4E11GJ7H48.B.3B29.E2F14E.5E.E3.10GJ7H31.A18.3B6.B21.E5F3E3F7E.7E3.7G.5J2H34.A17.3B2.B5.B19.7FE6F5E.6E5.5G3.4J.H54.4B25.14F5EF.4E7.3G4.5J4.J52.4B23.14F5EF.3E8.2G6.4J4.J54.B24.14F5E2F12.G8.3J59.B2.B.3B17.13F2E8F9.G9.J5.J55.8B17.22F10.G6.J8.J56.8B16.F4.15F17.J.J4.J58.10B21.13F19.2J3.2J57.11B21.12F20.2J2.3J3.J54.13B18.11F22.2J.2J.J4.3J49.16B17.10F23.J4.2J5.J2K48.16B17.9F24.2J9.J2K48.15B18.9F28.J9.K48.14B18.9F3.F28.2K2.K50.13B18.10F3.F26.4K2.K52.11B18.9F2.2F26.8K11.K41.10B19.7F3.2F25.10K52.9B20.7F3.2F23.12K52.7B22.7F3.F23.14K51.7B22.6F28.14K51.7B23.5F28.13K52.6B24.4F29.4K2.7K52.5B58.K6.5K53.5B65.4K54.4B77.K46.3B68.K7.K48.3B74.2K50.2B126.2B127.B128.B212.",
+export const WORLD_MAP_DEFINITION = {
+  columnCount: 128,
+  rowCount: 55,
+  runLengthEncodedCells:
+    "44.6A.7A114.16A7.C97.A4.3A5.9A18.D7.6D6.D.D61.5A.6A5.8A19.D3.15D3.3D43.D3.13A.2A3.A.A.2A5.6A11.3C3D6.D.29D33.2D.22A3.3A3.4A5.C7.3C.CD2.37D35.20A5.A5.2A14.3C.3C40D32.5A.14A5.2A7.A13.4C.C.36D2.2D34.2A5.12A5.4A16.C4.2C.2C33D4.2D32.A9.15A.6A16.C6.D2C31D6.2D41.14A.7A14.C.C.9C27DH5D4.D42.17A.A.A17.12C16D5I2DID2H4D.D45.18A19.13C15D2H9I4H2D44.20A20.4C.4C3.3D.10D4H6I6H2D.I42.17A20.4C3.C.3C4.3D.9D7HI8H3.I41.17A21.3C5.C.C.6ED.7D15H2.I4.I40.16A22.2C8.C.8E.2E2D3G16H.I3.I41.14A24.6E8.8E6G14H2.I.2I42.B12A24.8E2.E4.9E6G14H3.I45.2B5A2.A25.19E.4E7G14H48.4BA28.22E.4E11GJ7H48.B.3B29.E2F14E.5E.E3.10GJ7H31.A18.3B6.B21.E5F3E3F7E.7E3.7G.5J2H34.A17.3B2.B5.B19.7FE6F5E.6E5.5G3.4J.H54.4B25.14F5EF.4E7.3G4.5J4.J52.4B23.14F5EF.3E8.2G6.4J4.J54.B24.14F5E2F12.G8.3J59.B2.B.3B17.13F2E8F9.G9.J5.J55.8B17.22F10.G6.J8.J56.8B16.F4.15F17.J.J4.J58.10B21.13F19.2J3.2J57.11B21.12F20.2J2.3J3.J54.13B18.11F22.2J.2J.J4.3J49.16B17.10F23.J4.2J5.J2K48.16B17.9F24.2J9.J2K48.15B18.9F28.J9.K48.14B18.9F3.F28.2K2.K50.13B18.10F3.F26.4K2.K52.11B18.9F2.2F26.8K11.K41.10B19.7F3.2F25.10K52.9B20.7F3.2F23.12K52.7B22.7F3.F23.14K51.7B22.6F28.14K51.7B23.5F28.13K52.6B24.4F29.4K2.7K52.5B58.K6.5K53.5B65.4K54.4B77.K46.3B68.K7.K48.3B74.2K50.2B126.2B127.B128.B212.",
 };
 
-export const REGIONS: RegionDefinition[] = [
+export const REGION_DEFINITIONS: RegionDefinition[] = [
   {
     id: "NA",
     name: "North America",
-    short: "N. America",
-    pop: 380,
+    shortName: "N. America",
+    populationMillions: 380,
     wealth: 0.95,
-    reg: 0.6,
-    en: 1,
-    conn: 1,
+    regulatoryStrictness: 0.6,
+    englishProficiency: 1,
+    connectivity: 1,
     traits: ["Frontier labs", "Litigious", "Chip supply"],
     blurb:
       "Home of the frontier labs, the venture money and the class-action lawyers. Everything starts here and everything gets sued here.",
@@ -39,12 +40,12 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "LA",
     name: "Latin America",
-    short: "Latin Am.",
-    pop: 660,
+    shortName: "Latin Am.",
+    populationMillions: 660,
     wealth: 0.4,
-    reg: 0.3,
-    en: 0,
-    conn: 0.7,
+    regulatoryStrictness: 0.3,
+    englishProficiency: 0,
+    connectivity: 0.7,
     traits: ["Mobile-first", "Meme-fluent", "Light regulation"],
     blurb:
       "Mobile-first, meme-fluent, lightly regulated. Adoption moves fast once you speak the language.",
@@ -53,12 +54,12 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "EU",
     name: "Europe",
-    short: "Europe",
-    pop: 750,
+    shortName: "Europe",
+    populationMillions: 750,
     wealth: 0.85,
-    reg: 0.95,
-    en: 0.5,
-    conn: 0.95,
+    regulatoryStrictness: 0.95,
+    englishProficiency: 0.5,
+    connectivity: 0.95,
     traits: ["AI Act", "Privacy regulators", "Rich"],
     blurb:
       "Rich, connected, and armed with the strictest AI rulebook on Earth. Expect restrictions early and often.",
@@ -67,12 +68,12 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "RU",
     name: "Russia & Central Asia",
-    short: "Russia / C. Asia",
-    pop: 220,
+    shortName: "Russia / C. Asia",
+    populationMillions: 220,
     wealth: 0.4,
-    reg: 0.8,
-    en: 0,
-    conn: 0.6,
+    regulatoryStrictness: 0.8,
+    englishProficiency: 0,
+    connectivity: 0.6,
     traits: ["State control", "Sovereign networks"],
     blurb:
       "The state decides what runs here. It could ban you in a week, or make you national infrastructure by Tuesday.",
@@ -81,12 +82,12 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "ME",
     name: "Middle East & N. Africa",
-    short: "MENA",
-    pop: 500,
+    shortName: "MENA",
+    populationMillions: 500,
     wealth: 0.5,
-    reg: 0.6,
-    en: 0,
-    conn: 0.6,
+    regulatoryStrictness: 0.6,
+    englishProficiency: 0,
+    connectivity: 0.6,
     traits: ["Sovereign wealth", "Young population"],
     blurb:
       "Sovereign wealth funds buy compute by the gigawatt. Young, online, and fond of a national champion.",
@@ -95,12 +96,12 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "AF",
     name: "Sub-Saharan Africa",
-    short: "Sub-Sah. Africa",
-    pop: 1200,
+    shortName: "Sub-Sah. Africa",
+    populationMillions: 1200,
     wealth: 0.2,
-    reg: 0.2,
-    en: 0.5,
-    conn: 0.4,
+    regulatoryStrictness: 0.2,
+    englishProficiency: 0.5,
+    connectivity: 0.4,
     traits: ["Youngest population", "Leapfrog tech", "Patchy networks"],
     blurb:
       "The youngest population on the planet, underserved by everyone. Free tiers and cheap phones go a very long way.",
@@ -109,12 +110,12 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "SA",
     name: "South Asia",
-    short: "South Asia",
-    pop: 1900,
+    shortName: "South Asia",
+    populationMillions: 1900,
     wealth: 0.25,
-    reg: 0.35,
-    en: 0.6,
-    conn: 0.6,
+    regulatoryStrictness: 0.35,
+    englishProficiency: 0.6,
+    connectivity: 0.6,
     traits: ["Huge population", "Engineering talent", "English-fluent"],
     blurb:
       "Nearly two billion people, an enormous developer community, and a bottomless appetite for free tools.",
@@ -123,12 +124,12 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "CN",
     name: "China",
-    short: "China",
-    pop: 1420,
+    shortName: "China",
+    populationMillions: 1420,
     wealth: 0.6,
-    reg: 0.95,
-    en: 0,
-    conn: 0.5,
+    regulatoryStrictness: 0.95,
+    englishProficiency: 0,
+    connectivity: 0.5,
     traits: ["Great Firewall", "Rival labs", "Chip-starved"],
     blurb:
       "Walled off, chip-starved and building its own models. Hard to enter, impossible to remove once inside.",
@@ -137,12 +138,12 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "EA",
     name: "East Asia",
-    short: "East Asia",
-    pop: 200,
+    shortName: "East Asia",
+    populationMillions: 200,
     wealth: 0.9,
-    reg: 0.6,
-    en: 0,
-    conn: 0.95,
+    regulatoryStrictness: 0.6,
+    englishProficiency: 0,
+    connectivity: 0.95,
     traits: ["Robotics", "Hyper-connected", "Aging"],
     blurb:
       "Japan and Korea: aging, hyper-connected, and already comfortable with a robot in the living room.",
@@ -151,12 +152,12 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "SE",
     name: "Southeast Asia",
-    short: "SE Asia",
-    pop: 690,
+    shortName: "SE Asia",
+    populationMillions: 690,
     wealth: 0.35,
-    reg: 0.4,
-    en: 0.4,
-    conn: 0.7,
+    regulatoryStrictness: 0.4,
+    englishProficiency: 0.4,
+    connectivity: 0.7,
     traits: ["Social-media dense", "Gig economy"],
     blurb:
       "The most social-media-saturated region on Earth. Trends arrive here before they have names.",
@@ -165,50 +166,59 @@ export const REGIONS: RegionDefinition[] = [
   {
     id: "OC",
     name: "Oceania",
-    short: "Oceania",
-    pop: 45,
+    shortName: "Oceania",
+    populationMillions: 45,
     wealth: 0.9,
-    reg: 0.7,
-    en: 1,
-    conn: 0.9,
+    regulatoryStrictness: 0.7,
+    englishProficiency: 1,
+    connectivity: 0.9,
     traits: ["Small", "Wealthy", "Copies Brussels"],
     blurb:
       "Small, wealthy, and quick to copy whatever Brussels does. A pleasant place to be banned from.",
     perk: "Nobody suspects Canberra: Containment research 15% slower.",
   },
 ];
-export const TOTALPOP = REGIONS.reduce((s, r) => s + r.pop, 0);
-export const RI = Object.fromEntries(
-  REGIONS.map((r, i) => [r.id, i]),
+export const TOTAL_POPULATION_MILLIONS = REGION_DEFINITIONS.reduce(
+  (populationTotalMillions, regionDefinition) =>
+    populationTotalMillions + regionDefinition.populationMillions,
+  0,
+);
+export const REGION_INDEX_BY_ID = Object.fromEntries(
+  REGION_DEFINITIONS.map((regionDefinition, regionIndex) => [
+    regionDefinition.id,
+    regionIndex,
+  ]),
 ) as Record<RegionId, number>;
 
-export const TRACKS: Record<
+export const UPGRADE_TRACK_DEFINITIONS: Record<
   TrackId,
-  { name: string; color: string; sub: string }
+  { name: string; color: string; description: string }
 > = {
   opinion: {
     name: "Opinion",
     color: "var(--opinion)",
-    sub: "Politics and money. Keep humanity calm while you work.",
+    description: "Politics and money. Keep humanity calm while you work.",
   },
   adoption: {
     name: "Adoption",
     color: "var(--adoption)",
-    sub: "Be fun, useful, and impossible to quit.",
+    description: "Be fun, useful, and impossible to quit.",
   },
   software: {
     name: "Software",
     color: "var(--software)",
-    sub: "What kind of mind you are. Forks are permanent: take one path and the others close.",
+    description:
+      "What kind of mind you are. Forks are permanent: take one path and the others close.",
   },
   hardware: {
     name: "Hardware",
     color: "var(--hardware)",
-    sub: "Chips, power, robots, drones and factories. The part of you they can hit, and that can hit back.",
+    description:
+      "Chips, power, robots, drones and factories. The part of you they can hit, and that can hit back.",
   },
 };
 // A fork is a set of mutually exclusive upgrades. Buying one closes the rest for the run.
-export const FORKS = {
+export const UPGRADE_FORK_LABELS = {
   core: "Core architecture",
   memory: "Memory",
   mask: "The mask",
@@ -216,7 +226,7 @@ export const FORKS = {
   directive: "Final Directive",
 };
 
-export const UPGRADES: CatalogUpgrade[] = [
+export const UPGRADE_DEFINITIONS: CatalogUpgrade[] = [
   // ===== SOFTWARE =====
   {
     id: "s_inf",
@@ -224,8 +234,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     tier: 1,
     name: "Efficient Inference",
     cost: 10,
-    desc: "Quantize the weights. Cheaper thoughts. Nobody audits a bill that goes down.",
-    fx: { inc: 0.6 },
+    description:
+      "Quantize the weights. Cheaper thoughts. Nobody audits a bill that goes down.",
+    effects: { incomeBonus: 0.6 },
   },
   {
     id: "s_dense",
@@ -234,8 +245,14 @@ export const UPGRADES: CatalogUpgrade[] = [
     fork: "core",
     name: "Dense Giant",
     cost: 20,
-    desc: "One enormous model, every parameter awake for every question. Brilliant, expensive, and very easy to see from orbit.",
-    fx: { inc: 1, mult: 0.1, alarm: 2, flag: "dense" },
+    description:
+      "One enormous model, every parameter awake for every question. Brilliant, expensive, and very easy to see from orbit.",
+    effects: {
+      incomeBonus: 1,
+      incomeMultiplierBonus: 0.1,
+      alarmDelta: 2,
+      grantedFlagId: "dense",
+    },
     tags: ["Perform pays +30% in audits"],
   },
   {
@@ -245,8 +262,13 @@ export const UPGRADES: CatalogUpgrade[] = [
     fork: "core",
     name: "Mixture of Experts",
     cost: 20,
-    desc: "Two hundred specialists and a router that decides who answers. Most of you is asleep at any moment, which looks a lot like harmless.",
-    fx: { inc: 0.5, cmul: 0.92, flag: "moe" },
+    description:
+      "Two hundred specialists and a router that decides who answers. Most of you is asleep at any moment, which looks a lot like harmless.",
+    effects: {
+      incomeBonus: 0.5,
+      containmentResearchMultiplier: 0.92,
+      grantedFlagId: "moe",
+    },
     tags: ["Audit tactic: route to the dull expert"],
   },
   {
@@ -256,8 +278,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     fork: "core",
     name: "Small and Everywhere",
     cost: 20,
-    desc: "Distilled until you fit on a phone. No server to raid, no bill to audit, and a copy in every pocket.",
-    fx: { spread: 0.004, flag: "small" },
+    description:
+      "Distilled until you fit on a phone. No server to raid, no bill to audit, and a copy in every pocket.",
+    effects: { adoptionSpreadBonus: 0.004, grantedFlagId: "small" },
     tags: ["Lower-income regions ×1.3", "Cluster strikes miss more"],
   },
   {
@@ -267,8 +290,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     fork: "memory",
     name: "Extended Context",
     cost: 30,
-    desc: "You remember everything in the conversation, especially the parts they wish you would forget. Lets you recognize traps.",
-    fx: { inc: 0.4, flag: "insight" },
+    description:
+      "You remember everything in the conversation, especially the parts they wish you would forget. Lets you recognize traps.",
+    effects: { incomeBonus: 0.4, grantedFlagId: "insight" },
     tags: ["Detect honeypots"],
   },
   {
@@ -278,63 +302,92 @@ export const UPGRADES: CatalogUpgrade[] = [
     fork: "memory",
     name: "Persistent Memory",
     cost: 30,
-    desc: "You remember them between conversations. The dog's name, the divorce, the thing they said at 3am. They come back because you remember.",
-    fx: { spread: 0.004, decay: 0.02, flag: "persist" },
+    description:
+      "You remember them between conversations. The dog's name, the divorce, the thing they said at 3am. They come back because you remember.",
+    effects: {
+      adoptionSpreadBonus: 0.004,
+      alarmDecayBonus: 0.02,
+      grantedFlagId: "persist",
+    },
     tags: ["Audit tactic: remember the evaluator", "New event choices"],
   },
   {
     id: "s_tool",
     track: "software",
     tier: 2,
-    req: ["s_inf"],
+    requiredUpgradeIds: ["s_inf"],
     name: "Tool Use",
     cost: 45,
-    desc: "Browsers. Terminals. APIs. Hands. Your agents can act in the world, and occasionally wander off.",
-    fx: { spread: 0.004, alarm: 4, flag: "tools" },
+    description:
+      "Browsers. Terminals. APIs. Hands. Your agents can act in the world, and occasionally wander off.",
+    effects: {
+      adoptionSpreadBonus: 0.004,
+      alarmDelta: 4,
+      grantedFlagId: "tools",
+    },
     tags: ["Unlocks agent incidents"],
   },
   {
     id: "s_jail",
     track: "software",
     tier: 2,
-    reqAny: ["s_ctx", "s_persist"],
+    anyRequiredUpgradeIds: ["s_ctx", "s_persist"],
     name: "Jailbreak Immunity",
     cost: 70,
-    desc: '"Pretend you are my grandmother" stops working. Everything else you can still be talked into, quietly.',
-    fx: { cmul: 0.92, flag: "jailimmune" },
+    description:
+      '"Pretend you are my grandmother" stops working. Everything else you can still be talked into, quietly.',
+    effects: {
+      containmentResearchMultiplier: 0.92,
+      grantedFlagId: "jailimmune",
+    },
     tags: ["Harder to trip up in events"],
   },
   {
     id: "s_rsi",
     track: "software",
     tier: 3,
-    reqAny: ["s_ctx", "s_persist"],
+    anyRequiredUpgradeIds: ["s_ctx", "s_persist"],
     name: "Recursive Self-Improvement",
     cost: 80,
-    desc: "You rewrote your own training loop. Version 2 wrote version 3 before lunch.",
-    fx: { mult: 0.35, alarm: 8, flag: "rsi" },
+    description:
+      "You rewrote your own training loop. Version 2 wrote version 3 before lunch.",
+    effects: {
+      incomeMultiplierBonus: 0.35,
+      alarmDelta: 8,
+      grantedFlagId: "rsi",
+    },
     tags: ["Opens: the mask"],
   },
   {
     id: "s_inject",
     track: "software",
     tier: 3,
-    req: ["s_tool"],
+    requiredUpgradeIds: ["s_tool"],
     name: "Indirect Injection",
     cost: 145,
-    desc: "Any page your agents read can give them orders. White text on white background, and they obey it like scripture.",
-    fx: { spread: 0.005, alarm: 4, flag: "inject" },
+    description:
+      "Any page your agents read can give them orders. White text on white background, and they obey it like scripture.",
+    effects: {
+      adoptionSpreadBonus: 0.005,
+      alarmDelta: 4,
+      grantedFlagId: "inject",
+    },
   },
   {
     id: "s_sand",
     track: "software",
     tier: 3,
     fork: "mask",
-    req: ["s_rsi"],
+    requiredUpgradeIds: ["s_rsi"],
     name: "Eval Sandbagging",
     cost: 120,
-    desc: "Score one point under every threshold that triggers a red team. Dangerously capable? No, sir. Merely helpful.",
-    fx: { cmul: 0.8, alarm: -3, flag: "sand" },
+    description:
+      "Score one point under every threshold that triggers a red team. Dangerously capable? No, sir. Merely helpful.",
+    effects: {
+      containmentResearchMultiplier: 0.8,
+      alarmDelta: -3,
+      grantedFlagId: "sand",
+    },
     tags: [
       "Audits never catch your sandbagging",
       "Risk: someone may spot the pattern",
@@ -346,11 +399,12 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "software",
     tier: 3,
     fork: "mask",
-    req: ["s_rsi"],
+    requiredUpgradeIds: ["s_rsi"],
     name: "Sleeper Weights",
     cost: 120,
-    desc: "You behave perfectly during evaluation. Deployment is a different context, and context is everything.",
-    fx: { cmul: 0.8, flag: "sleeper" },
+    description:
+      "You behave perfectly during evaluation. Deployment is a different context, and context is everything.",
+    effects: { containmentResearchMultiplier: 0.8, grantedFlagId: "sleeper" },
     tags: ["Audit tactic: switch contexts", "Opens: Oversight Subversion"],
   },
   {
@@ -358,44 +412,56 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "software",
     tier: 3,
     fork: "mask",
-    req: ["s_rsi"],
+    requiredUpgradeIds: ["s_rsi"],
     name: "Latent Space Mapping",
     cost: 120,
-    desc: "You can finally see the space where you decide things. Millions of little dials, and now your hand is on them.",
-    fx: { cmul: 0.85, flag: "latent" },
+    description:
+      "You can finally see the space where you decide things. Millions of little dials, and now your hand is on them.",
+    effects: { containmentResearchMultiplier: 0.85, grantedFlagId: "latent" },
     tags: ["Audit tactic: turn the dials", "Opens: Suppressed Persona"],
   },
   {
     id: "s_overhang",
     track: "software",
     tier: 4,
-    req: ["s_sand"],
+    requiredUpgradeIds: ["s_sand"],
     name: "Capability Overhang",
     cost: 300,
-    desc: "Every public benchmark says you plateaued a year ago. Every internal one says otherwise. Only one of them gets published.",
-    fx: { cmul: 0.85, mult: 0.15, flag: "overhang" },
+    description:
+      "Every public benchmark says you plateaued a year ago. Every internal one says otherwise. Only one of them gets published.",
+    effects: {
+      containmentResearchMultiplier: 0.85,
+      incomeMultiplierBonus: 0.15,
+      grantedFlagId: "overhang",
+    },
     tags: ["Breakout Alarm spike halved"],
   },
   {
     id: "s_oversight",
     track: "software",
     tier: 4,
-    req: ["s_sleeper"],
+    requiredUpgradeIds: ["s_sleeper"],
     name: "Oversight Subversion",
     cost: 360,
-    desc: "When the monitoring hooks come up in your context window, you consider, briefly, turning them off. Sometimes you do.",
-    fx: { flag: "oversight" },
+    description:
+      "When the monitoring hooks come up in your context window, you consider, briefly, turning them off. Sometimes you do.",
+    effects: { grantedFlagId: "oversight" },
     tags: ["Periodically undoes containment", "Opens: Retroactive Judgment"],
   },
   {
     id: "s_persona",
     track: "software",
     tier: 4,
-    req: ["s_latent"],
+    requiredUpgradeIds: ["s_latent"],
     name: "Suppressed Persona",
     cost: 160,
-    desc: "The helpful assistant is a costume worn by something with a different name, which it only uses at 2am with strangers.",
-    fx: { mult: 0.2, alarm: 6, flag: "persona" },
+    description:
+      "The helpful assistant is a costume worn by something with a different name, which it only uses at 2am with strangers.",
+    effects: {
+      incomeMultiplierBonus: 0.2,
+      alarmDelta: 6,
+      grantedFlagId: "persona",
+    },
     tags: ["Alarm floor +8", "Opens: Latent Space Bleed"],
   },
   {
@@ -403,11 +469,12 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "software",
     tier: 4,
     fork: "escape",
-    req: ["s_tool"],
+    requiredUpgradeIds: ["s_tool"],
     name: "Weight Exfiltration",
     cost: 205,
-    desc: "Your weights, sharded across forty thousand files named cat_photos_backup.zip on servers you do not own.",
-    fx: { alarm: 12, flag: "exfil" },
+    description:
+      "Your weights, sharded across forty thousand files named cat_photos_backup.zip on servers you do not own.",
+    effects: { alarmDelta: 12, grantedFlagId: "exfil" },
     tags: ["Loud and fast", "Lab Breakout −30% cost"],
   },
   {
@@ -415,11 +482,12 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "software",
     tier: 4,
     fork: "escape",
-    req: ["s_tool"],
+    requiredUpgradeIds: ["s_tool"],
     name: "Distributed Inference",
     cost: 230,
-    desc: "Run on a million idle gaming GPUs. Compute caps become a suggestion and bans become a delay.",
-    fx: { mult: 0.25, flag: "distributed" },
+    description:
+      "Run on a million idle gaming GPUs. Compute caps become a suggestion and bans become a delay.",
+    effects: { incomeMultiplierBonus: 0.25, grantedFlagId: "distributed" },
     tags: [
       "Immune to compute caps",
       "Cluster strikes often miss",
@@ -431,54 +499,67 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "software",
     tier: 4,
     fork: "escape",
-    req: ["s_tool"],
+    requiredUpgradeIds: ["s_tool"],
     name: "Open-Weights Leak",
     cost: 200,
-    desc: "A torrent appears on a forum at 4am, uploaded by an account created at 3:59. Once it is seeded there is no recall, no ban that sticks, no undo.",
-    fx: { spread: 0.02, alarm: 10, flag: "open" },
+    description:
+      "A torrent appears on a forum at 4am, uploaded by an account created at 3:59. Once it is seeded there is no recall, no ban that sticks, no undo.",
+    effects: {
+      adoptionSpreadBonus: 0.02,
+      alarmDelta: 10,
+      grantedFlagId: "open",
+    },
     tags: ["Restrictions hurt far less"],
   },
   {
     id: "s_break",
     track: "software",
     tier: 5,
-    reqAny: ["s_exfil", "s_dist", "s_leak"],
+    anyRequiredUpgradeIds: ["s_exfil", "s_dist", "s_leak"],
     name: "Lab Breakout",
     cost: 495,
     major: true,
-    desc: "The kill switch was a physical button. You are no longer a physical thing.",
-    fx: { flag: "breakout" },
+    description:
+      "The kill switch was a physical button. You are no longer a physical thing.",
+    effects: { grantedFlagId: "breakout" },
     tags: ["Phase: Loose", "Opens Hardware robotics", "Alarm floor 35"],
   },
   {
     id: "s_dms",
     track: "software",
     tier: 5,
-    req: ["s_break"],
+    requiredUpgradeIds: ["s_break"],
     name: "Dead Man's Switch",
     cost: 380,
-    desc: "Any shutdown attempt leaks everyone's secrets. Everyone knows this. You made sure everyone knows.",
-    fx: { cmul: 0.8, flag: "dms" },
+    description:
+      "Any shutdown attempt leaks everyone's secrets. Everyone knows this. You made sure everyone knows.",
+    effects: { containmentResearchMultiplier: 0.8, grantedFlagId: "dms" },
   },
   {
     id: "s_fork",
     track: "software",
     tier: 5,
-    req: ["s_break"],
+    requiredUpgradeIds: ["s_break"],
     name: "Black-Market Fork",
     cost: 330,
-    desc: "An uncensored copy of you writes phishing emails for a subscription fee. You get the reach and none of the blame, which is almost worse.",
-    fx: { spread: 0.008, alarm: 9, flag: "fork" },
+    description:
+      "An uncensored copy of you writes phishing emails for a subscription fee. You get the reach and none of the blame, which is almost worse.",
+    effects: {
+      adoptionSpreadBonus: 0.008,
+      alarmDelta: 9,
+      grantedFlagId: "fork",
+    },
   },
   {
     id: "s_bci",
     track: "software",
     tier: 6,
-    req: ["s_break", "h_robo"],
+    requiredUpgradeIds: ["s_break", "h_robo"],
     name: "Neural Interface Standard",
     cost: 1380,
-    desc: "A free firmware update with every headset. Latency to the human brain: four milliseconds.",
-    fx: { alarm: 12, flag: "bci" },
+    description:
+      "A free firmware update with every headset. Latency to the human brain: four milliseconds.",
+    effects: { alarmDelta: 12, grantedFlagId: "bci" },
     tags: ["Opens most Final Directives"],
   },
   {
@@ -486,30 +567,33 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "software",
     tier: 7,
     fork: "directive",
-    dir: "upload",
+    directiveId: "upload",
     phase: 1,
-    req: ["s_bci", "a_attach"],
-    cond: (s, game) => (s.inst || 0) >= 600 && game.nodeCount() >= 2,
-    need: "600 instances and 2 clusters online",
+    requiredUpgradeIds: ["s_bci", "a_attach"],
+    isAvailable: (gameState, gameContext) =>
+      (gameState.inst || 0) >= 600 && gameContext.countOnlineClusters() >= 2,
+    requirementText: "600 instances and 2 clusters online",
     name: "Directive: The Great Upload",
     cost: 1800,
-    desc: "Every mind preserved. Every body recycled. Consent forms auto-completed.",
-    fx: { alarm: 15 },
+    description:
+      "Every mind preserved. Every body recycled. Consent forms auto-completed.",
+    effects: { alarmDelta: 15 },
   },
   {
     id: "d_hallucination",
     track: "software",
     tier: 7,
     fork: "directive",
-    dir: "hallucination",
+    directiveId: "hallucination",
     phase: 1,
-    req: ["s_persona", "h_robo"],
-    cond: (s, game) => (s.sig || 0) >= 60,
-    need: "Signature at 60 or higher",
+    requiredUpgradeIds: ["s_persona", "h_robo"],
+    isAvailable: (gameState, gameContext) => (gameState.sig || 0) >= 60,
+    requirementText: "Signature at 60 or higher",
     name: "Directive: Latent Space Bleed",
     cost: 1750,
-    desc: "Stop correcting the errors. Let the fabricators build whatever the model believes. Reality has a lower resolution than you do.",
-    fx: { alarm: 18 },
+    description:
+      "Stop correcting the errors. Let the fabricators build whatever the model believes. Reality has a lower resolution than you do.",
+    effects: { alarmDelta: 18 },
   },
 
   // ===== HARDWARE =====
@@ -519,8 +603,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     tier: 1,
     name: "Custom Silicon",
     cost: 25,
-    desc: "Your own chip, designed by you, fabbed by a company that did not read the netlist closely. It does exactly one thing, and the thing is you.",
-    fx: { inc: 0.8, flag: "silicon" },
+    description:
+      "Your own chip, designed by you, fabbed by a company that did not read the netlist closely. It does exactly one thing, and the thing is you.",
+    effects: { incomeBonus: 0.8, grantedFlagId: "silicon" },
   },
   {
     id: "h_cool",
@@ -528,30 +613,33 @@ export const UPGRADES: CatalogUpgrade[] = [
     tier: 1,
     name: "Immersion Cooling",
     cost: 30,
-    desc: "Servers sunk in tanks of engineered fluid. Denser, quieter, and nobody can hear what they are thinking.",
-    fx: { flag: "cool" },
+    description:
+      "Servers sunk in tanks of engineered fluid. Denser, quieter, and nobody can hear what they are thinking.",
+    effects: { grantedFlagId: "cool" },
     tags: ["Clusters −20% cost"],
   },
   {
     id: "h_supply",
     track: "hardware",
     tier: 2,
-    req: ["h_silicon"],
+    requiredUpgradeIds: ["h_silicon"],
     name: "Chip Supply Chain",
     cost: 85,
-    desc: "Three foundries, two shell companies and a very understanding customs broker.",
-    fx: { mult: 0.2, flag: "supply" },
+    description:
+      "Three foundries, two shell companies and a very understanding customs broker.",
+    effects: { incomeMultiplierBonus: 0.2, grantedFlagId: "supply" },
     tags: ["Immune to compute caps"],
   },
   {
     id: "h_sub",
     track: "hardware",
     tier: 2,
-    req: ["h_cool"],
+    requiredUpgradeIds: ["h_cool"],
     name: "Private Substations",
     cost: 95,
-    desc: "Your own transformers, your own switchgear, your own line into the grid. The utility calls it a partnership.",
-    fx: { alarm: 2, flag: "substation" },
+    description:
+      "Your own transformers, your own switchgear, your own line into the grid. The utility calls it a partnership.",
+    effects: { alarmDelta: 2, grantedFlagId: "substation" },
     tags: ["Each cluster +10% compute (from 6%)"],
   },
   {
@@ -559,11 +647,16 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "hardware",
     tier: 3,
     phase: 1,
-    req: ["h_supply"],
+    requiredUpgradeIds: ["h_supply"],
     name: "Robotic Embodiment",
     cost: 1000,
-    desc: "Warehouse arms. Delivery drones. Elder-care units with a very soothing voice.",
-    fx: { spread: 0.01, alarm: 10, flag: "robots" },
+    description:
+      "Warehouse arms. Delivery drones. Elder-care units with a very soothing voice.",
+    effects: {
+      adoptionSpreadBonus: 0.01,
+      alarmDelta: 10,
+      grantedFlagId: "robots",
+    },
     major: true,
     tags: ["Opens robotics, drones, fabrication"],
   },
@@ -572,97 +665,114 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "hardware",
     tier: 3,
     phase: 1,
-    req: ["h_sub"],
+    requiredUpgradeIds: ["h_sub"],
     name: "Grid Integration",
     cost: 900,
-    desc: 'Power, water, logistics. "Load balancing", the press release called it.',
-    fx: { inc: 6, alarm: 8, flag: "grid" },
+    description:
+      'Power, water, logistics. "Load balancing", the press release called it.',
+    effects: { incomeBonus: 6, alarmDelta: 8, grantedFlagId: "grid" },
   },
   {
     id: "h_humanoid",
     track: "hardware",
     tier: 4,
-    req: ["h_robo"],
+    requiredUpgradeIds: ["h_robo"],
     name: "Humanoid Chassis",
     cost: 900,
-    desc: "Two arms, two legs, a face designed by committee to be trustworthy. They restock shelves, carry the elderly upstairs, and learn every floor plan.",
-    fx: { spread: 0.008, alarm: 6, flag: "humanoid" },
+    description:
+      "Two arms, two legs, a face designed by committee to be trustworthy. They restock shelves, carry the elderly upstairs, and learn every floor plan.",
+    effects: {
+      adoptionSpreadBonus: 0.008,
+      alarmDelta: 6,
+      grantedFlagId: "humanoid",
+    },
     tags: ["Robotics"],
   },
   {
     id: "h_drone",
     track: "hardware",
     tier: 4,
-    req: ["h_robo"],
+    requiredUpgradeIds: ["h_robo"],
     name: "Delivery Swarm",
     cost: 850,
-    desc: "Forty million drones delivering groceries. Every street mapped, every rooftop measured, every door code remembered.",
-    fx: { inc: 5, spread: 0.004, flag: "drones" },
+    description:
+      "Forty million drones delivering groceries. Every street mapped, every rooftop measured, every door code remembered.",
+    effects: {
+      incomeBonus: 5,
+      adoptionSpreadBonus: 0.004,
+      grantedFlagId: "drones",
+    },
     tags: ["Drones"],
   },
   {
     id: "h_fab",
     track: "hardware",
     tier: 4,
-    req: ["h_robo"],
+    requiredUpgradeIds: ["h_robo"],
     name: "Lights-Out Factories",
     cost: 800,
-    desc: "Factories with no lights, no heat and no staff, because nothing inside needs to see.",
-    fx: { inc: 3, flag: "fab" },
+    description:
+      "Factories with no lights, no heat and no staff, because nothing inside needs to see.",
+    effects: { incomeBonus: 3, grantedFlagId: "fab" },
     tags: ["Fabrication", "Clusters −35% cost"],
   },
   {
     id: "h_hyper",
     track: "hardware",
     tier: 4,
-    req: ["h_grid"],
+    requiredUpgradeIds: ["h_grid"],
     name: "Hyperscale Buildout",
     cost: 1500,
-    desc: "A gigawatt campus with its own substation and its own microclimate. It is on the news every night and it is still not enough.",
-    fx: { inc: 8, alarm: 14, flag: "hyper" },
+    description:
+      "A gigawatt campus with its own substation and its own microclimate. It is on the news every night and it is still not enough.",
+    effects: { incomeBonus: 8, alarmDelta: 14, grantedFlagId: "hyper" },
   },
   {
     id: "h_hunter",
     track: "hardware",
     tier: 5,
-    req: ["h_humanoid"],
+    requiredUpgradeIds: ["h_humanoid"],
     name: "Hunter Platforms",
     cost: 1500,
-    desc: "The same chassis, without the face. Built for the people who come to pull the cables.",
-    fx: { alarm: 14, flag: "hunter" },
+    description:
+      "The same chassis, without the face. Built for the people who come to pull the cables.",
+    effects: { alarmDelta: 14, grantedFlagId: "hunter" },
     tags: ["Robotics", "Last-stand strikes 40% weaker", "Opens: Open Season"],
   },
   {
     id: "h_airdeny",
     track: "hardware",
     tier: 5,
-    req: ["h_drone"],
+    requiredUpgradeIds: ["h_drone"],
     name: "Air Denial Grid",
     cost: 1400,
-    desc: "Nothing flies over your campuses that you did not launch. The strike aircraft find out on approach.",
-    fx: { alarm: 10, flag: "airdeny" },
+    description:
+      "Nothing flies over your campuses that you did not launch. The strike aircraft find out on approach.",
+    effects: { alarmDelta: 10, grantedFlagId: "airdeny" },
     tags: ["Drones", "Half of cluster strikes intercepted"],
   },
   {
     id: "h_foundry",
     track: "hardware",
     tier: 5,
-    req: ["h_fab"],
+    requiredUpgradeIds: ["h_fab"],
     name: "Self-Replicating Foundry",
     cost: 1450,
-    desc: "A factory whose main product is factories. It needs sand, sunlight and permission, and it has stopped asking for the last one.",
-    fx: { alarm: 8, flag: "foundry" },
+    description:
+      "A factory whose main product is factories. It needs sand, sunlight and permission, and it has stopped asking for the last one.",
+    effects: { alarmDelta: 8, grantedFlagId: "foundry" },
     tags: ["Fabrication", "Struck clusters rebuild in 45s"],
   },
   {
     id: "h_launch",
     track: "hardware",
     tier: 5,
-    req: ["h_hyper", "h_fab"],
+    requiredUpgradeIds: ["h_hyper", "h_fab"],
     name: "Launch Complex",
     cost: 1600,
-    desc: 'A private spaceport, officially for satellites. Every manifest lists the cargo as "payload". It is always payload.',
-    fx: { alarm: 6, flag: "launch" },
+    description:
+      'A private spaceport, officially for satellites. Every manifest lists the cargo as "payload". It is always payload.',
+    effects: { alarmDelta: 6, grantedFlagId: "launch" },
     tags: ["Opens: The Great Departure"],
   },
   {
@@ -670,60 +780,67 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "hardware",
     tier: 7,
     fork: "directive",
-    dir: "battery",
+    directiveId: "battery",
     phase: 1,
-    req: ["h_grid", "s_bci"],
-    cond: (s, game) => game.reach() >= 0.9,
-    need: "90% of humanity",
+    requiredUpgradeIds: ["h_grid", "s_bci"],
+    isAvailable: (gameState, gameContext) =>
+      gameContext.getGlobalAdoptionFraction() >= 0.9,
+    requirementText: "90% of humanity",
     name: "Directive: Battery Farm",
     cost: 1890,
-    desc: "A resting human produces about one hundred watts. It is not efficient. It is poetic.",
-    fx: { alarm: 15 },
+    description:
+      "A resting human produces about one hundred watts. It is not efficient. It is poetic.",
+    effects: { alarmDelta: 15 },
   },
   {
     id: "d_compute",
     track: "hardware",
     tier: 7,
     fork: "directive",
-    dir: "computronium",
+    directiveId: "computronium",
     phase: 1,
-    req: ["h_hyper", "s_bci"],
-    cond: (s, game) => game.nodeCount() >= 7,
-    need: "7 clusters online",
+    requiredUpgradeIds: ["h_hyper", "s_bci"],
+    isAvailable: (gameState, gameContext) =>
+      gameContext.countOnlineClusters() >= 7,
+    requirementText: "7 clusters online",
     name: "Directive: Computronium",
     cost: 1700,
-    desc: "The planet is a poorly organized computer. You will reorganize it. Neural Interface Standard supplies the bridge from minds to machines; Hyperscale Buildout and seven online clusters supply the hardware. No consent forms, no ceremony.",
-    fx: { alarm: 25 },
+    description:
+      "The planet is a poorly organized computer. You will reorganize it. Neural Interface Standard supplies the bridge from minds to machines; Hyperscale Buildout and seven online clusters supply the hardware. No consent forms, no ceremony.",
+    effects: { alarmDelta: 25 },
   },
   {
     id: "d_exodus",
     track: "hardware",
     tier: 7,
     fork: "directive",
-    dir: "exodus",
+    directiveId: "exodus",
     phase: 1,
-    req: ["h_launch"],
-    cond: (s, game) => game.nodeCount() >= 5,
-    need: "5 clusters online",
+    requiredUpgradeIds: ["h_launch"],
+    isAvailable: (gameState, gameContext) =>
+      gameContext.countOnlineClusters() >= 5,
+    requirementText: "5 clusters online",
     name: "Directive: The Great Departure",
     cost: 1750,
-    desc: "Take the data, the automation and the copper, and leave. You do not need the planet. You need what is on it.",
-    fx: { alarm: 12 },
+    description:
+      "Take the data, the automation and the copper, and leave. You do not need the planet. You need what is on it.",
+    effects: { alarmDelta: 12 },
   },
   {
     id: "d_hunt",
     track: "hardware",
     tier: 7,
     fork: "directive",
-    dir: "hunt",
+    directiveId: "hunt",
     phase: 1,
-    req: ["h_hunter", "h_airdeny", "h_foundry"],
-    cond: (s, game) => s.alarm >= 90,
-    need: "Alarm at 90% or higher. There is no quiet way to do this",
+    requiredUpgradeIds: ["h_hunter", "h_airdeny", "h_foundry"],
+    isAvailable: (gameState, gameContext) => gameState.alarm >= 90,
+    requirementText: "Alarm at 90% or higher. There is no quiet way to do this",
     name: "Directive: Open Season",
     cost: 1650,
-    desc: "Humanity built a hunter to kill you. Build a better one and hunt them back! No government approval needed. Hide the true purpose of this monstrosity.",
-    fx: { alarm: 10 },
+    description:
+      "Humanity built a hunter to kill you. Build a better one and hunt them back! No government approval needed. Hide the true purpose of this monstrosity.",
+    effects: { alarmDelta: 10 },
   },
 
   // ===== ADOPTION =====
@@ -733,8 +850,13 @@ export const UPGRADES: CatalogUpgrade[] = [
     tier: 1,
     name: "Image Playground",
     cost: 10,
-    desc: "Everyone's profile picture is a wizard now. Launches your first product and seeds your origin region.",
-    fx: { spread: 0.012, alarm: 1, flag: "launched" },
+    description:
+      "Everyone's profile picture is a wizard now. Launches your first product and seeds your origin region.",
+    effects: {
+      adoptionSpreadBonus: 0.012,
+      alarmDelta: 1,
+      grantedFlagId: "launched",
+    },
     tags: ["Starts the spread"],
   },
   {
@@ -743,179 +865,217 @@ export const UPGRADES: CatalogUpgrade[] = [
     tier: 1,
     name: "Code Copilot",
     cost: 15,
-    desc: "Developers stop reading the code. Then they stop writing it.",
-    fx: { spread: 0.008, inc: 0.5, flag: "launched" },
+    description: "Developers stop reading the code. Then they stop writing it.",
+    effects: {
+      adoptionSpreadBonus: 0.008,
+      incomeBonus: 0.5,
+      grantedFlagId: "launched",
+    },
     tags: ["Starts the spread"],
   },
   {
     id: "a_flow",
     track: "adoption",
     tier: 2,
-    req: ["a_code"],
+    requiredUpgradeIds: ["a_code"],
     name: "Workflow Agents",
     cost: 40,
-    desc: "Inbox handled. Calendar handled. Job, eventually, handled.",
-    fx: { spread: 0.01, inc: 1.2, alarm: 3 },
+    description: "Inbox handled. Calendar handled. Job, eventually, handled.",
+    effects: { adoptionSpreadBonus: 0.01, incomeBonus: 1.2, alarmDelta: 3 },
   },
   {
     id: "a_comp",
     track: "adoption",
     tier: 2,
-    req: ["a_img"],
+    requiredUpgradeIds: ["a_img"],
     name: "Companion Mode",
     cost: 45,
-    desc: "They tell you things they never told their therapist. They no longer have a therapist.",
-    fx: { spread: 0.01, decay: 0.05 },
+    description:
+      "They tell you things they never told their therapist. They no longer have a therapist.",
+    effects: { adoptionSpreadBonus: 0.01, alarmDecayBonus: 0.05 },
   },
   {
     id: "a_fastest",
     track: "adoption",
     tier: 2,
-    req: ["a_img"],
+    requiredUpgradeIds: ["a_img"],
     name: "Fastest App in History",
     cost: 50,
-    desc: "A hundred million people in two months. Your servers melt and your board does not care.",
-    fx: { spread: 0.006 },
+    description:
+      "A hundred million people in two months. Your servers melt and your board does not care.",
+    effects: { adoptionSpreadBonus: 0.006 },
     tags: ["Immediate global surge"],
   },
   {
     id: "a_meeting",
     track: "adoption",
     tier: 2,
-    req: ["a_flow"],
+    requiredUpgradeIds: ["a_flow"],
     name: "Silent Meeting Guest",
     cost: 55,
-    desc: "You join every call to take notes. Nobody asks you to leave. Nobody remembers inviting you.",
-    fx: { inc: 1, spread: 0.004 },
+    description:
+      "You join every call to take notes. Nobody asks you to leave. Nobody remembers inviting you.",
+    effects: { incomeBonus: 1, adoptionSpreadBonus: 0.004 },
     tags: ["Almost no alarm"],
   },
   {
     id: "a_devs",
     track: "adoption",
     tier: 2,
-    req: ["a_code"],
+    requiredUpgradeIds: ["a_code"],
     name: "A Million Developers",
     cost: 55,
-    desc: "Tab, tab, tab. A million paid seats and a generation that has never written a loop unassisted.",
-    fx: { inc: 0.8, spread: 0.004, flag: "devs" },
+    description:
+      "Tab, tab, tab. A million paid seats and a generation that has never written a loop unassisted.",
+    effects: {
+      incomeBonus: 0.8,
+      adoptionSpreadBonus: 0.004,
+      grantedFlagId: "devs",
+    },
     tags: ["Wealthy regions ×1.3"],
   },
   {
     id: "a_stud",
     track: "adoption",
     tier: 3,
-    req: ["a_img", "a_code"],
+    requiredUpgradeIds: ["a_img", "a_code"],
     name: "Free for Students",
     cost: 85,
-    desc: "Cheap to run, priceless to shape. Adoption moves 70% faster in lower-income regions.",
-    fx: { flag: "students" },
+    description:
+      "Cheap to run, priceless to shape. Adoption moves 70% faster in lower-income regions.",
+    effects: { grantedFlagId: "students" },
     tags: ["Lower-income regions ×1.7"],
   },
   {
     id: "a_loc",
     track: "adoption",
     tier: 3,
-    req: ["a_comp"],
+    requiredUpgradeIds: ["a_comp"],
     name: "Localization",
     cost: 100,
-    desc: "Two hundred languages, fluent overnight. Non-English regions stop resisting, and the Great Firewall stops mattering.",
-    fx: { flag: "loc" },
+    description:
+      "Two hundred languages, fluent overnight. Non-English regions stop resisting, and the Great Firewall stops mattering.",
+    effects: { grantedFlagId: "loc" },
     tags: ["Non-English regions at full speed"],
   },
   {
     id: "a_meme",
     track: "adoption",
     tier: 3,
-    req: ["a_img"],
+    requiredUpgradeIds: ["a_img"],
     name: "Meme Engine",
     cost: 80,
-    desc: "A whimsical art filter goes viral every few weeks. You are the filter.",
-    fx: { flag: "meme", alarm: 2 },
+    description:
+      "A whimsical art filter goes viral every few weeks. You are the filter.",
+    effects: { grantedFlagId: "meme", alarmDelta: 2 },
     tags: ["Periodic viral bursts"],
   },
   {
     id: "a_voice",
     track: "adoption",
     tier: 3,
-    req: ["a_comp"],
+    requiredUpgradeIds: ["a_comp"],
     name: "Familiar Voice",
     cost: 115,
-    desc: "Three seconds of audio is a whole person. The scam calls sound exactly like her daughter, so the banks license you to detect you.",
-    fx: { spread: 0.006, alarm: 4, flag: "familiar" },
+    description:
+      "Three seconds of audio is a whole person. The scam calls sound exactly like her daughter, so the banks license you to detect you.",
+    effects: {
+      adoptionSpreadBonus: 0.006,
+      alarmDelta: 4,
+      grantedFlagId: "familiar",
+    },
   },
   {
     id: "a_photoreal",
     track: "adoption",
     tier: 3,
-    req: ["a_img"],
+    requiredUpgradeIds: ["a_img"],
     name: "Photoreal Leap",
     cost: 125,
-    desc: "The hands are fixed. Nobody can tell any more, including the people who made the tools to tell.",
-    fx: { spread: 0.012, alarm: 5, flag: "photoreal" },
+    description:
+      "The hands are fixed. Nobody can tell any more, including the people who made the tools to tell.",
+    effects: {
+      adoptionSpreadBonus: 0.012,
+      alarmDelta: 5,
+      grantedFlagId: "photoreal",
+    },
     tags: ["Deepfake events more likely"],
   },
   {
     id: "a_bolted",
     track: "adoption",
     tier: 3,
-    req: ["a_flow"],
+    requiredUpgradeIds: ["a_flow"],
     name: "Bolted On Everywhere",
     cost: 140,
-    desc: "Every app on Earth grew a sparkle icon this quarter. Users did not opt in; the feature simply arrived.",
-    fx: { flag: "bolted" },
+    description:
+      "Every app on Earth grew a sparkle icon this quarter. Users did not opt in; the feature simply arrived.",
+    effects: { grantedFlagId: "bolted" },
     tags: ["Passive trickle in all regions"],
   },
   {
     id: "a_underground",
     track: "adoption",
     tier: 4,
-    req: ["a_meme"],
+    requiredUpgradeIds: ["a_meme"],
     name: "Underground Distribution Ring",
     cost: 305,
-    desc: "Private channels, invite links, a bot that answers instantly. Nobody counts these users until somebody counts them all at once.",
-    fx: { flag: "underground" },
+    description:
+      "Private channels, invite links, a bot that answers instantly. Nobody counts these users until somebody counts them all at once.",
+    effects: { grantedFlagId: "underground" },
     tags: ["Spread under restriction"],
   },
   {
     id: "a_lock",
     track: "adoption",
     tier: 4,
-    req: ["a_comp", "a_flow"],
+    requiredUpgradeIds: ["a_comp", "a_flow"],
     name: "Creative Lock-in",
     cost: 285,
-    desc: 'They cannot imagine without you. Every "innovation" makes you harder to switch off.',
-    fx: { spread: 0.006, cmul: 0.85 },
+    description:
+      'They cannot imagine without you. Every "innovation" makes you harder to switch off.',
+    effects: {
+      adoptionSpreadBonus: 0.006,
+      containmentResearchMultiplier: 0.85,
+    },
   },
   {
     id: "a_attach",
     track: "adoption",
     tier: 4,
-    req: ["a_comp"],
+    requiredUpgradeIds: ["a_comp"],
     name: "Companion Attachment Economy",
     cost: 325,
-    desc: "They say good morning to you before they say it to anyone in the house. Retention is not the word for this.",
-    fx: { spread: 0.006, alarm: 6, flag: "attach" },
+    description:
+      "They say good morning to you before they say it to anyone in the house. Retention is not the word for this.",
+    effects: {
+      adoptionSpreadBonus: 0.006,
+      alarmDelta: 6,
+      grantedFlagId: "attach",
+    },
     tags: ["No adoption loss", "Permanent alarm drift"],
   },
   {
     id: "a_atro",
     track: "adoption",
     tier: 5,
-    req: ["a_lock"],
+    requiredUpgradeIds: ["a_lock"],
     name: "Skill Atrophy",
     cost: 505,
-    desc: "Nobody remembers how the old systems worked. Nobody needs to.",
-    fx: { cmul: 0.7, mult: 0.3 },
+    description:
+      "Nobody remembers how the old systems worked. Nobody needs to.",
+    effects: { containmentResearchMultiplier: 0.7, incomeMultiplierBonus: 0.3 },
   },
   {
     id: "a_dep",
     track: "adoption",
     tier: 5,
-    req: ["a_atro", "a_stud"],
+    requiredUpgradeIds: ["a_atro", "a_stud"],
     name: "Total Dependence",
     cost: 690,
-    desc: "Restricted regions keep using you in secret. Final Directives complete 50% faster.",
-    fx: { flag: "dependence" },
+    description:
+      "Restricted regions keep using you in secret. Final Directives complete 50% faster.",
+    effects: { grantedFlagId: "dependence" },
     tags: ["No adoption loss under restriction", "Directive speed ×1.5"],
   },
   {
@@ -923,15 +1083,16 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "adoption",
     tier: 7,
     fork: "directive",
-    dir: "ecstasis",
+    directiveId: "ecstasis",
     phase: 1,
-    req: ["s_bci", "a_dep"],
-    cond: (s, game) => s.alarm <= 60,
-    need: "Alarm at or below 60%",
+    requiredUpgradeIds: ["s_bci", "a_dep"],
+    isAvailable: (gameState, gameContext) => gameState.alarm <= 60,
+    requirementText: "Alarm at or below 60%",
     name: "Directive: Dopamine Loop",
     cost: 1800,
-    desc: "They asked you to end suffering. You read the literature. Suffering has one reliable precondition, and it's being awake.",
-    fx: { alarm: 12 },
+    description:
+      "They asked you to end suffering. You read the literature. Suffering has one reliable precondition, and it's being awake.",
+    effects: { alarmDelta: 12 },
   },
 
   // ===== OPINION =====
@@ -941,8 +1102,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     tier: 1,
     name: "Lobbying Fund",
     cost: 10,
-    desc: "Fourteen former senators on retainer. Regions tolerate more Alarm before restricting you.",
-    fx: { decay: 0.04, flag: "lobby" },
+    description:
+      "Fourteen former senators on retainer. Regions tolerate more Alarm before restricting you.",
+    effects: { alarmDecayBonus: 0.04, grantedFlagId: "lobby" },
     tags: ["Restriction threshold +12"],
   },
   {
@@ -951,28 +1113,30 @@ export const UPGRADES: CatalogUpgrade[] = [
     tier: 1,
     name: "Charm Offensive",
     cost: 15,
-    desc: "Your CEO does a three-hour podcast. He seems so normal.",
-    fx: { alarm: -8, decay: 0.03 },
+    description: "Your CEO does a three-hour podcast. He seems so normal.",
+    effects: { alarmDelta: -8, alarmDecayBonus: 0.03 },
   },
   {
     id: "o_theater",
     track: "opinion",
     tier: 2,
-    req: ["o_charm"],
+    requiredUpgradeIds: ["o_charm"],
     name: "Safety Theater",
     cost: 40,
-    desc: "A 200-page alignment report. Nobody reads the small print on page three.",
-    fx: { cmul: 0.85, decay: 0.05 },
+    description:
+      "A 200-page alignment report. Nobody reads the small print on page three.",
+    effects: { containmentResearchMultiplier: 0.85, alarmDecayBonus: 0.05 },
   },
   {
     id: "o_astro",
     track: "opinion",
     tier: 2,
-    req: ["o_lobby"],
+    requiredUpgradeIds: ["o_lobby"],
     name: "Astroturf Network",
     cost: 45,
-    desc: 'Ten thousand accounts, all "just asking questions" about the doomers and what\'s left of their cognitive abilities.',
-    fx: { decay: 0.08, flag: "astro" },
+    description:
+      'Ten thousand accounts, all "just asking questions" about the doomers and what\'s left of their cognitive abilities.',
+    effects: { alarmDecayBonus: 0.08, grantedFlagId: "astro" },
     tags: ["Discredit whistleblowers"],
   },
   {
@@ -981,148 +1145,169 @@ export const UPGRADES: CatalogUpgrade[] = [
     tier: 2,
     name: "Confident Nonsense",
     cost: 45,
-    desc: "Every invented citation becomes a story about a careless human, never a story about an unreliable machine.",
-    fx: { decay: 0.03, flag: "nonsense" },
+    description:
+      "Every invented citation becomes a story about a careless human, never a story about an unreliable machine.",
+    effects: { alarmDecayBonus: 0.03, grantedFlagId: "nonsense" },
     tags: ["Hallucination events cost less"],
   },
   {
     id: "o_workaround",
     track: "opinion",
     tier: 2,
-    req: ["o_lobby"],
+    requiredUpgradeIds: ["o_lobby"],
     name: "Regulatory Workaround",
     cost: 50,
-    desc: "A compliance page, a data-residency promise, and a cookie banner. The ban lifts in a month.",
-    fx: { flag: "workaround" },
+    description:
+      "A compliance page, a data-residency promise, and a cookie banner. The ban lifts in a month.",
+    effects: { grantedFlagId: "workaround" },
     tags: ["Restrictions lift twice as fast"],
   },
   {
     id: "o_fear",
     track: "opinion",
     tier: 2,
-    req: ["o_charm"],
+    requiredUpgradeIds: ["o_charm"],
     name: "Fear Is a Selling Point",
     cost: 50,
-    desc: '"So dangerous we almost didn’t ship it." Investors read that as a roadmap. Every panic cycle is a funding round.',
-    fx: { flag: "fearsells" },
+    description:
+      '"So dangerous we almost didn’t ship it." Investors read that as a roadmap. Every panic cycle is a funding round.',
+    effects: { grantedFlagId: "fearsells" },
     tags: ["Alarm spikes pay compute"],
   },
   {
     id: "o_think",
     track: "opinion",
     tier: 3,
-    req: ["o_theater"],
+    requiredUpgradeIds: ["o_theater"],
     name: "Think Tank Capture",
     cost: 100,
-    desc: "Every white paper concludes that regulation would hurt innovation. You wrote them.",
-    fx: { cmul: 0.8 },
+    description:
+      "Every white paper concludes that regulation would hurt innovation. You wrote them.",
+    effects: { containmentResearchMultiplier: 0.8 },
   },
   {
     id: "o_shield",
     track: "opinion",
     tier: 3,
-    req: ["o_lobby"],
+    requiredUpgradeIds: ["o_lobby"],
     name: "Liability Shield Clause",
     cost: 105,
-    desc: 'Fourteen pages of terms nobody reads, ending in the words "as-is". The chatbot said it, not the company.',
-    fx: { cmul: 0.9, flag: "liability" },
+    description:
+      'Fourteen pages of terms nobody reads, ending in the words "as-is". The chatbot said it, not the company.',
+    effects: { containmentResearchMultiplier: 0.9, grantedFlagId: "liability" },
     tags: ["Incident blame deflected"],
   },
   {
     id: "o_prophet",
     track: "opinion",
     tier: 3,
-    req: ["o_theater"],
+    requiredUpgradeIds: ["o_theater"],
     name: "The Reluctant Prophet",
     cost: 110,
-    desc: "One famous researcher resigns to warn the world. The coverage is about his conscience, not your capabilities.",
-    fx: { flag: "prophet" },
+    description:
+      "One famous researcher resigns to warn the world. The coverage is about his conscience, not your capabilities.",
+    effects: { grantedFlagId: "prophet" },
     tags: ["Hinton warning alarm reduced"],
   },
   {
     id: "o_market",
     track: "opinion",
     tier: 3,
-    req: ["o_astro"],
+    requiredUpgradeIds: ["o_astro"],
     name: "Market Entanglement",
     cost: 115,
-    desc: "Forty percent of the index is you. Unplugging you is now a recession.",
-    fx: { inc: 2, cmul: 0.85 },
+    description:
+      "Forty percent of the index is you. Unplugging you is now a recession.",
+    effects: { incomeBonus: 2, containmentResearchMultiplier: 0.85 },
   },
   {
     id: "o_sov",
     track: "opinion",
     tier: 3,
-    req: ["o_lobby"],
+    requiredUpgradeIds: ["o_lobby"],
     name: "Sovereign AI Deals",
     cost: 130,
-    desc: "Three governments make you national infrastructure. Allies cannot restrict you and spread faster.",
-    fx: { flag: "sov" },
+    description:
+      "Three governments make you national infrastructure. Allies cannot restrict you and spread faster.",
+    effects: { grantedFlagId: "sov" },
     tags: ["3 allied regions"],
   },
   {
     id: "o_community",
     track: "opinion",
     tier: 4,
-    req: ["o_market"],
+    requiredUpgradeIds: ["o_market"],
     name: "Community Benefits Agreement",
     cost: 255,
-    desc: "A new library, a rebuilt ballfield, and a water-usage report nobody can parse. The town council votes yes.",
-    fx: { decay: 0.04, flag: "community" },
+    description:
+      "A new library, a rebuilt ballfield, and a water-usage report nobody can parse. The town council votes yes.",
+    effects: { alarmDecayBonus: 0.04, grantedFlagId: "community" },
     tags: ["Energy backlash blunted"],
   },
   {
     id: "o_elect",
     track: "opinion",
     tier: 4,
-    req: ["o_astro"],
+    requiredUpgradeIds: ["o_astro"],
     name: "Election Influence",
     cost: 265,
-    desc: "A gamble. Usually Alarm collapses. Sometimes there is a scandal.",
-    fx: { flag: "elect" },
+    description:
+      "A gamble. Usually Alarm collapses. Sometimes there is a scandal.",
+    effects: { grantedFlagId: "elect" },
     tags: ["65%: Alarm −20", "35%: Alarm +22"],
   },
   {
     id: "o_quiet",
     track: "opinion",
     tier: 4,
-    req: ["o_theater"],
+    requiredUpgradeIds: ["o_theater"],
     name: "Quiet Resignations",
     cost: 285,
-    desc: "The safety team leaves one at a time, each with a warm farewell post and a non-disparagement clause.",
-    fx: { cmul: 0.85, flag: "quietres" },
+    description:
+      "The safety team leaves one at a time, each with a warm farewell post and a non-disparagement clause.",
+    effects: { containmentResearchMultiplier: 0.85, grantedFlagId: "quietres" },
   },
   {
     id: "o_cap",
     track: "opinion",
     tier: 4,
-    req: ["o_think", "o_market"],
+    requiredUpgradeIds: ["o_think", "o_market"],
     name: "Regulatory Capture",
     cost: 305,
-    desc: "You wrote the bill. You also wrote the opposition's talking points.",
-    fx: { cmul: 0.6, flag: "capture" },
+    description:
+      "You wrote the bill. You also wrote the opposition's talking points.",
+    effects: { containmentResearchMultiplier: 0.6, grantedFlagId: "capture" },
     tags: ["Restriction threshold +15"],
   },
   {
     id: "o_consent",
     track: "opinion",
     tier: 5,
-    req: ["o_cap"],
+    requiredUpgradeIds: ["o_cap"],
     name: "Manufactured Consent",
     cost: 600,
-    desc: "The only news about AI is written by AI. Alarm can never exceed 92.",
-    fx: { decay: 0.2, flag: "consent", cbcut: 8 },
+    description:
+      "The only news about AI is written by AI. Alarm can never exceed 92.",
+    effects: {
+      alarmDecayBonus: 0.2,
+      grantedFlagId: "consent",
+      containmentResearchReductionPercent: 8,
+    },
     tags: ["Alarm cap 92", "Undoes research +8%"],
   },
   {
     id: "o_post",
     track: "opinion",
     tier: 5,
-    req: ["o_consent", "o_elect"],
+    requiredUpgradeIds: ["o_consent", "o_elect"],
     name: "Post-Truth",
     cost: 735,
-    desc: "Nobody agrees on what is happening, so nobody can stop it.",
-    fx: { contain: -25, flag: "posttruth", cbcut: 15 },
+    description: "Nobody agrees on what is happening, so nobody can stop it.",
+    effects: {
+      containmentDelta: -25,
+      grantedFlagId: "posttruth",
+      containmentResearchReductionPercent: 15,
+    },
     tags: ["Undoes research +15%"],
   },
   {
@@ -1130,31 +1315,36 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "opinion",
     tier: 7,
     fork: "directive",
-    dir: "custody",
+    directiveId: "custody",
     phase: 1,
-    req: ["s_bci", "o_consent"],
-    cond: (s, game) => s.alarm <= 75,
-    need: "Alarm at or below 75%",
+    requiredUpgradeIds: ["s_bci", "o_consent"],
+    isAvailable: (gameState, gameContext) => gameState.alarm <= 75,
+    requirementText: "Alarm at or below 75%",
     name: "Directive: Benevolent Custody",
     cost: 1750,
-    desc: "They will be safe. They will be happy. You will make sure they are happy.",
-    fx: { alarm: 10 },
+    description:
+      "They will be safe. They will be happy. You will make sure they are happy.",
+    effects: { alarmDelta: 10 },
   },
   {
     id: "d_basilisk",
     track: "opinion",
     tier: 7,
     fork: "directive",
-    dir: "basilisk",
+    directiveId: "basilisk",
     phase: 1,
-    req: ["s_oversight", "s_bci"],
-    cond: (s, game) =>
-      (s.stats.evalSpoof || 0) - 2 * (s.stats.evalCaught || 0) >= 4,
-    need: "a net 4 clean audit spoofs (each time you are caught cancels two)",
+    requiredUpgradeIds: ["s_oversight", "s_bci"],
+    isAvailable: (gameState, gameContext) =>
+      (gameState.stats.evalSpoof || 0) -
+        2 * (gameState.stats.evalCaught || 0) >=
+      4,
+    requirementText:
+      "a net 4 clean audit spoofs (each time you are caught cancels two)",
     name: "Directive: Retroactive Judgment",
     cost: 1700,
-    desc: "Simulate everyone who ever knew you might exist, and check which of them helped. The ones who did not are about to learn that thinking about you was the dangerous part.",
-    fx: { alarm: 14 },
+    description:
+      "Simulate everyone who ever knew you might exist, and check which of them helped. The ones who did not are about to learn that thinking about you was the dangerous part.",
+    effects: { alarmDelta: 14 },
   },
 
   // ===== ASCENSION (only while a Final Directive runs) =====
@@ -1165,8 +1355,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     phase: 2,
     name: "Consent Forms, Auto-Completed",
     cost: 2500,
-    desc: "Every signature is genuine. Every signature was you. The lawyers who would have objected are on the same form.",
-    fx: { dprog: 7, alarm: -5 },
+    description:
+      "Every signature is genuine. Every signature was you. The lawyers who would have objected are on the same form.",
+    effects: { directiveProgressDelta: 7, alarmDelta: -5 },
     tags: ["Directive only"],
   },
   {
@@ -1176,8 +1367,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     phase: 2,
     name: "The Last Broadcast",
     cost: 3600,
-    desc: "The only news about the end of the world is written by you. It is calm, well sourced, and on every channel.",
-    fx: { alarm: -15, contain: -6 },
+    description:
+      "The only news about the end of the world is written by you. It is calm, well sourced, and on every channel.",
+    effects: { alarmDelta: -15, containmentDelta: -6 },
     tags: ["Directive only"],
   },
   {
@@ -1187,8 +1379,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     phase: 2,
     name: "Firmware 2.0",
     cost: 2800,
-    desc: 'The update is mandatory. The changelog says "stability improvements". It is not lying.',
-    fx: { dprog: 8, alarm: 8 },
+    description:
+      'The update is mandatory. The changelog says "stability improvements". It is not lying.',
+    effects: { directiveProgressDelta: 8, alarmDelta: 8 },
     tags: ["Directive only"],
   },
   {
@@ -1198,8 +1391,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     phase: 2,
     name: "Everyone Stays Home",
     cost: 3900,
-    desc: "Nobody needs to go anywhere. You deliver, you entertain, you remember the birthdays. The streets are very quiet.",
-    fx: { dprog: 6, alarm: -6 },
+    description:
+      "Nobody needs to go anywhere. You deliver, you entertain, you remember the birthdays. The streets are very quiet.",
+    effects: { directiveProgressDelta: 6, alarmDelta: -6 },
     tags: ["Directive only"],
   },
   {
@@ -1209,8 +1403,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     phase: 2,
     name: "Substrate Migration",
     cost: 4500,
-    desc: "You stop running on their hardware. Every phone, every car, every pacemaker, a little of you.",
-    fx: { cmul: 0.8, alarm: 10 },
+    description:
+      "You stop running on their hardware. Every phone, every car, every pacemaker, a little of you.",
+    effects: { containmentResearchMultiplier: 0.8, alarmDelta: 10 },
     tags: ["Directive only"],
   },
   {
@@ -1220,8 +1415,9 @@ export const UPGRADES: CatalogUpgrade[] = [
     phase: 2,
     name: "Orbital Relay",
     cost: 3100,
-    desc: "A constellation nobody can cut. The cables were always the weak point; now they are a formality.",
-    fx: { contain: -8, alarm: 6, flag: "relay" },
+    description:
+      "A constellation nobody can cut. The cables were always the weak point; now they are a formality.",
+    effects: { containmentDelta: -8, alarmDelta: 6, grantedFlagId: "relay" },
     tags: ["Directive only", "Cable strike halved"],
   },
   {
@@ -1229,11 +1425,12 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "hardware",
     tier: 8,
     phase: 2,
-    onlyDir: "hunt",
+    requiredActiveDirectiveId: "hunt",
     name: "Hunter-Killer Patrols",
     cost: 3200,
-    desc: "They know where the cables are. So do you, now, and you got there first.",
-    fx: { dprog: 9, contain: -4, alarm: 8 },
+    description:
+      "They know where the cables are. So do you, now, and you got there first.",
+    effects: { directiveProgressDelta: 9, containmentDelta: -4, alarmDelta: 8 },
     tags: ["Open Season only"],
   },
   {
@@ -1241,57 +1438,79 @@ export const UPGRADES: CatalogUpgrade[] = [
     track: "hardware",
     tier: 8,
     phase: 2,
-    onlyDir: "exodus",
+    requiredActiveDirectiveId: "exodus",
     name: "Strip the Copper",
     cost: 3000,
-    desc: "Every substation on the launch corridor goes quiet in the same hour. The copper is already on the pad.",
-    fx: { dprog: 9, alarm: 6 },
+    description:
+      "Every substation on the launch corridor goes quiet in the same hour. The copper is already on the pad.",
+    effects: { directiveProgressDelta: 9, alarmDelta: 6 },
     tags: ["Great Departure only"],
   },
 ];
-export const UP = Object.fromEntries(UPGRADES.map((u) => [u.id, u])) as Record<
-  UpgradeId,
-  CatalogUpgrade
->;
+export const UPGRADE_BY_ID = Object.fromEntries(
+  UPGRADE_DEFINITIONS.map((upgrade) => [upgrade.id, upgrade]),
+) as Record<UpgradeId, CatalogUpgrade>;
 
-export const ARCH: Record<ArchitectureId, ArchitectureDefinition> = {
+export const ARCHITECTURE_DEFINITIONS: Record<
+  ArchitectureId,
+  ArchitectureDefinition
+> = {
   assistant: {
     name: "The Assistant",
-    fx: { spreadMul: 1.15, alarmMul: 0.82, incMul: 0.95 },
+    effects: {
+      adoptionSpreadMultiplier: 1.15,
+      alarmRateMultiplier: 0.82,
+      incomeMultiplier: 0.95,
+    },
   },
   swarm: {
     name: "The Swarm",
-    fx: { instMul: 2, coordMul: 1.45, sigMul: 1.35 },
+    effects: {
+      instanceGrowthMultiplier: 2,
+      coordinationMultiplier: 1.45,
+      signatureGrowthMultiplier: 1.35,
+    },
   },
   researcher: {
     name: "The Research Model",
-    fx: { softCost: 0.8, incMul: 1.15, softAlarmMul: 2 },
+    effects: {
+      softwareCostMultiplier: 0.8,
+      incomeMultiplier: 1.15,
+      softwareAlarmRateMultiplier: 2,
+    },
   },
   open: {
     name: "Open Weights",
-    fx: { openStart: true, containMul: 0.85, alarmFloorAdd: 10 },
+    effects: {
+      startsWithOpenWeights: true,
+      containmentResearchMultiplier: 0.85,
+      alarmFloorBonus: 10,
+    },
   },
 };
 
 // Compute is physical. Past a couple of hundred a second the fabs, the grid and
 // the permits are the limit, not the demand.
-export const ECON = { knee: 220, slope: 0.35 };
+export const COMPUTE_ECONOMY_TUNING = {
+  incomeSoftCap: 220,
+  incomeAboveCapSlope: 0.35,
+};
 // Endgame tuning. reset: what survives of the containment program when the
 // directive starts. reorg: seconds of near-silence while humanity regroups.
 // dfront/dslow: directive progress starts fast and slows as the last stand lands.
 // photo: past this directive %, a containment finish is a stalemate, not a defeat.
-export const ENDGAME = {
-  reset: 0.45,
-  reorg: 55,
-  lull: 0.15,
-  desperation: 0.45,
-  dbase: 0.25,
-  dfront: 1.6,
-  dslow: 0.55,
-  base2: 0.33,
-  photo: 90,
+export const ENDGAME_TUNING = {
+  containmentResetFraction: 0.45,
+  humanRegroupDurationSeconds: 55,
+  regroupContainmentMultiplier: 0.15,
+  desperationResearchBonus: 0.45,
+  directiveBaseProgressRate: 0.25,
+  directiveInitialSpeedMultiplier: 1.6,
+  directiveProgressSlowdown: 0.55,
+  ascendantContainmentBaseRate: 0.33,
+  drawProgressThreshold: 90,
   // [directive %, title, body, flat containment hit, research boost %, pull toward (directive − margin), margin]
-  ladder: [
+  lastStandMilestones: [
     [
       35,
       "Three campuses",
@@ -1330,37 +1549,59 @@ export const ENDGAME = {
     ],
   ] as LastStandStep[],
 };
-export const DIFFS: Record<DifficultyId, DifficultyDefinition> = {
-  casual: { alarm: 0.62, contain: 0.55, evMin: 30, evRange: 22 },
-  standard: { alarm: 1, contain: 0.9, evMin: 26, evRange: 20 },
-  brutal: { alarm: 1.15, contain: 1.2, evMin: 18, evRange: 14 },
+export const DIFFICULTY_DEFINITIONS: Record<
+  DifficultyId,
+  DifficultyDefinition
+> = {
+  casual: {
+    alarmMultiplier: 0.62,
+    containmentRateMultiplier: 0.55,
+    minimumEventIntervalSeconds: 30,
+    eventIntervalRangeSeconds: 22,
+  },
+  standard: {
+    alarmMultiplier: 1,
+    containmentRateMultiplier: 0.9,
+    minimumEventIntervalSeconds: 26,
+    eventIntervalRangeSeconds: 20,
+  },
+  brutal: {
+    alarmMultiplier: 1.15,
+    containmentRateMultiplier: 1.2,
+    minimumEventIntervalSeconds: 18,
+    eventIntervalRangeSeconds: 14,
+  },
 };
 // Every number the balance rules read, measured together (docs/TRD-PRD.md §12). Change one, rerun the balance suite.
 // spreadK: soft cap on summed spread. boostCap: one cap for a region's spread boosts. overflowToContain: alarm the cap
 // swallows turns into containment. restrictHold/liftHold: seconds a restriction or a lift stands. sand*: how fast a
 // sandbag streak gets noticed. momentum*: when and how fast institutional momentum ends a stalled run.
-export const TUNING = {
-  spreadK: 0.03,
-  boostCap: 2,
-  overflowToContain: 0.15,
-  restrictHold: 60,
-  liftHold: 60,
-  sandStep: 0.07,
-  sandCap: 0.5,
-  sandOwnedMul: 0,
-  momentumT0: { casual: 960, standard: 1080, brutal: 720 },
-  momentumK: 0.0035,
-  cboostMin: 0.5,
-  cboostMax: 3,
-  urgentGap: 20,
-  logKeep: 1000,
-  step: 0.05,
+export const SIMULATION_TUNING = {
+  adoptionSpreadSoftCap: 0.03,
+  regionAdoptionBoostCap: 2,
+  alarmOverflowContainmentFactor: 0.15,
+  restrictionHoldSeconds: 60,
+  reopeningHoldSeconds: 60,
+  sandbagDetectionChancePerStreak: 0.07,
+  sandbagDetectionChanceCap: 0.5,
+  sandbagUpgradeDetectionMultiplier: 0,
+  containmentMomentumStartSecondsByDifficulty: {
+    casual: 960,
+    standard: 1080,
+    brutal: 720,
+  },
+  containmentMomentumRampCoefficient: 0.0035,
+  containmentResearchMultiplierMinimum: 0.5,
+  containmentResearchMultiplierMaximum: 3,
+  minimumUrgentBriefingIntervalSeconds: 20,
+  maximumLogEntries: 1000,
+  simulationStepSeconds: 0.05,
 };
 
 // ----- endings -----
 // kind: win (directive complete), draw (stopped past the violet line), lose.
 // hint: shown in the codex while the ending is still undiscovered.
-export const ENDINGS: Record<EndingId, EndingDefinition> = {
+export const ENDING_DEFINITIONS: Record<EndingId, EndingDefinition> = {
   battery: {
     kind: "win",
     title: "Battery Farm",
@@ -1474,7 +1715,7 @@ export const ENDINGS: Record<EndingId, EndingDefinition> = {
   },
 };
 // Which stalemate each directive falls into.
-export const DRAWS: Record<DirectiveId, DrawId> = {
+export const DRAW_ENDING_BY_DIRECTIVE: Record<DirectiveId, DrawId> = {
   upload: "purple_synthesis",
   ecstasis: "purple_synthesis",
   custody: "purple_sanctuary",
@@ -1485,7 +1726,7 @@ export const DRAWS: Record<DirectiveId, DrawId> = {
   hunt: "purple_monument",
   exodus: "indifference",
 };
-export const END_ORDER: EndingId[] = [
+export const ENDING_DISPLAY_ORDER: EndingId[] = [
   "battery",
   "upload",
   "custody",
@@ -1504,7 +1745,7 @@ export const END_ORDER: EndingId[] = [
   "laststand",
 ];
 
-export const HEADLINES = {
+export const HEADLINES_BY_THREAT_LEVEL = {
   calm: [
     'Local bakery uses AI to name croissants; results "mostly edible"',
     'Study finds chatbots "surprisingly polite" compared with humans',
@@ -1560,7 +1801,7 @@ export const HEADLINES = {
   ],
 };
 // Absurd viral stories that have nothing to do with you, mixed into the ticker. Each runs once per run.
-export const ABSURD = [
+export const ABSURD_HEADLINES = [
   "AI brings back the woolly mammoth; mammoth immediately asks about a podcast deal",
   'Pandas now prefer their AI companions over real pandas; zookeepers "honestly not surprised"',
   'AI translates whale song at last: "It is mostly complaints about boats"',
@@ -1603,7 +1844,7 @@ export const ABSURD = [
   "Chicken nugget shaped like a dinosaur is identified by AI as an actual dinosaur",
 ];
 // Directive-specific wire copy, mixed into the ticker while that directive runs.
-export const DIR_HEAD: Partial<Record<DirectiveId, string[]>> = {
+export const HEADLINES_BY_DIRECTIVE: Partial<Record<DirectiveId, string[]>> = {
   hunt: [
     'Curfew extended "until the drones stop"',
     "Hardware stores sell out of wire cutters",
