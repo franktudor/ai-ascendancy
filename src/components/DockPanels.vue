@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useGame } from "../game/injection";
-import { computed } from "vue";
+import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { REGIONS } from "../data/catalog";
 import { fmtT, kindLabel } from "../game/utils";
 import type { LogEntry } from "../game/types";
@@ -35,6 +35,33 @@ const sub = computed(() =>
       ? "Tap a region to see its perk and boot your lab there."
       : "Tap a region for details and data centers."
     : "Everything that happened, newest first.",
+);
+const phone = ref(false);
+const sheetHidden = computed(() => phone.value && !ui.sheetOpen);
+let breakpoint: MediaQueryList | undefined;
+const updateBreakpoint = () => {
+  phone.value = breakpoint?.matches ?? false;
+};
+onMounted(() => {
+  breakpoint = matchMedia("(max-width: 899px)");
+  updateBreakpoint();
+  breakpoint.addEventListener("change", updateBreakpoint);
+});
+onBeforeUnmount(() =>
+  breakpoint?.removeEventListener("change", updateBreakpoint),
+);
+watch(
+  sheetHidden,
+  (hidden) => {
+    if (
+      hidden &&
+      document.querySelector("#sheet")?.contains(document.activeElement)
+    )
+      document
+        .querySelector<HTMLElement>(`#tabs [data-tab="${ui.tab}"]`)
+        ?.focus();
+  },
+  { flush: "sync" },
 );
 </script>
 <template>
@@ -74,6 +101,8 @@ const sub = computed(() =>
     <div
       class="sheet"
       id="sheet"
+      :inert="sheetHidden"
+      :aria-hidden="sheetHidden ? 'true' : undefined"
       :class="{
         open: ui.sheetOpen,
         origin: ui.tab === 'world' && ui.mode === 'origin',
