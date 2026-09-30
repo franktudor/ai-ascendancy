@@ -47,6 +47,7 @@ const members = {
   spoofLose: "function",
   buildEvalObj: "function",
   endGame: "function",
+  resolveTerminal: "function",
   codexGet: "function",
   codexAdd: "function",
   codexCount: "function",
