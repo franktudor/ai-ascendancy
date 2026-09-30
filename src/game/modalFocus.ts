@@ -1,8 +1,14 @@
 import type { Lifecycle } from "./types";
 
+interface FocusTarget {
+  element: HTMLElement;
+  selector: string | null;
+  fallback: string;
+}
+
 interface ModalEntry {
   dialog: HTMLElement;
-  opener: HTMLElement | null;
+  opener: FocusTarget | null;
 }
 
 /** One focus owner for Vue overlays, imperative/nested dialogs and body teleports. */
@@ -14,9 +20,33 @@ export function installModalFocus(life: Lifecycle): void {
   const modal = new Map<HTMLElement, string | null>();
   const temporaryTabindex = new Set<HTMLElement>();
   let stack: ModalEntry[] = [];
+  const rememberFocus = (el: HTMLElement): FocusTarget => {
+    // Qualify repeatable keys by their host: list and graph share data-id values.
+    const key = ["data-id", "data-i", "data-tab", "data-k"].find((name) =>
+      el.hasAttribute(name),
+    );
+    const host = el.parentElement?.closest<HTMLElement>("[id]");
+    const selector = el.id
+      ? "#" + CSS.escape(el.id)
+      : key && host
+        ? `#${CSS.escape(host.id)} [${key}="${CSS.escape(el.getAttribute(key)!)}"]`
+        : null;
+    const panel = el.closest("#sheet")
+      ? document.querySelector('#tabs [data-tab="log"].on')
+        ? "log"
+        : "world"
+      : el.closest("#treeModal")
+        ? "tree"
+        : null;
+    return {
+      element: el,
+      selector,
+      fallback: panel ? `#tabs [data-tab="${panel}"]` : "#btnMenu",
+    };
+  };
   let lastFocus =
     document.activeElement instanceof HTMLElement
-      ? document.activeElement
+      ? rememberFocus(document.activeElement)
       : null;
   let syncing = false;
 
@@ -141,9 +171,19 @@ export function installModalFocus(life: Lifecycle): void {
       const top = stack.at(-1);
       isolate(top);
       if (oldTop && oldTop !== top && !shown.includes(oldTop.dialog)) {
-        const opener = oldTop.opener;
-        if (opener && usable(opener) && (!top || top.dialog.contains(opener)))
-          opener.focus({ preventScroll: true });
+        const target = oldTop.opener;
+        const opener = [
+          target?.element,
+          target?.selector
+            ? document.querySelector<HTMLElement>(target.selector)
+            : null,
+          !top
+            ? document.querySelector<HTMLElement>(
+                target?.fallback ?? "#btnMenu",
+              )
+            : null,
+        ].find((el) => el && usable(el) && (!top || top.dialog.contains(el)));
+        if (opener) opener.focus({ preventScroll: true });
         else if (top) focusEntry(top);
       }
       if (
@@ -161,7 +201,8 @@ export function installModalFocus(life: Lifecycle): void {
     document,
     "focusin",
     (event) => {
-      if (event.target instanceof HTMLElement) lastFocus = event.target;
+      if (event.target instanceof HTMLElement)
+        lastFocus = rememberFocus(event.target);
       if (!syncing) sync();
     },
     true,
