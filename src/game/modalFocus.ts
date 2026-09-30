@@ -167,6 +167,25 @@ export function installModalFocus(
       const shown = [
         ...document.querySelectorAll<HTMLElement>(selector),
       ].filter(visible);
+      // A surviving dialog must inherit the dismissed owner's return destination.
+      // Resolve selectors too: replacement presentations carry no old DOM nodes.
+      for (const removed of stack.filter(
+        (entry) => !shown.includes(entry.dialog),
+      )) {
+        for (const entry of stack) {
+          if (entry === removed) continue;
+          const opener = entry.opener;
+          if (
+            [
+              opener?.element,
+              opener?.selector
+                ? document.querySelector<HTMLElement>(opener.selector)
+                : null,
+            ].some((el) => el && removed.dialog.contains(el))
+          )
+            entry.opener = removed.opener;
+        }
+      }
       stack = stack.filter((entry) => shown.includes(entry.dialog));
       for (const dialog of shown) {
         if (!stack.some((entry) => entry.dialog === dialog))
