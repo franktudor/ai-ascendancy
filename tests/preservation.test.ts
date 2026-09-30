@@ -116,7 +116,10 @@ test("all 90 upgrades, 88 events and 16 ending texts match the original source",
   assert.equal(g.EVENTS.length, 88);
   assert.equal(Object.keys(g.ENDINGS).length, 16);
   assert.deepEqual(plain(g.UPGRADES), plain(r.UPGRADES));
-  assert.deepEqual(plain(g.EVENTS), plain(r.EVENTS));
+  const expectedEvents = plain(r.EVENTS);
+  // F15: the honeypot tactic is Insight; architecture-only tactics require s_ctx.
+  expectedEvents.find((e) => e.id === "honeypot")!.choices![1].need = "Insight";
+  assert.deepEqual(plain(g.EVENTS), expectedEvents);
   assert.deepEqual(plain(g.ENDINGS), plain(r.ENDINGS));
 });
 

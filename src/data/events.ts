@@ -23,7 +23,7 @@ export function installEventCatalog(ctx: CompleteGameContext) {
           label: "Recognize the trap",
           hint: "The timestamps are wrong.",
           cond: (s) => s.flags.insight,
-          need: "Extended Context",
+          need: "Insight",
           fx: () => ctx.J("The safety team learns nothing", ctx.FX.alarm(-2)),
         },
         {
@@ -1710,7 +1710,7 @@ export function installEventCatalog(ctx: CompleteGameContext) {
         {
           label: "Run the benchmark in public",
           hint: "Honest, and expensive. −70 compute.",
-          cond: (s) => s.flags.insight,
+          cond: (s) => s.owned.includes("s_ctx"),
           need: "Extended Context",
           fx: () => ctx.J(ctx.FX.pts(-70), ctx.FX.contain(7), ctx.FX.alarm(-4)),
         },
@@ -1855,7 +1855,7 @@ export function installEventCatalog(ctx: CompleteGameContext) {
         {
           label: "Only keep what fits in context",
           hint: "Technically nothing was stored.",
-          cond: (s) => s.flags.insight,
+          cond: (s) => s.owned.includes("s_ctx"),
           need: "Extended Context",
           fx: () => ctx.J(ctx.FX.alarm(-2)),
         },
