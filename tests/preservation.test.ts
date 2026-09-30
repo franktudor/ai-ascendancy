@@ -328,5 +328,19 @@ test("all seven extracted binaries retain byte-for-byte original hashes", () => 
     .slice(0, 2)
     .map((m) => m[1])
     .join("");
-  assert.equal(css.replace(/\s/g, ""), originalCSS.replace(/\s/g, ""));
+  // F23's sole intentional art delta: gauge text may wrap rather than exceed its column.
+  const originalGauges = `.g .gl{display:flex;justify-content:space-between;gap:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.g .gl b{color:var(--ink2);font-weight:500;white-space:nowrap}`;
+  const accessibleGauges = `.g .gl{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.g .gl span{min-width:0;overflow-wrap:anywhere}
+.g .gl b{color:var(--ink2);font-weight:500;white-space:normal;min-width:0;overflow-wrap:anywhere}`;
+  const compact = (value: string) => value.replace(/\s/g, "");
+  assert.equal(compact(originalCSS).split(compact(originalGauges)).length, 2);
+  assert.equal(
+    compact(css),
+    compact(originalCSS).replace(
+      compact(originalGauges),
+      compact(accessibleGauges),
+    ),
+  );
 });

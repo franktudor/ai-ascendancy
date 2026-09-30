@@ -64,8 +64,9 @@ h1,h2,h3{text-wrap:balance}
 .compute .rate{font-size:11px;color:var(--ink2);overflow-wrap:anywhere}
 .compute .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 .gauges{display:grid;gap:6px}
-.g .gl{display:flex;justify-content:space-between;gap:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
-.g .gl b{color:var(--ink2);font-weight:500;white-space:nowrap}
+.g .gl{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.g .gl span{min-width:0;overflow-wrap:anywhere}
+.g .gl b{color:var(--ink2);font-weight:500;white-space:normal;min-width:0;overflow-wrap:anywhere}
 .bar{height:5px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:3px}
 .bar i{display:block;height:100%;width:0;background:var(--c,var(--ai));transition:width .45s linear}
 .g.crit .gl b{color:var(--alarm)}
