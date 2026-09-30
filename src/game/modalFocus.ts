@@ -50,7 +50,7 @@ export function installModalFocus(
       : [];
   });
   const rememberFocus = (el: HTMLElement): FocusTarget => {
-    // Qualify repeatable keys by their host: list and graph share data-id values.
+    // Keep direct-child keys distinct from nested clones in the same host.
     const key = ["data-id", "data-i", "data-tab", "data-k"].find((name) =>
       el.hasAttribute(name),
     );
@@ -58,7 +58,7 @@ export function installModalFocus(
     const selector = el.id
       ? "#" + CSS.escape(el.id)
       : key && host
-        ? `#${CSS.escape(host.id)} [${key}="${CSS.escape(el.getAttribute(key)!)}"]`
+        ? `#${CSS.escape(host.id)}${host === el.parentElement ? " > " : " "}[${key}="${CSS.escape(el.getAttribute(key)!)}"]`
         : null;
     const panel = el.closest("#sheet")
       ? document.querySelector('#tabs [data-tab="log"].on')

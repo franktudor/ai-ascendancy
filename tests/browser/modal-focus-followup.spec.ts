@@ -96,6 +96,45 @@ for (const key of ["Enter", "Space"] as const) {
   }
 }
 
+for (const key of ["Enter", "Space"] as const) {
+  for (const replacement of [false, true]) {
+    test(`F21 keyboard ${key} restores the ${replacement ? "replaced" : "live"} graph opener beside its hidden list clone`, async ({
+      page,
+    }) => {
+      await pausedRun(page);
+      const treeTab = page.locator('#tabs [data-tab="tree"]');
+      await treeTab.focus();
+      await page.keyboard.press("Enter");
+      await page.locator("#trView").click();
+      await page.locator('#trTracks [data-k="1"]').click();
+      await page.locator("#trView").click();
+      const opener = page.locator('#trStage > [data-id="a_img"]');
+      const listClone = page.locator('#trList [data-id="a_img"]');
+      await expect(page.locator('#trStage [data-id="a_img"]')).toHaveCount(2);
+      await expect(listClone).toBeHidden();
+      await expect(opener).toBeVisible();
+      await opener.focus();
+      await expect(opener).toBeFocused();
+      await page.keyboard.press(key);
+      await expect(page.locator("#tcClose")).toBeFocused();
+      if (replacement) {
+        expect(await replaceRuntime(page)).toEqual({
+          disposed: true,
+          counts: { timers: 0, frames: 0, intervals: 0, disposers: 0 },
+        });
+        await expect(page.locator("#tcClose")).toBeFocused();
+        await expect(page.locator('#trStage [data-id="a_img"]')).toHaveCount(2);
+        await expect(listClone).toBeHidden();
+      }
+      await page.keyboard.press("Escape");
+      await expect(page.locator("#tcard")).toBeHidden();
+      await expect(opener).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(treeTab).toBeFocused();
+    });
+  }
+}
+
 test("F21 inaccessible desktop World opener falls back to its phone tab", async ({
   page,
 }) => {
