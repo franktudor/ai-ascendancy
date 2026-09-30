@@ -59,7 +59,7 @@ export function installEndingController(ctx: RuntimeContext) {
             ? (minds / 1000).toFixed(2) + "B"
             : Math.round(minds) + "M",
         ],
-        ["Compute earned", ctx.fmt(ctx.state.earned)],
+        ["Passive compute earned", ctx.fmt(ctx.state.earned)],
         ["Upgrades", String(ctx.state.owned.length)],
         ["Events survived", String(ctx.state.stats.events)],
         [
