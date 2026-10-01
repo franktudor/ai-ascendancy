@@ -1,0 +1,36 @@
+{
+  "name": "ai-ascendancy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run typecheck && vite build",
+    "typecheck": "npm run typecheck:native && npm run typecheck:vue",
+    "typecheck:native": "tsc --noEmit -p tsconfig.native.json",
+    "typecheck:vue": "vue-tsc --noEmit",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --import tsx scripts/run-tests.ts",
+    "test:browser": "playwright test",
+    "format": "prettier --write src/**/*.ts src/**/*.vue tests/**/*.ts *.ts"
+  },
+  "dependencies": {
+    "vue": "3.5.43"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "26.6.3",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "@vitejs/plugin-vue": "6.0.9",
+    "prettier": "3.9.9",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "vite": "8.3.1",
+    "vue-tsc": "3.3.11"
+  },
+  "allowScripts": {
+    "esbuild": false
+  }
+}

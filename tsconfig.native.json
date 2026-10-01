@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/data/**/*.ts",
+    "src/game/**/*.ts",
+    "src/env.d.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.ts",
+    "vite.config.ts",
+    "playwright.config.ts"
+  ]
+}

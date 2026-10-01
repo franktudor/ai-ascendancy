@@ -1,0 +1,41 @@
+/* Tailwind v4 Vite integration. The existing game's reset is intentional:
+   omit Preflight so browser heading/list/SVG defaults and control geometry stay intact. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Inline aliases resolve on the element using the class, not on :root.
+   This preserves presentation.ts retints and late-build body text overrides.
+   game.css remains the single source of the live runtime colour variables. */
+@theme inline {
+  --color-*: initial;
+  --color-bg: var(--bg);
+  --color-bg2: var(--bg2);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-mute: var(--mute);
+  --color-sys: var(--sys);
+  --color-ai: var(--ai);
+  --color-ai2: var(--ai2);
+  --color-ai-dim: var(--ai-dim);
+  --color-human: var(--human);
+  --color-alarm: var(--alarm);
+  --color-good: var(--good);
+  --color-opinion: var(--opinion);
+  --color-adoption: var(--adoption);
+  --color-software: var(--software);
+  --color-hardware: var(--hardware);
+  --color-draw: var(--draw);
+  --color-black: #000;
+  --color-white: #fff;
+  --color-threat: #ffb02e;
+  --color-wire-hot: #ff8a94;
+  --color-ending-ink: #f2f7f3;
+  --font-sans: var(--font-body);
+  --font-headline: var(--font-display);
+  --font-console: var(--font-mono);
+}
